@@ -339,14 +339,13 @@ impl Config {
     }
 
     /// Determine who sent a message
-    pub fn who<'a, 'b>(
+    pub fn who<'a, 'b: 'a>(
         &'a self,
         handle_id: Option<i32>,
         is_from_me: bool,
         destination_caller_id: &'b Option<String>,
     ) -> &'a str {
         if is_from_me {
-            // TODO: Support destination_caller_id
             if let Some(caller_id) = destination_caller_id {
                 if self.options.use_caller_id {
                     return caller_id;
