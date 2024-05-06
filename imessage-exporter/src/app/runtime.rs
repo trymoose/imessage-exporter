@@ -715,6 +715,18 @@ mod who_tests {
     }
 
     #[test]
+    fn can_get_who_me_caller_id() {
+        let mut options = fake_options();
+        options.use_caller_id = true;
+        let app = fake_app(options);
+
+        // Get participant name
+        let caller_id = Some("test".to_string());
+        let who = app.who(Some(0), true, &caller_id);
+        assert_eq!(who, "test".to_string());
+    }
+
+    #[test]
     fn can_get_who_me_custom() {
         let mut options = fake_options();
         options.custom_name = Some("Name".to_string());
@@ -733,6 +745,18 @@ mod who_tests {
         // Get participant name
         let who = app.who(None, true, &None);
         assert_eq!(who, "Me".to_string());
+    }
+
+    #[test]
+    fn can_get_who_me_none_caller_id() {
+        let mut options = fake_options();
+        options.use_caller_id = true;
+        let app = fake_app(options);
+
+        // Get participant name
+        let caller_id = Some("test".to_string());
+        let who = app.who(None, true, &caller_id);
+        assert_eq!(who, "test".to_string());
     }
 
     #[test]
