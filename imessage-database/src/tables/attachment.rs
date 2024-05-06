@@ -18,6 +18,7 @@ use crate::{
         table::{Table, ATTACHMENT},
     },
     util::{
+        dates::TIMESTAMP_FACTOR,
         dirs::home,
         output::{done_processing, processing},
         platform::Platform,
@@ -226,17 +227,32 @@ impl Attachment {
     /// Get the total attachment bytes referenced in the table
     pub fn get_total_attachment_bytes(
         db: &Connection,
-        context: QueryContext,
+        context: &QueryContext,
     ) -> Result<u64, TableError> {
         let mut bytes_query = if context.has_filters() {
-            db.prepare(&format!(
-                "SELECT SUM(total_bytes) FROM {ATTACHMENT} a {}",
-                context.generate_filter_statement()
-            ))
-            .map_err(TableError::Messages)?
+            let mut statement = format!("SELECT SUM(total_bytes) FROM {ATTACHMENT} a");
+
+            if context.has_filters() {
+                statement.push_str(" WHERE ");
+                if let Some(start) = context.start {
+                    statement.push_str(&format!(
+                        "    a.created_date >= {}",
+                        start / TIMESTAMP_FACTOR
+                    ));
+                }
+                if let Some(end) = context.end {
+                    if !statement.is_empty() {
+                        statement.push_str(" AND ");
+                    }
+                    statement
+                        .push_str(&format!("    a.created_date <= {}", end / TIMESTAMP_FACTOR));
+                }
+            }
+
+            db.prepare(&statement).map_err(TableError::Attachment)?
         } else {
             db.prepare(&format!("SELECT SUM(total_bytes) FROM {ATTACHMENT}"))
-                .map_err(TableError::Messages)?
+                .map_err(TableError::Attachment)?
         };
 
         bytes_query
@@ -345,7 +361,8 @@ impl Attachment {
             })
             .count();
 
-        let total_bytes = Attachment::get_total_attachment_bytes(db).unwrap_or(0);
+        let total_bytes =
+            Attachment::get_total_attachment_bytes(db, &QueryContext::default()).unwrap_or(0);
 
         done_processing();
 
