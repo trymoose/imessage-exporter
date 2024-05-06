@@ -21,6 +21,7 @@ use crate::{
         dirs::home,
         output::{done_processing, processing},
         platform::Platform,
+        query_context::QueryContext,
         size::format_file_size,
     },
 };
@@ -223,10 +224,20 @@ impl Attachment {
     }
 
     /// Get the total attachment bytes referenced in the table
-    pub fn get_total_attachment_bytes(db: &Connection) -> Result<u64, TableError> {
-        let mut bytes_query = db
-            .prepare(&format!("SELECT SUM(total_bytes) FROM {ATTACHMENT}"))
-            .map_err(TableError::Attachment)?;
+    pub fn get_total_attachment_bytes(
+        db: &Connection,
+        context: QueryContext,
+    ) -> Result<u64, TableError> {
+        let mut bytes_query = if context.has_filters() {
+            db.prepare(&format!(
+                "SELECT SUM(total_bytes) FROM {ATTACHMENT} a {}",
+                context.generate_filter_statement()
+            ))
+            .map_err(TableError::Messages)?
+        } else {
+            db.prepare(&format!("SELECT SUM(total_bytes) FROM {ATTACHMENT}"))
+                .map_err(TableError::Messages)?
+        };
 
         bytes_query
             .query_row([], |r| r.get(0))
