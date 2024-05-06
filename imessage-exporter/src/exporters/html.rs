@@ -217,7 +217,11 @@ impl<'a> Writer<'a> for HTML<'a> {
         // Add message sender
         self.add_line(
             &mut formatted_message,
-            self.config.who(message.handle_id, message.is_from_me),
+            self.config.who(
+                message.handle_id,
+                message.is_from_me,
+                &message.destination_caller_id,
+            ),
             "<span class=\"sender\">",
             "</span></p>",
         );
@@ -620,12 +624,15 @@ impl<'a> Writer<'a> for HTML<'a> {
                 Ok(format!(
                     "<span class=\"reaction\"><b>{:?}</b> by {}</span>",
                     reaction,
-                    self.config.who(msg.handle_id, msg.is_from_me),
+                    self.config
+                        .who(msg.handle_id, msg.is_from_me, &msg.destination_caller_id),
                 ))
             }
             Variant::Sticker(_) => {
                 let mut paths = Attachment::from_message(&self.config.db, msg)?;
-                let who = self.config.who(msg.handle_id, msg.is_from_me);
+                let who =
+                    self.config
+                        .who(msg.handle_id, msg.is_from_me, &msg.destination_caller_id);
                 // Sticker messages have only one attachment, the sticker image
                 Ok(match paths.get_mut(0) {
                     Some(sticker) => self.format_sticker(sticker, msg),
@@ -663,7 +670,9 @@ impl<'a> Writer<'a> for HTML<'a> {
     }
 
     fn format_announcement(&self, msg: &'a Message) -> String {
-        let mut who = self.config.who(msg.handle_id, msg.is_from_me);
+        let mut who = self
+            .config
+            .who(msg.handle_id, msg.is_from_me, &msg.destination_caller_id);
         // Rename yourself so we render the proper grammar here
         if who == ME {
             who = self.config.options.custom_name.as_deref().unwrap_or("You");
@@ -1392,6 +1401,7 @@ mod tests {
             text: None,
             service: Some("iMessage".to_string()),
             handle_id: Some(i32::default()),
+            destination_caller_id: None,
             subject: None,
             date: i64::default(),
             date_read: i64::default(),
@@ -1426,6 +1436,7 @@ mod tests {
             query_context: QueryContext::default(),
             no_lazy: false,
             custom_name: None,
+            use_caller_id: false,
             platform: Platform::macOS,
             ignore_disk_space: false,
         }

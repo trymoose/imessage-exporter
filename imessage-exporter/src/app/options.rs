@@ -31,6 +31,7 @@ pub const OPTION_DISABLE_LAZY_LOADING: &str = "no-lazy";
 pub const OPTION_CUSTOM_NAME: &str = "custom-name";
 pub const OPTION_PLATFORM: &str = "platform";
 pub const OPTION_BYPASS_FREE_SPACE_CHECK: &str = "ignore-disk-warning";
+pub const OPTION_USE_CALLER_ID: &str = "use-caller-id";
 
 // Other CLI Text
 pub const SUPPORTED_FILE_TYPES: &str = "txt, html";
@@ -62,6 +63,8 @@ pub struct Options {
     pub no_lazy: bool,
     /// Custom name for database owner in output
     pub custom_name: Option<String>,
+    /// If true, use the database owners caller ID instead of "Me"
+    pub use_caller_id: bool,
     /// The database source's platform
     pub platform: Platform,
     /// If true, disable the free disk space check
@@ -80,6 +83,7 @@ impl Options {
         let end_date: Option<&String> = args.get_one(OPTION_END_DATE);
         let no_lazy = args.get_flag(OPTION_DISABLE_LAZY_LOADING);
         let custom_name: Option<&String> = args.get_one(OPTION_CUSTOM_NAME);
+        let use_caller_id = args.get_flag(OPTION_USE_CALLER_ID);
         let platform_type: Option<&String> = args.get_one(OPTION_PLATFORM);
         let ignore_disk_space = args.get_flag(OPTION_BYPASS_FREE_SPACE_CHECK);
 
@@ -146,6 +150,13 @@ impl Options {
         if diagnostic && end_date.is_some() {
             return Err(RuntimeError::InvalidOptions(format!(
                 "Diagnostics are enabled; {OPTION_END_DATE} is disallowed"
+            )));
+        }
+
+        // Ensure that there are no custom name conflicts
+        if custom_name.is_some() && use_caller_id {
+            return Err(RuntimeError::InvalidOptions(format!(
+                "`--{OPTION_CUSTOM_NAME}` is enabled; `--{OPTION_USE_CALLER_ID}` is disallowed"
             )));
         }
 
@@ -217,6 +228,7 @@ impl Options {
             query_context,
             no_lazy,
             custom_name: custom_name.cloned(),
+            use_caller_id,
             platform,
             ignore_disk_space,
         })
@@ -369,8 +381,16 @@ fn get_command() -> Command {
             Arg::new(OPTION_CUSTOM_NAME)
                 .short('m')
                 .long(OPTION_CUSTOM_NAME)
-                .help("Specify an optional custom name for the database owner's messages in exports\n")
+                .help(format!("Specify an optional custom name for the database owner's messages in exports\nConflicts with --{OPTION_USE_CALLER_ID}\n"))
                 .display_order(10)
+        )
+        .arg(
+            Arg::new(OPTION_USE_CALLER_ID)
+                .short('i')
+                .long(OPTION_USE_CALLER_ID)
+                .help(format!("Use the database owner's caller ID in exports instead of \"Me\"\nConflicts with --{OPTION_CUSTOM_NAME}\n"))
+                .action(ArgAction::SetTrue)
+                .display_order(11)
         )
         .arg(
             Arg::new(OPTION_BYPASS_FREE_SPACE_CHECK)
@@ -378,7 +398,7 @@ fn get_command() -> Command {
                 .long(OPTION_BYPASS_FREE_SPACE_CHECK)
                 .help("Bypass the disk space check when exporting data\nBy default, exports will not run if there is not enough free disk space\n")
                 .action(ArgAction::SetTrue)
-                .display_order(11)
+                .display_order(12)
         )
 }
 
@@ -420,6 +440,7 @@ mod arg_tests {
             query_context: QueryContext::default(),
             no_lazy: false,
             custom_name: None,
+            use_caller_id: false,
             platform: Platform::default(),
             ignore_disk_space: false,
         };
@@ -514,6 +535,7 @@ mod arg_tests {
             query_context: QueryContext::default(),
             no_lazy: false,
             custom_name: None,
+            use_caller_id: false,
             platform: Platform::default(),
             ignore_disk_space: false,
         };
@@ -542,6 +564,7 @@ mod arg_tests {
             query_context: QueryContext::default(),
             no_lazy: true,
             custom_name: None,
+            use_caller_id: false,
             platform: Platform::default(),
             ignore_disk_space: false,
         };
