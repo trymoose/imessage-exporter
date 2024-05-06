@@ -562,7 +562,7 @@ impl Message {
         let mut statement = if context.has_filters() {
             db.prepare(&format!(
                 "SELECT COUNT(*) FROM {MESSAGE} as m {}",
-                context.generate_filter_statement()
+                context.generate_filter_statement("m.date")
             ))
             .map_err(TableError::Messages)?
         } else {
@@ -597,7 +597,7 @@ impl Message {
             return Self::get(db);
         }
 
-        let filters = context.generate_filter_statement();
+        let filters = context.generate_filter_statement("m.date");
 
         // If database has `thread_originator_guid`, we can parse replies, otherwise default to 0
         Ok(db.prepare(&format!(

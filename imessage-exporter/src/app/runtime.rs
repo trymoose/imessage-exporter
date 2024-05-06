@@ -238,8 +238,9 @@ impl Config {
                 ));
             }
         } else {
-            let total_attachment_size = Attachment::get_total_attachment_bytes(&self.db)
-                .map_err(RuntimeError::DatabaseError)?;
+            let total_attachment_size =
+                Attachment::get_total_attachment_bytes(&self.db, &self.options.query_context)
+                    .map_err(RuntimeError::DatabaseError)?;
             estimated_export_size += total_attachment_size;
             if (estimated_export_size + total_attachment_size) >= free_space_at_location {
                 return Err(RuntimeError::NotEnoughAvailableSpace(
