@@ -118,6 +118,11 @@ impl Options {
                 "Option {OPTION_END_DATE} is enabled, which requires `--{OPTION_EXPORT_TYPE}`"
             )));
         }
+        if use_caller_id && export_file_type.is_none() {
+            return Err(RuntimeError::InvalidOptions(format!(
+                "Option {OPTION_USE_CALLER_ID} is enabled, which requires `--{OPTION_EXPORT_TYPE}`"
+            )));
+        }
 
         // Warn the user if they are exporting to a file type for which lazy loading has no effect
         if no_lazy && export_file_type != Some(&"html".to_string()) {
@@ -150,6 +155,11 @@ impl Options {
         if diagnostic && end_date.is_some() {
             return Err(RuntimeError::InvalidOptions(format!(
                 "Diagnostics are enabled; {OPTION_END_DATE} is disallowed"
+            )));
+        }
+        if diagnostic && use_caller_id {
+            return Err(RuntimeError::InvalidOptions(format!(
+                "Diagnostics are enabled; {OPTION_USE_CALLER_ID} is disallowed"
             )));
         }
 
@@ -514,6 +524,19 @@ mod arg_tests {
     }
 
     #[test]
+    fn cant_build_option_diagnostic_flag_with_caller_id() {
+        // Get matches from sample args
+        let cli_args: Vec<&str> = vec!["imessage-exporter", "-d", "-i"];
+        let command = get_command();
+        let args = command.get_matches_from(cli_args);
+
+        // Build the Options
+        let actual = Options::from_args(&args);
+
+        assert!(actual.is_err());
+    }
+
+    #[test]
     fn can_build_option_export_html() {
         // Get matches from sample args
         let cli_args: Vec<&str> = vec!["imessage-exporter", "-f", "html", "-o", "/tmp"];
@@ -654,6 +677,90 @@ mod arg_tests {
     fn cant_build_option_invalid_export_type() {
         // Get matches from sample args
         let cli_args: Vec<&str> = vec!["imessage-exporter", "-f", "pdf"];
+        let command = get_command();
+        let args = command.get_matches_from(cli_args);
+
+        // Build the Options
+        let actual = Options::from_args(&args);
+
+        assert!(actual.is_err());
+    }
+
+    #[test]
+    fn can_build_option_custom_name() {
+        // Get matches from sample args
+        let cli_args: Vec<&str> = vec!["imessage-exporter", "-f", "txt", "-m", "Name"];
+        let command = get_command();
+        let args = command.get_matches_from(cli_args);
+
+        // Build the Options
+        let actual = Options::from_args(&args).unwrap();
+
+        // Expected data
+        let expected = Options {
+            db_path: default_db_path(),
+            attachment_root: None,
+            attachment_manager: AttachmentManager::default(),
+            diagnostic: false,
+            export_type: Some(ExportType::Txt),
+            export_path: validate_path(None, &None).unwrap(),
+            query_context: QueryContext::default(),
+            no_lazy: false,
+            custom_name: Some("Name".to_string()),
+            use_caller_id: false,
+            platform: Platform::default(),
+            ignore_disk_space: false,
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_build_option_caller_id() {
+        // Get matches from sample args
+        let cli_args: Vec<&str> = vec!["imessage-exporter", "-f", "txt", "-i"];
+        let command = get_command();
+        let args = command.get_matches_from(cli_args);
+
+        // Build the Options
+        let actual = Options::from_args(&args).unwrap();
+
+        // Expected data
+        let expected = Options {
+            db_path: default_db_path(),
+            attachment_root: None,
+            attachment_manager: AttachmentManager::default(),
+            diagnostic: false,
+            export_type: Some(ExportType::Txt),
+            export_path: validate_path(None, &None).unwrap(),
+            query_context: QueryContext::default(),
+            no_lazy: false,
+            custom_name: None,
+            use_caller_id: true,
+            platform: Platform::default(),
+            ignore_disk_space: false,
+        };
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn cant_build_option_custom_name_and_caller_id() {
+        // Get matches from sample args
+        let cli_args: Vec<&str> = vec!["imessage-exporter", "-f", "txt", "-m", "Name", "-i"];
+        let command = get_command();
+        let args = command.get_matches_from(cli_args);
+
+        // Build the Options
+        let actual = Options::from_args(&args);
+
+        assert!(actual.is_err());
+    }
+
+    #[test]
+    fn cant_build_option_caller_id_no_export() {
+        // Get matches from sample args
+        let cli_args: Vec<&str> = vec!["imessage-exporter", "-f", "txt", "-m", "Name", "-i"];
         let command = get_command();
         let args = command.get_matches_from(cli_args);
 
