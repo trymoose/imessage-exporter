@@ -346,10 +346,8 @@ impl Config {
         destination_caller_id: &'b Option<String>,
     ) -> &'a str {
         if is_from_me {
-            if let Some(caller_id) = destination_caller_id {
-                if self.options.use_caller_id {
-                    return caller_id;
-                }
+            if self.options.use_caller_id {
+                return destination_caller_id.as_deref().unwrap_or(ME);
             }
             return self.options.custom_name.as_deref().unwrap_or(ME);
         } else if let Some(handle_id) = handle_id {
