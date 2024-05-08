@@ -144,18 +144,20 @@ impl Diagnostic for Handle {
             "FROM handle ",
             "WHERE person_centric_id NOT NULL"
         );
-        let mut rows = db.prepare(query).map_err(TableError::Messages)?;
-        let count_dupes: Option<i32> = rows
-            .query_row([], |r| r.get(0))
-            .map_err(TableError::Handle)?;
 
-        done_processing();
+        if let Ok(mut rows) = db.prepare(query).map_err(TableError::Handle) {
+            let count_dupes: Option<i32> = rows
+                .query_row([], |r| r.get(0))
+                .map_err(TableError::Handle)?;
 
-        if let Some(dupes) = count_dupes {
-            if dupes > 0 {
-                println!("\rContacts with more than one ID: {dupes}");
+            if let Some(dupes) = count_dupes {
+                if dupes > 0 {
+                    println!("\rContacts with more than one ID: {dupes}");
+                }
             }
         }
+
+        done_processing();
         Ok(())
     }
 }
