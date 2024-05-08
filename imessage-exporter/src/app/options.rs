@@ -63,7 +63,7 @@ pub struct Options {
     pub no_lazy: bool,
     /// Custom name for database owner in output
     pub custom_name: Option<String>,
-    /// If true, use the database owners caller ID instead of "Me"
+    /// If true, use the database owner's caller ID instead of "Me"
     pub use_caller_id: bool,
     /// The database source's platform
     pub platform: Platform,
