@@ -1025,9 +1025,9 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
         // Header section
         out_s.push_str("<div class=\"app_header\">");
 
-        if let Some(site_name) = balloon.place_name {
+        if let Some(place_name) = balloon.place_name {
             out_s.push_str("<div class=\"name\">");
-            out_s.push_str(site_name);
+            out_s.push_str(place_name);
             out_s.push_str("</div>");
         } else if let Some(url) = balloon.get_url() {
             out_s.push_str("<div class=\"name\">");
