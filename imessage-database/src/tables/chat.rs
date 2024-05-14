@@ -82,7 +82,7 @@ impl Cacheable for Chat {
 }
 
 impl Chat {
-    /// Generate a name for a chat, falling back to the default if a custom one is not est
+    /// Generate a name for a chat, falling back to the default if a custom one is not set
     pub fn name(&self) -> &str {
         match self.display_name() {
             Some(name) => name,
