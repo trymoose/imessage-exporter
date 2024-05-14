@@ -48,7 +48,7 @@ pub enum MediaType<'a> {
 #[derive(Debug)]
 pub struct Attachment {
     pub rowid: i32,
-    // The path to the file on disk
+    /// The path to the file on disk
     pub filename: Option<String>,
     /// The [Uniform Type Identifier](https://developer.apple.com/library/archive/documentation/FileManagement/Conceptual/understanding_utis/understand_utis_intro/understand_utis_intro.html)
     pub uti: Option<String>,
