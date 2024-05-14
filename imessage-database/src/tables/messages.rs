@@ -75,7 +75,7 @@ pub enum Service<'a> {
 pub struct Message {
     pub rowid: i32,
     pub guid: String,
-    /// The text of the message, which may require calling [`Message`](crate::tables::messages::Message::gen_text) to populate
+    /// The text of the message, which may require calling [`gen_text()`](crate::tables::messages::Message::gen_text) to populate
     pub text: Option<String>,
     /// The service the message was sent from
     pub service: Option<String>,
@@ -94,7 +94,7 @@ pub struct Message {
     pub is_from_me: bool,
     /// `true` if the message was read by the recipient, else `false`
     pub is_read: bool,
-    /// Intermediate data for determining the [`variant`](crate::message_types::variants) of a message.
+    /// Intermediate data for determining the [`variant`](crate::message_types::variants) of a message
     pub item_type: i32,
     /// If the message updates the [`display_name`](crate::tables::chat::Chat::display_name) of the chat
     pub group_title: Option<String>,
@@ -102,13 +102,13 @@ pub struct Message {
     pub group_action_type: i32,
     /// The message GUID of a message associated with this one
     pub associated_message_guid: Option<String>,
-    /// Intermediate data for determining the [`variant`](crate::message_types::variants) of a message.
+    /// Intermediate data for determining the [`variant`](crate::message_types::variants) of a message
     pub associated_message_type: Option<i32>,
     /// The [bundle ID](https://developer.apple.com/help/app-store-connect/reference/app-bundle-information) of the app that generated the [App Message](crate::message_types::app::AppMessage)
     pub balloon_bundle_id: Option<String>,
-    /// Intermediate data for determining the [`expressive`](crate::message_types::expressives) of a message.
+    /// Intermediate data for determining the [`expressive`](crate::message_types::expressives) of a message
     pub expressive_send_style_id: Option<String>,
-    /// Indicates the first message in a thread of replies in [`Message`](crate::tables::messages::Message::get_replies)
+    /// Indicates the first message in a thread of replies in [`get_replies()`](crate::tables::messages::Message::get_replies)
     pub thread_originator_guid: Option<String>,
     /// Indicates the part of a message a reply is pointing to
     pub thread_originator_part: Option<String>,
