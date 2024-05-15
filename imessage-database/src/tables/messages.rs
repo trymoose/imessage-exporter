@@ -104,7 +104,7 @@ pub struct Message {
     pub associated_message_guid: Option<String>,
     /// Intermediate data for determining the [`variant`](crate::message_types::variants) of a message
     pub associated_message_type: Option<i32>,
-    /// The [bundle ID](https://developer.apple.com/help/app-store-connect/reference/app-bundle-information) of the app that generated the [App Message](crate::message_types::app::AppMessage)
+    /// The [bundle ID](https://developer.apple.com/help/app-store-connect/reference/app-bundle-information) of the app that generated the [`AppMessage`](crate::message_types::app::AppMessage)
     pub balloon_bundle_id: Option<String>,
     /// Intermediate data for determining the [`expressive`](crate::message_types::expressives) of a message
     pub expressive_send_style_id: Option<String>,
