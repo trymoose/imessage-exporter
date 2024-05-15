@@ -122,9 +122,12 @@ impl Diagnostic for Handle {
     /// Emit diagnostic data for the Handles table
     ///
     /// Get the number of handles that are duplicated
+    ///
     /// The `person_centric_id` is used to map handles that represent the
     /// same contact across ids (numbers, emails, etc) and across
     /// services (iMessage, Jabber, iChat, SMS, etc)
+    ///
+    /// In some databases, `person_centric_id` may not be available.
     ///
     /// # Example:
     ///
