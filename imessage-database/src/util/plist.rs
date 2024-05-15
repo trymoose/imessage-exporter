@@ -36,8 +36,8 @@ use crate::error::plist::PlistParseError;
 /// Some detail on this format is described [here](https://en.wikipedia.org/wiki/Property_list#Serializing_to_plist):
 ///
 /// > Internally, `NSKeyedArchiver` somewhat recapitulates the binary plist format by
-/// storing an object table array called $objects in the dictionary. Everything else,
-/// including class information, is referenced by a UID pointer. A $top entry under
+/// storing an object table array called `$objects` in the dictionary. Everything else,
+/// including class information, is referenced by a UID pointer. A `$top` entry under
 /// the dict points to the top-level object the programmer was meaning to encode.
 pub fn parse_plist(plist: &Value) -> Result<Value, PlistParseError> {
     let body = plist.as_dictionary().ok_or_else(|| {
