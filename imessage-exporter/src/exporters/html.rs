@@ -38,7 +38,7 @@ use imessage_database::{
     },
 };
 
-const HEADER: &str = "<html>\n<head>\n<meta charset=\"UTF-8\">";
+const HEADER: &str = "<html>\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
 const FOOTER: &str = "</body></html>";
 const STYLE: &str = include_str!("resources/style.css");
 
