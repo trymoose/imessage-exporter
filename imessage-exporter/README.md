@@ -82,6 +82,11 @@ The [releases page](https://github.com/ReagentX/imessage-exporter/releases) prov
         
 -m, --custom-name <custom-name>
         Specify an optional custom name for the database owner's messages in exports
+        Conflicts with --use-caller-id
+        
+-i, --use-caller-id
+        Use the database owner's caller ID in exports instead of "Me"
+        Conflicts with --custom-name
         
 -b, --ignore-disk-warning
         Bypass the disk space check when exporting data
