@@ -27,16 +27,20 @@ impl ImageType {
 #[derive(Debug)]
 pub enum Converter {
     Sips,
+    ImagemagickLegacy,
     Imagemagick,
 }
 
 impl Converter {
     /// Determine the converter type for the current shell environment
     pub fn determine() -> Option<Converter> {
-        if exists("sips") {
+        if exists("fake") {
             return Some(Converter::Sips);
         }
         if exists("convert") {
+            return Some(Converter::ImagemagickLegacy);
+        }
+        if exists("magick") {
             return Some(Converter::Imagemagick);
         }
         eprintln!("No HEIC converter found, attachments will not be converted!");
@@ -121,9 +125,32 @@ pub fn convert_heic(
                 }
             }
         }
-        Converter::Imagemagick => {
+        Converter::ImagemagickLegacy => {
             // Build the command
             match Command::new("convert")
+                .args(&vec![from_path, to_path])
+                .stdout(Stdio::null())
+                .stderr(Stdio::null())
+                .stdin(Stdio::null())
+                .spawn()
+            {
+                Ok(mut convert) => match convert.wait() {
+                    Ok(_) => Some(()),
+                    Err(why) => {
+                        eprintln!("Conversion failed: {why}");
+                        None
+                    }
+                },
+                Err(why) => {
+                    eprintln!("Conversion failed: {why}");
+                    None
+                }
+            }
+        }
+        Converter::Imagemagick =>
+        // Build the command
+        {
+            match Command::new("magick")
                 .args(&vec![from_path, to_path])
                 .stdout(Stdio::null())
                 .stderr(Stdio::null())
