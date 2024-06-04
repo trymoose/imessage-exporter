@@ -34,7 +34,7 @@ pub enum Converter {
 impl Converter {
     /// Determine the converter type for the current shell environment
     pub fn determine() -> Option<Converter> {
-        if exists("fake") {
+        if exists("sips") {
             return Some(Converter::Sips);
         }
         if exists("convert") {
