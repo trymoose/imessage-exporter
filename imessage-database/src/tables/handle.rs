@@ -141,7 +141,6 @@ impl Diagnostic for Handle {
     /// Handle::run_diagnostic(&conn);
     /// ```
     fn run_diagnostic(db: &Connection) -> Result<(), TableError> {
-        processing();
         let query = concat!(
             "SELECT COUNT(DISTINCT person_centric_id) ",
             "FROM handle ",
@@ -149,18 +148,22 @@ impl Diagnostic for Handle {
         );
 
         if let Ok(mut rows) = db.prepare(query).map_err(TableError::Handle) {
+            processing();
+
             let count_dupes: Option<i32> = rows
                 .query_row([], |r| r.get(0))
                 .map_err(TableError::Handle)?;
 
+            done_processing();
+
             if let Some(dupes) = count_dupes {
                 if dupes > 0 {
-                    println!("\rContacts with more than one ID: {dupes}");
+                    println!("Handle diagnostic data:");
+                    println!("    Contacts with more than one ID: {dupes}");
                 }
             }
         }
 
-        done_processing();
         Ok(())
     }
 }
@@ -202,9 +205,7 @@ impl Handle {
                     Ok(tup) => {
                         row_data.push(tup);
                     }
-                    Err(why) => {
-                        panic!("{why}");
-                    }
+                    Err(why) => return Err(TableError::Handle(why)),
                 }
             }
 

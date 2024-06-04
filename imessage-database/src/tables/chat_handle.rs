@@ -160,7 +160,8 @@ impl Diagnostic for ChatToHandle {
             .difference(&unique_chats_from_handles)
             .count();
         if chats_with_no_handles > 0 {
-            println!("\rChats with no handles: {chats_with_no_handles:?}");
+            println!("Thread diagnostic data:");
+            println!("    Chats with no handles: {chats_with_no_handles:?}");
         }
 
         Ok(())
