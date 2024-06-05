@@ -157,11 +157,12 @@ mod use_tests {
         let mut context = QueryContext::default();
         context.set_start("2020-01-01").unwrap();
 
-        let from_timestamp = NaiveDateTime::from_timestamp_opt(
+        let from_timestamp = DateTime::from_timestamp(
             (context.start.unwrap() / TIMESTAMP_FACTOR) + get_offset(),
             0,
         )
-        .unwrap();
+        .unwrap()
+        .naive_utc();
         let local = Local.from_utc_datetime(&from_timestamp);
 
         assert_eq!(format(&Ok(local)), "Jan 01, 2020 12:00:00 AM");
@@ -182,11 +183,10 @@ mod use_tests {
         let mut context = QueryContext::default();
         context.set_end("2020-01-01").unwrap();
 
-        let from_timestamp = NaiveDateTime::from_timestamp_opt(
-            (context.end.unwrap() / TIMESTAMP_FACTOR) + get_offset(),
-            0,
-        )
-        .unwrap();
+        let from_timestamp =
+            DateTime::from_timestamp((context.end.unwrap() / TIMESTAMP_FACTOR) + get_offset(), 0)
+                .unwrap()
+                .naive_utc();
         let local = Local.from_utc_datetime(&from_timestamp);
 
         assert_eq!(format(&Ok(local)), "Jan 01, 2020 12:00:00 AM");
@@ -208,18 +208,18 @@ mod use_tests {
         context.set_start("2020-01-01").unwrap();
         context.set_end("2020-02-02").unwrap();
 
-        let from_timestamp = NaiveDateTime::from_timestamp_opt(
+        let from_timestamp = DateTime::from_timestamp(
             (context.start.unwrap() / TIMESTAMP_FACTOR) + get_offset(),
             0,
         )
-        .unwrap();
+        .unwrap()
+        .naive_utc();
         let local_start = Local.from_utc_datetime(&from_timestamp);
 
-        let from_timestamp = NaiveDateTime::from_timestamp_opt(
-            (context.end.unwrap() / TIMESTAMP_FACTOR) + get_offset(),
-            0,
-        )
-        .unwrap();
+        let from_timestamp =
+            DateTime::from_timestamp((context.end.unwrap() / TIMESTAMP_FACTOR) + get_offset(), 0)
+                .unwrap()
+                .naive_utc();
         let local_end = Local.from_utc_datetime(&from_timestamp);
 
         assert_eq!(format(&Ok(local_start)), "Jan 01, 2020 12:00:00 AM");
