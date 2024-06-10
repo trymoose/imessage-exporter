@@ -186,13 +186,12 @@ impl<'a> Writer<'a> for TXT<'a> {
         }
 
         // Handle Shared Location
-        if message.started_sharing_location() {
-            self.add_line(&mut formatted_message, "Started sharing location!", &indent);
-        }
-
-        // Handle Shared Location
-        if message.stopped_sharing_location() {
-            self.add_line(&mut formatted_message, "Stopped sharing location!", &indent);
+        if message.started_sharing_location() || message.stopped_sharing_location() {
+            self.add_line(
+                &mut formatted_message,
+                self.format_shared_location(message),
+                &indent,
+            );
         }
 
         // Generate the message body from it's components
@@ -505,6 +504,16 @@ impl<'a> Writer<'a> for TXT<'a> {
 
     fn format_shareplay(&self) -> &str {
         "SharePlay Message\nEnded"
+    }
+
+    fn format_shared_location(&self, msg: &'a Message) -> &str {
+        // Handle Shared Location
+        if msg.started_sharing_location() {
+            return "Started sharing location!";
+        } else if msg.stopped_sharing_location() {
+            return "Stopped sharing location!";
+        }
+        ""
     }
 
     fn format_edited(&self, msg: &'a Message, indent: &str) -> Result<String, MessageError> {
@@ -1423,7 +1432,6 @@ mod tests {
 
         assert_eq!(actual, expected);
     }
-
 
     #[test]
     fn can_format_txt_attachment_macos() {

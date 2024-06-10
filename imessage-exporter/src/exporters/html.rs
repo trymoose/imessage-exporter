@@ -281,20 +281,10 @@ impl<'a> Writer<'a> for HTML<'a> {
         }
 
         // Handle Shared Location
-        if message.started_sharing_location() {
+        if message.started_sharing_location() || message.stopped_sharing_location() {
             self.add_line(
                 &mut formatted_message,
-                "<hr>Started sharing location!",
-                "<span class=\"shared_location\">",
-                "</span>",
-            );
-        }
-
-        // Handle Shared Location
-        if message.stopped_sharing_location() {
-            self.add_line(
-                &mut formatted_message,
-                "<hr>Stopped sharing location!",
+                self.format_shared_location(message),
                 "<span class=\"shared_location\">",
                 "</span>",
             );
@@ -726,6 +716,16 @@ impl<'a> Writer<'a> for HTML<'a> {
 
     fn format_shareplay(&self) -> &str {
         "<hr>SharePlay Message Ended"
+    }
+
+    fn format_shared_location(&self, msg: &'a Message) -> &str {
+        // Handle Shared Location
+        if msg.started_sharing_location() {
+            return "<hr>Started sharing location!";
+        } else if msg.stopped_sharing_location() {
+            return "<hr>Stopped sharing location!";
+        }
+        ""
     }
 
     fn format_edited(&self, msg: &'a Message, _: &str) -> Result<String, MessageError> {
