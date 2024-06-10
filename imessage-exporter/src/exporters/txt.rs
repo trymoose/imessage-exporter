@@ -513,7 +513,7 @@ impl<'a> Writer<'a> for TXT<'a> {
         } else if msg.stopped_sharing_location() {
             return "Stopped sharing location!";
         }
-        ""
+        "Shared location!"
     }
 
     fn format_edited(&self, msg: &'a Message, indent: &str) -> Result<String, MessageError> {

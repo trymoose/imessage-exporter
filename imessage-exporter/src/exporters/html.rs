@@ -725,7 +725,7 @@ impl<'a> Writer<'a> for HTML<'a> {
         } else if msg.stopped_sharing_location() {
             return "<hr>Stopped sharing location!";
         }
-        ""
+        "<hr>Shared location!"
     }
 
     fn format_edited(&self, msg: &'a Message, _: &str) -> Result<String, MessageError> {
