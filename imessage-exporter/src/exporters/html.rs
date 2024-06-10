@@ -174,7 +174,7 @@ impl<'a> Writer<'a> for HTML<'a> {
         }
 
         // Start message div
-        if message.is_from_me {
+        if message.is_from_me() {
             self.add_line(
                 &mut formatted_message,
                 &format!("<div class=\"sent {:?}\">", message.service()),
@@ -219,7 +219,7 @@ impl<'a> Writer<'a> for HTML<'a> {
             &mut formatted_message,
             self.config.who(
                 message.handle_id,
-                message.is_from_me,
+                message.is_from_me(),
                 &message.destination_caller_id,
             ),
             "<span class=\"sender\">",
@@ -276,6 +276,16 @@ impl<'a> Writer<'a> for HTML<'a> {
                 &mut formatted_message,
                 self.format_shareplay(),
                 "<span class=\"shareplay\">",
+                "</span>",
+            );
+        }
+
+        // Handle Shared Location
+        if message.started_sharing_location() || message.stopped_sharing_location() {
+            self.add_line(
+                &mut formatted_message,
+                self.format_shared_location(message),
+                "<span class=\"shared_location\">",
                 "</span>",
             );
         }
@@ -625,14 +635,14 @@ impl<'a> Writer<'a> for HTML<'a> {
                     "<span class=\"reaction\"><b>{:?}</b> by {}</span>",
                     reaction,
                     self.config
-                        .who(msg.handle_id, msg.is_from_me, &msg.destination_caller_id),
+                        .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id),
                 ))
             }
             Variant::Sticker(_) => {
                 let mut paths = Attachment::from_message(&self.config.db, msg)?;
                 let who =
                     self.config
-                        .who(msg.handle_id, msg.is_from_me, &msg.destination_caller_id);
+                        .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id);
                 // Sticker messages have only one attachment, the sticker image
                 Ok(match paths.get_mut(0) {
                     Some(sticker) => self.format_sticker(sticker, msg),
@@ -672,7 +682,7 @@ impl<'a> Writer<'a> for HTML<'a> {
     fn format_announcement(&self, msg: &'a Message) -> String {
         let mut who = self
             .config
-            .who(msg.handle_id, msg.is_from_me, &msg.destination_caller_id);
+            .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id);
         // Rename yourself so we render the proper grammar here
         if who == ME {
             who = self.config.options.custom_name.as_deref().unwrap_or("You");
@@ -705,7 +715,17 @@ impl<'a> Writer<'a> for HTML<'a> {
     }
 
     fn format_shareplay(&self) -> &str {
-        "SharePlay Message Ended"
+        "<hr>SharePlay Message Ended"
+    }
+
+    fn format_shared_location(&self, msg: &'a Message) -> &str {
+        // Handle Shared Location
+        if msg.started_sharing_location() {
+            return "<hr>Started sharing location!";
+        } else if msg.stopped_sharing_location() {
+            return "<hr>Stopped sharing location!";
+        }
+        "<hr>Shared location!"
     }
 
     fn format_edited(&self, msg: &'a Message, _: &str) -> Result<String, MessageError> {
@@ -717,7 +737,7 @@ impl<'a> Writer<'a> for HTML<'a> {
             let mut previous_timestamp: Option<&i64> = None;
 
             if edited_message.is_deleted() {
-                let who = if msg.is_from_me {
+                let who = if msg.is_from_me() {
                     self.config.options.custom_name.as_deref().unwrap_or(YOU)
                 } else {
                     "They"
@@ -1240,7 +1260,7 @@ impl<'a> HTML<'a> {
         let read_after = message.time_until_read(&self.config.offset);
         if let Some(time) = read_after {
             if !time.is_empty() {
-                let who = if message.is_from_me {
+                let who = if message.is_from_me() {
                     "them"
                 } else {
                     self.config.options.custom_name.as_deref().unwrap_or("you")
@@ -1409,6 +1429,9 @@ mod tests {
             is_from_me: false,
             is_read: false,
             item_type: 0,
+            other_handle: 0,
+            share_status: false,
+            share_direction: false,
             group_title: None,
             group_action_type: 0,
             associated_message_guid: None,
@@ -1748,7 +1771,7 @@ mod tests {
         message.item_type = 6;
 
         let actual = exporter.format_message(&message, 0).unwrap();
-        let expected = "<div class=\"message\">\n<div class=\"received\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<span class=\"shareplay\">SharePlay Message Ended</span>\n</div>\n</div>\n";
+        let expected = "<div class=\"message\">\n<div class=\"received\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<span class=\"shareplay\"><hr>SharePlay Message Ended</span>\n</div>\n</div>\n";
 
         assert_eq!(actual, expected);
     }
@@ -1840,6 +1863,100 @@ mod tests {
 
         let actual = exporter.format_reaction(&message).unwrap();
         let expected = "<span class=\"reaction\"><b>Loved</b> by Sample Contact</span>";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_html_started_sharing_location_me() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = Config::new(options).unwrap();
+        let exporter = HTML::new(&config);
+
+        let mut message = blank();
+        message.is_from_me = false;
+        message.other_handle = 2;
+        message.share_status = false;
+        message.share_direction = false;
+        message.item_type = 4;
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">Dec 31, 2000  4:00:00 PM</span>\n<span class=\"sender\">Me</span></p>\n<span class=\"shared_location\"><hr>Started sharing location!</span>\n</div>\n</div>\n";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_html_stopped_sharing_location_me() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = Config::new(options).unwrap();
+        let exporter = HTML::new(&config);
+
+        let mut message = blank();
+        message.is_from_me = false;
+        message.other_handle = 2;
+        message.share_status = true;
+        message.share_direction = false;
+        message.item_type = 4;
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">Dec 31, 2000  4:00:00 PM</span>\n<span class=\"sender\">Me</span></p>\n<span class=\"shared_location\"><hr>Stopped sharing location!</span>\n</div>\n</div>\n";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_html_started_sharing_location_them() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = Config::new(options).unwrap();
+        let exporter = HTML::new(&config);
+
+        let mut message = blank();
+        message.handle_id = None;
+        message.is_from_me = false;
+        message.other_handle = 0;
+        message.share_status = false;
+        message.share_direction = false;
+        message.item_type = 4;
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "<div class=\"message\">\n<div class=\"received\">\n<p><span class=\"timestamp\">Dec 31, 2000  4:00:00 PM</span>\n<span class=\"sender\">Unknown</span></p>\n<span class=\"shared_location\"><hr>Started sharing location!</span>\n</div>\n</div>\n";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_html_stopped_sharing_location_them() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = Config::new(options).unwrap();
+        let exporter = HTML::new(&config);
+
+        let mut message = blank();
+        message.handle_id = None;
+        message.is_from_me = false;
+        message.other_handle = 0;
+        message.share_status = true;
+        message.share_direction = false;
+        message.item_type = 4;
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "<div class=\"message\">\n<div class=\"received\">\n<p><span class=\"timestamp\">Dec 31, 2000  4:00:00 PM</span>\n<span class=\"sender\">Unknown</span></p>\n<span class=\"shared_location\"><hr>Stopped sharing location!</span>\n</div>\n</div>\n";
 
         assert_eq!(actual, expected);
     }

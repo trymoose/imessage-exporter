@@ -143,7 +143,7 @@ impl<'a> Writer<'a> for TXT<'a> {
             &mut formatted_message,
             self.config.who(
                 message.handle_id,
-                message.is_from_me,
+                message.is_from_me(),
                 &message.destination_caller_id,
             ),
             &indent,
@@ -183,6 +183,15 @@ impl<'a> Writer<'a> for TXT<'a> {
         // Handle SharePlay
         if message.is_shareplay() {
             self.add_line(&mut formatted_message, self.format_shareplay(), &indent);
+        }
+
+        // Handle Shared Location
+        if message.started_sharing_location() || message.stopped_sharing_location() {
+            self.add_line(
+                &mut formatted_message,
+                self.format_shared_location(message),
+                &indent,
+            );
         }
 
         // Generate the message body from it's components
@@ -328,7 +337,7 @@ impl<'a> Writer<'a> for TXT<'a> {
     fn format_sticker(&self, sticker: &'a mut Attachment, message: &Message) -> String {
         let who = self.config.who(
             message.handle_id,
-            message.is_from_me,
+            message.is_from_me(),
             &message.destination_caller_id,
         );
         match self.format_attachment(sticker, message) {
@@ -423,14 +432,14 @@ impl<'a> Writer<'a> for TXT<'a> {
                     "{:?} by {}",
                     reaction,
                     self.config
-                        .who(msg.handle_id, msg.is_from_me, &msg.destination_caller_id),
+                        .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id),
                 ))
             }
             Variant::Sticker(_) => {
                 let mut paths = Attachment::from_message(&self.config.db, msg)?;
                 let who =
                     self.config
-                        .who(msg.handle_id, msg.is_from_me, &msg.destination_caller_id);
+                        .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id);
                 // Sticker messages have only one attachment, the sticker image
                 Ok(if let Some(sticker) = paths.get_mut(0) {
                     self.format_sticker(sticker, msg)
@@ -469,7 +478,7 @@ impl<'a> Writer<'a> for TXT<'a> {
     fn format_announcement(&self, msg: &'a Message) -> String {
         let mut who = self
             .config
-            .who(msg.handle_id, msg.is_from_me, &msg.destination_caller_id);
+            .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id);
         // Rename yourself so we render the proper grammar here
         if who == ME {
             who = self.config.options.custom_name.as_deref().unwrap_or(YOU);
@@ -497,6 +506,16 @@ impl<'a> Writer<'a> for TXT<'a> {
         "SharePlay Message\nEnded"
     }
 
+    fn format_shared_location(&self, msg: &'a Message) -> &str {
+        // Handle Shared Location
+        if msg.started_sharing_location() {
+            return "Started sharing location!";
+        } else if msg.stopped_sharing_location() {
+            return "Stopped sharing location!";
+        }
+        "Shared location!"
+    }
+
     fn format_edited(&self, msg: &'a Message, indent: &str) -> Result<String, MessageError> {
         if let Some(payload) = msg.message_summary_info(&self.config.db) {
             // Parse the edited message
@@ -507,7 +526,7 @@ impl<'a> Writer<'a> for TXT<'a> {
             let mut previous_timestamp: Option<&i64> = None;
 
             if edited_message.is_deleted() {
-                let who = if msg.is_from_me {
+                let who = if msg.is_from_me() {
                     self.config.options.custom_name.as_deref().unwrap_or(YOU)
                 } else {
                     "They"
@@ -868,7 +887,7 @@ impl<'a> TXT<'a> {
         let read_after = message.time_until_read(&self.config.offset);
         if let Some(time) = read_after {
             if !time.is_empty() {
-                let who = if message.is_from_me {
+                let who = if message.is_from_me() {
                     "them"
                 } else {
                     self.config.options.custom_name.as_deref().unwrap_or("you")
@@ -919,6 +938,9 @@ mod tests {
             is_from_me: false,
             is_read: false,
             item_type: 0,
+            other_handle: 0,
+            share_status: false,
+            share_direction: false,
             group_title: None,
             group_action_type: 0,
             associated_message_guid: None,
@@ -1313,6 +1335,100 @@ mod tests {
 
         let actual = exporter.format_reaction(&message).unwrap();
         let expected = "Loved by Sample Contact";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_txt_started_sharing_location_me() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = Config::new(options).unwrap();
+        let exporter = TXT::new(&config);
+
+        let mut message = blank();
+        message.is_from_me = false;
+        message.other_handle = 2;
+        message.share_status = false;
+        message.share_direction = false;
+        message.item_type = 4;
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "Dec 31, 2000  4:00:00 PM\nMe\nStarted sharing location!\n\n";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_txt_stopped_sharing_location_me() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = Config::new(options).unwrap();
+        let exporter = TXT::new(&config);
+
+        let mut message = blank();
+        message.is_from_me = false;
+        message.other_handle = 2;
+        message.share_status = true;
+        message.share_direction = false;
+        message.item_type = 4;
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "Dec 31, 2000  4:00:00 PM\nMe\nStopped sharing location!\n\n";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_txt_started_sharing_location_them() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = Config::new(options).unwrap();
+        let exporter = TXT::new(&config);
+
+        let mut message = blank();
+        message.handle_id = None;
+        message.is_from_me = false;
+        message.other_handle = 0;
+        message.share_status = false;
+        message.share_direction = false;
+        message.item_type = 4;
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "Dec 31, 2000  4:00:00 PM\nUnknown\nStarted sharing location!\n\n";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_txt_stopped_sharing_location_them() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = Config::new(options).unwrap();
+        let exporter = TXT::new(&config);
+
+        let mut message = blank();
+        message.handle_id = None;
+        message.is_from_me = false;
+        message.other_handle = 0;
+        message.share_status = true;
+        message.share_direction = false;
+        message.item_type = 4;
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "Dec 31, 2000  4:00:00 PM\nUnknown\nStopped sharing location!\n\n";
 
         assert_eq!(actual, expected);
     }
