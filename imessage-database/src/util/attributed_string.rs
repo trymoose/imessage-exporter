@@ -13,18 +13,6 @@ const OBJECT_END: u8 = 0x0086;
 
 /// Type encoding data
 const ENCODING_DETECTED: u8 = 0x0095;
-/// The "+" character
-const NSSTRING_TYPE_ENCODING: u8 = 0x002b;
-///  The "@" character
-const OBJECT_TYPE_ENCODING: u8 = 0x040;
-
-/// Tag data?
-/// TODO: Unused
-const FIRST_TAG: u8 = 0x0080;
-const LAST_TAG: u8 = 0x0091;
-const ZERO_TERMINATOR: u8 = 0x0000;
-const ONE_TERMINATOR: u8 = 0x0001;
-const SIGNED_OFFSET: u8 = 0x00ff;
 
 // TODO: What are tags?
 /// When scanning for objects, bytes >= reference tag indicate an index in the table of
