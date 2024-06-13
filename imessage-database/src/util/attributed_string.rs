@@ -152,10 +152,9 @@ impl<'a> StreamTypedReader<'a> {
         // Skip to the start of the object title
         println!("{} {:x}: {:?}", self.idx, self.idx, self.get_current_byte());
         while self.get_current_byte() != OBJECT_END {
-            // TODO: The interior object gets added to the string table
-            // TODO: before the parent, leading the string table to be misaligned
-            while self.get_current_byte() == NEW_OBJECT_START {
-                self.idx += 1
+            if self.get_current_byte() == NEW_OBJECT_START {
+                self.idx += 1;
+                return self.read_object(types_table);
             }
 
             if self.get_current_byte() == NIL {
@@ -173,6 +172,8 @@ impl<'a> StreamTypedReader<'a> {
                 println!("Object tag found: {:x}!", self.get_current_byte());
                 let found_types = self.get_type(types_table);
                 let read_types = self.read_types(found_types, types_table);
+                // TODO: This should be a different data structure that represents the actual object content,
+                // Not a wrapper around said content
                 out_v.push(Class::new(read_types, 100));
                 continue;
             } else {
@@ -195,7 +196,7 @@ impl<'a> StreamTypedReader<'a> {
         }
 
         self.idx += 1;
-        println!("out v -> {:?}", out_v);
+        println!("got objects -> {:?}", out_v);
         out_v
     }
 
@@ -281,22 +282,31 @@ impl<'a> StreamTypedReader<'a> {
         }
 
         println!("NSDict with {:?} items", dict_length);
-        self.idx += 1; // Skip 0x92
-        self.idx += 1; // Skip 0x84
+        // self.idx += 1; // Skip 0x92
+        // self.idx += 1; // Skip 0x84
         println!("{:x}: {:x}", self.idx, self.get_current_byte());
 
-        for _ in 0..dict_length {
+        for id in 0..dict_length {
+            // Read the key and value types
+            println!(
+                "Dict item {id} - {:x}: {:x}",
+                self.idx,
+                self.get_current_byte()
+            );
+
             // Read the key and value types
             let key_types = self.get_type(types_table);
             // self.idx += 1; // TODO: Key types are repeated?
             let key_data = self.read_types(key_types, types_table);
-
-            self.idx += 1; // TODO: Skip the 0x86 here?
-
+            println!("Got key: {key_data:?}");
+            
             let value_types = self.get_type(types_table);
             let value_data = self.read_types(value_types, types_table);
+            println!("Got val: {value_data:?}");
 
-            out_s.push_str(&format!("{key_data}: {value_data}"));
+            println!("{id}, {}", &format!("{key_data:?}: {value_data:?}"));
+
+            out_s.push_str(&format!("{key_data:?}: {value_data:?}"));
         }
 
         out_s
@@ -306,6 +316,10 @@ impl<'a> StreamTypedReader<'a> {
         match self.get_current_byte() {
             NEW_OBJECT_START => {
                 println!("New type found!");
+                // Ignore repeated types, for example in a dict
+                while self.get_next_byte() == NEW_OBJECT_START {
+                    self.idx += 1;
+                }
 
                 self.idx += 1;
                 let object_types = self.read_type();
@@ -315,7 +329,7 @@ impl<'a> StreamTypedReader<'a> {
             }
             OBJECT_END => {
                 println!("End of current object!");
-                return vec![];
+                vec![]
             }
             _ => {
                 // Ignore repeated types, for example in a dict
@@ -394,16 +408,6 @@ impl<'a> StreamTypedReader<'a> {
         self.idx += 16;
 
         while self.idx < self.stream.len() {
-            println!("Parsed data: {:?}\n", out_v);
-
-            // First, get the current type
-            let found_types = self.get_type(&mut types_table);
-
-            let result = self.read_types(found_types, &mut types_table);
-
-            println!("Resultant type: {result}");
-            out_v.push(result);
-
             if self.get_current_byte() == ENCODING_DETECTED {
                 println!("\nFound new encoding!");
                 self.idx += 1;
@@ -413,6 +417,16 @@ impl<'a> StreamTypedReader<'a> {
                 self.idx += 1;
                 continue;
             }
+
+            println!("Parsed data: {:?}\n", out_v);
+
+            // First, get the current type
+            let found_types = self.get_type(&mut types_table);
+
+            let result = self.read_types(found_types, &mut types_table);
+
+            println!("Resultant type: {result}");
+            out_v.push(result);
         }
 
         println!("Parsed data: {:?}\n", out_v);
