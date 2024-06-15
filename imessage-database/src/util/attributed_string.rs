@@ -1,15 +1,17 @@
 /*!
- Contains logic to parse text from [NSAttributedString](https://developer.apple.com/documentation/foundation/nsattributedstring) data.
+ Contains logic to parse detailed data from `typedstream` data, focussing specifically on [NSAttributedString](https://developer.apple.com/documentation/foundation/nsattributedstring) data.
+
+ Derived from `typedstream` source located [here](https://opensource.apple.com/source/gcc/gcc-1493/libobjc/objc/typedstream.h.auto.html) and [here](https://sourceforge.net/projects/aapl-darwin/files/Darwin-0.1/objc-1.tar.gz/download)
 */
 
-use std::{char, usize, vec};
+use std::{char, collections::HashMap, usize, vec};
 
 /// Indicates the start of a new object
-const NEW_OBJECT_START: u8 = 0x0084;
-/// Nil?
-const NIL: u8 = 0x0085;
-/// - Start of Selected Area> (SSA) <https://www.compart.com/en/unicode/U+0086>
-const OBJECT_END: u8 = 0x0086;
+const START: u8 = 0x0084;
+/// No data to parse, possibly end of an inheritance chain
+const EMPTY: u8 = 0x0085;
+/// Indicates the last byte of an object
+const END: u8 = 0x0086;
 
 /// Type encoding data
 const ENCODING_DETECTED: u8 = 0x0095;
@@ -19,7 +21,7 @@ const ENCODING_DETECTED: u8 = 0x0095;
 /// already-seen types
 const REFERENCE_TAG: u8 = 0x0092;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 struct Class {
     name: String,
     version: u8,
@@ -35,9 +37,23 @@ impl Class {
     }
 }
 
+#[derive(Debug)]
+enum OutputData {
+    String(String),
+    Number(i32),
+    Dict(HashMap<String, String>),
+    None,
+}
+
+#[derive(Debug, Clone)]
+enum Archivable {
+    Object(Object),
+    Class(Class),
+}
+
 // TODO: Remove clone
 #[derive(Debug, Clone)]
-enum ClassType {
+enum Object {
     NSMutableAttributedString(u8),
     NSAttributedString(u8),
     NSObject(u8),
@@ -47,7 +63,7 @@ enum ClassType {
     Unknown(String),
 }
 
-impl ClassType {
+impl Object {
     fn from_class(class: &Class) -> Self {
         match class.name.as_str() {
             "NSMutableAttributedString" => Self::NSMutableAttributedString(class.version),
@@ -70,7 +86,8 @@ enum Type {
     Object,
     SignedInt,
     UnsignedInt,
-    Class(ClassType),
+    ObjectName(Object),
+    String(String),
     Unknown(u8),
 }
 
@@ -85,17 +102,32 @@ impl Type {
             other => Self::Unknown(*other),
         }
     }
+
+    fn new_class(class: Object) -> Self {
+        Self::ObjectName(class)
+    }
+
+    fn new_string(string: String) -> Self {
+        Self::String(string)
+    }
 }
 
 #[derive(Debug)]
-struct StreamTypedReader<'a> {
+struct TypedStreamReader<'a> {
     stream: &'a [u8],
     idx: usize,
+    string_table: Vec<Vec<Type>>,
+    object_table: Vec<Archivable>,
 }
 
-impl<'a> StreamTypedReader<'a> {
+impl<'a> TypedStreamReader<'a> {
     fn new(stream: &'a [u8]) -> Self {
-        Self { stream, idx: 0 }
+        Self {
+            stream,
+            idx: 0,
+            string_table: vec![],
+            object_table: vec![],
+        }
     }
 
     /// Read the current byte as a signed integer
@@ -146,58 +178,61 @@ impl<'a> StreamTypedReader<'a> {
         result
     }
 
-    /// Read a class object
-    fn read_object(&mut self, types_table: &mut Vec<Vec<Type>>) -> Vec<Class> {
-        let mut out_v = vec![];
-        // Skip to the start of the object title
-        println!("{} {:x}: {:?}", self.idx, self.idx, self.get_current_byte());
-        while self.get_current_byte() != OBJECT_END {
-            if self.get_current_byte() == NEW_OBJECT_START {
-                self.idx += 1;
-                return self.read_object(types_table);
-            }
-
-            if self.get_current_byte() == NIL {
-                println!("NIL found at {:x}", self.idx);
-                self.idx += 1;
-                continue;
-            }
-
-            if self.get_current_byte() == ENCODING_DETECTED {
-                println!("Found some encoded data!");
-                return out_v;
-            }
-
-            if self.get_current_byte() >= REFERENCE_TAG {
-                println!("Object tag found: {:x}!", self.get_current_byte());
-                let found_types = self.get_type(types_table);
-                let read_types = self.read_types(found_types, types_table);
-                // TODO: This should be a different data structure that represents the actual object content,
-                // Not a wrapper around said content
-                out_v.push(Class::new(read_types, 100));
-                continue;
-            } else {
+    /// Read a class
+    fn read_class(&mut self) -> Option<&Archivable> {
+        match self.get_current_byte() {
+            START => {
+                // Skip some header bytes
+                while self.get_current_byte() == START {
+                    self.idx += 1;
+                }
                 let length = self.read_int();
                 let mut class_name = String::with_capacity(length as usize);
-                println!("Class created with capacity {}", class_name.capacity());
+                println!("Class name created with capacity {}", class_name.capacity());
                 self.read_exact_as_string(length as usize, &mut class_name);
 
                 let version = self.read_int();
                 println!("{class_name} v{version}");
                 println!("{}: {:?}", self.idx, self.get_current_byte());
-                let found_class = Class::new(class_name, version);
-                let parsed_class = ClassType::from_class(&found_class);
-                out_v.push(found_class);
 
-                let parsed_type = Type::Class(parsed_class);
-                println!("Got parsed type! {:?}", parsed_type);
-                types_table.push(vec![parsed_type]);
+                let found_class = Class::new(class_name, version);
+                let parsed_class = Object::from_class(&found_class);
+                self.string_table
+                    .push(vec![Type::new_class(parsed_class.clone())]);
+                self.object_table.push(Archivable::Object(parsed_class));
+
+                self.read_class()?;
+                self.object_table.last()
+            }
+            EMPTY => {
+                self.idx += 1;
+                None
+            }
+            _ => {
+                let index = self.read_pointer();
+                self.object_table.get(index as usize)
             }
         }
+    }
 
-        self.idx += 1;
-        println!("got objects -> {:?}", out_v);
-        out_v
+    /// read an object
+    fn read_object(&mut self) -> Option<&Archivable> {
+        match self.get_current_byte() {
+            START => {
+                if let Some(obj_class) = self.read_class() {
+                    return Some(obj_class);
+                }
+                None
+            }
+            EMPTY => {
+                self.idx += 1;
+                None
+            }
+            _ => {
+                let index = self.read_pointer();
+                self.object_table.get(index as usize)
+            }
+        }
     }
 
     /// Read String data
@@ -224,7 +259,7 @@ impl<'a> StreamTypedReader<'a> {
     }
 
     /// Parse custom NSString data
-    fn handle_ns_string(&mut self, version: &u8, types_table: &mut Vec<Vec<Type>>) -> String {
+    fn handle_ns_string(&mut self, version: &u8) -> String {
         println!("Handling string data!");
 
         // TODO: Use real errors
@@ -234,31 +269,25 @@ impl<'a> StreamTypedReader<'a> {
         }
 
         let mut out_s = String::new();
-        if self.get_current_byte() == ENCODING_DETECTED {
-            self.idx += 1;
-            println!("Parsing encoded data!");
-            // TODO: recurse here, or something to parse the encoded data
-            let encodings = self.get_type(types_table);
-            for encoding in encodings {
-                if let Type::Utf8String = encoding {
-                    let result = self.read_string();
-                    println!("NSString Parsed {result} for {encoding:?}");
-                    out_s.push_str(&result);
-                } else {
-                    print!("Parse error: malformed encoded data type!");
-                    return String::new();
-                }
+        println!("Parsing encoded data!");
+        // TODO: recurse here, or something to parse the encoded data
+        let encodings = self.get_type();
+        for encoding in encodings {
+            if let Type::Utf8String = encoding {
+                let result = self.read_string();
+                println!("NSString Parsed {result} for {encoding:?}");
+                out_s.push_str(&result);
+            } else {
+                print!("Parse error: malformed encoded data type!");
+                return String::new();
             }
-        } else {
-            print!("Parse error: no encoded data!");
-            return String::new();
         }
 
         out_s
     }
 
     /// Parse custom NSDictionary data
-    fn handle_ns_dict(&mut self, version: &u8, types_table: &mut Vec<Vec<Type>>) -> String {
+    fn handle_ns_dict(&mut self, version: &u8) -> String {
         println!("Handling dict data!");
         let mut out_s = String::new();
 
@@ -273,8 +302,7 @@ impl<'a> StreamTypedReader<'a> {
         if self.get_current_byte() == ENCODING_DETECTED {
             self.idx += 1;
         }
-        let length = self.get_type(types_table);
-        println!("{:?}", length);
+        let length = self.get_type();
         for detected_type in length {
             if let Type::UnsignedInt = detected_type {
                 dict_length = self.read_int();
@@ -295,13 +323,13 @@ impl<'a> StreamTypedReader<'a> {
             );
 
             // Read the key and value types
-            let key_types = self.get_type(types_table);
-            // self.idx += 1; // TODO: Key types are repeated?
-            let key_data = self.read_types(key_types, types_table);
+            self.idx += 2; // TODO: Key types are repeated?
+            let key_types = self.get_type();
+            let key_data = self.read_types(key_types);
             println!("Got key: {key_data:?}");
-            
-            let value_types = self.get_type(types_table);
-            let value_data = self.read_types(value_types, types_table);
+
+            let value_types = self.get_type();
+            let value_data = self.read_types(value_types);
             println!("Got val: {value_data:?}");
 
             println!("{id}, {}", &format!("{key_data:?}: {value_data:?}"));
@@ -312,22 +340,24 @@ impl<'a> StreamTypedReader<'a> {
         out_s
     }
 
-    fn get_type(&mut self, types_table: &mut Vec<Vec<Type>>) -> Vec<Type> {
+    fn get_type(&mut self) -> Vec<Type> {
         match self.get_current_byte() {
-            NEW_OBJECT_START => {
+            START => {
                 println!("New type found!");
                 // Ignore repeated types, for example in a dict
-                while self.get_next_byte() == NEW_OBJECT_START {
+                while self.get_next_byte() == START {
                     self.idx += 1;
                 }
 
                 self.idx += 1;
                 let object_types = self.read_type();
-                types_table.push(object_types);
-                println!("Found types: {:?}", types_table);
-                types_table.last().unwrap().to_owned()
+                // types_table.push(object_types);
+                self.string_table.push(object_types);
+                println!("Found objects: {:?}", self.object_table);
+                println!("Found types: {:?}", self.string_table);
+                self.string_table.last().unwrap().to_owned()
             }
-            OBJECT_END => {
+            END => {
                 println!("End of current object!");
                 vec![]
             }
@@ -338,70 +368,67 @@ impl<'a> StreamTypedReader<'a> {
                 }
 
                 let ref_tag = self.read_pointer();
-                let possible_types = types_table.get(ref_tag as usize).unwrap().clone();
+                let possible_types = self.string_table.get(ref_tag as usize).unwrap().clone();
                 println!("Got referenced type {ref_tag}: {possible_types:?}");
                 possible_types
             }
         }
     }
 
-    fn read_types(&mut self, found_types: Vec<Type>, types_table: &mut Vec<Vec<Type>>) -> String {
-        let mut out_s = String::new();
-
+    fn read_types(&mut self, found_types: Vec<Type>) -> Vec<OutputData> {
+        let mut out_v = vec![];
         for object_type in found_types {
-            let result = match object_type {
-                Type::Utf8String => self.read_string(),
-                Type::NullTerminatedString => self.read_null_terminated_string(),
-                Type::Object => {
-                    let objects = self.read_object(types_table);
-                    let mut out_s = format!("{:?}", objects);
-                    for object in &objects {
-                        let parsed_class = ClassType::from_class(object);
-                        match &parsed_class {
-                            ClassType::NSString(version) => {
-                                out_s.push_str(&format!(
-                                    ": {}",
-                                    self.handle_ns_string(version, types_table)
-                                ));
-                            }
-                            ClassType::NSDictionary(version) => {
-                                out_s.push_str(&format!(
-                                    ": {}",
-                                    self.handle_ns_dict(version, types_table)
-                                ));
-                            }
-                            other => {
-                                println!("{other:?} does not have parsing rules!")
-                            }
-                        }
-                    }
-                    out_s
+            let res = match object_type {
+                Type::Utf8String => OutputData::String(self.read_string()),
+                Type::NullTerminatedString => {
+                    OutputData::String(self.read_null_terminated_string())
                 }
-                Type::SignedInt => format!("Signed: {} ", self.read_int()),
-                Type::UnsignedInt => format!("Unsigned: {} ", self.read_int()),
+                Type::Object => {
+                    println!("Reading object...");
+                    let object = self.read_object();
+                    println!("Got object {object:?}");
+                    if let Some(object) = object {
+                        match object.clone() {
+                            Archivable::Object(obj) => match obj {
+                                Object::NSString(version) => {
+                                    OutputData::String(self.handle_ns_string(&version))
+                                }
+                                Object::NSDictionary(version) => {
+                                    OutputData::String(self.handle_ns_dict(&version))
+                                }
+                                other => OutputData::String(format!(
+                                    "{other:?} does not have parsing rules!"
+                                )),
+                            },
+                            Archivable::Class(cls) => OutputData::String(cls.as_string()),
+                        }
+                    } else {
+                        OutputData::None
+                    }
+                }
+                Type::SignedInt => OutputData::Number(self.read_int() as i32),
+                Type::UnsignedInt => OutputData::Number(self.read_int() as i32),
                 Type::Unknown(_) => todo!(),
-                Type::Class(name) => match &name {
-                    ClassType::NSString(version) => {
-                        format!(": {}", self.handle_ns_string(version, types_table))
+                Type::ObjectName(name) => match &name {
+                    Object::NSString(version) => {
+                        OutputData::String(self.handle_ns_string(&version))
                     }
-                    ClassType::NSDictionary(version) => {
-                        format!(": {}", self.handle_ns_dict(version, types_table))
+                    Object::NSDictionary(version) => {
+                        OutputData::String(self.handle_ns_dict(&version))
                     }
-                    other => {
-                        format!("{other:?} does not have parsing rules!")
-                    }
+                    other => OutputData::String(format!("{other:?} does not have parsing rules!")),
                 },
+                Type::String(s) => OutputData::String(s),
             };
-            out_s.push_str(&result);
+            out_v.push(res);
             continue;
         }
-        out_s
+        out_v
     }
 
     /// Attempt to get the data from the typed stream
-    fn parse(&mut self) -> Vec<String> {
+    fn parse(&mut self) -> Vec<Vec<OutputData>> {
         let mut out_v = vec![];
-        let mut types_table: Vec<Vec<Type>> = vec![];
 
         // Skip header
         // TODO: Parse it
@@ -412,7 +439,7 @@ impl<'a> StreamTypedReader<'a> {
                 println!("\nFound new encoding!");
                 self.idx += 1;
                 continue;
-            } else if self.get_current_byte() == OBJECT_END {
+            } else if self.get_current_byte() == END {
                 println!("End of object!");
                 self.idx += 1;
                 continue;
@@ -421,11 +448,12 @@ impl<'a> StreamTypedReader<'a> {
             println!("Parsed data: {:?}\n", out_v);
 
             // First, get the current type
-            let found_types = self.get_type(&mut types_table);
+            let found_types = self.get_type();
+            println!("Received types: {:?}", found_types);
 
-            let result = self.read_types(found_types, &mut types_table);
+            let result = self.read_types(found_types);
+            println!("Resultant type: {result:?}");
 
-            println!("Resultant type: {result}");
             out_v.push(result);
         }
 
@@ -441,7 +469,7 @@ mod tests {
     use std::io::Read;
     use std::vec;
 
-    use crate::util::attributed_string::StreamTypedReader;
+    use crate::util::attributed_string::TypedStreamReader;
 
     #[test]
     fn test_parse_text_mention() {
@@ -453,12 +481,34 @@ mod tests {
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
-        let mut parser = StreamTypedReader::new(&bytes);
+        let mut parser = TypedStreamReader::new(&bytes);
         println!("{parser:?}");
         let result = parser.parse();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("\n{item}"))
+        result.iter().for_each(|item| println!("\n{item:?}"))
+
+        // let expected = "Noter test".to_string();
+
+        // assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn test_parse_text_basic() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/streamtyped/AttributedBodyTextOnly");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::new(&bytes);
+        println!("{parser:?}");
+        let result = parser.parse();
+
+        println!("\n\nGot data!");
+        result.iter().for_each(|item| println!("\n{item:?}"))
 
         // let expected = "Noter test".to_string();
 
