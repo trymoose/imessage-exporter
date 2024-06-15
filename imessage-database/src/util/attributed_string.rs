@@ -49,6 +49,7 @@ enum OutputData {
 enum Archivable {
     Object(Object),
     Class(Class),
+    Types(Vec<Type>),
 }
 
 // TODO: Remove clone
@@ -173,6 +174,7 @@ impl<'a> TypedStreamReader<'a> {
 
     /// Read a reference pointer for a Type
     fn read_pointer(&mut self) -> u8 {
+        println!("pointer {:x}: {:x}", self.idx, self.get_current_byte());
         let result = self.get_current_byte() - REFERENCE_TAG;
         self.idx += 1;
         result
@@ -183,10 +185,16 @@ impl<'a> TypedStreamReader<'a> {
         match self.get_current_byte() {
             START => {
                 // Skip some header bytes
+                println!("class 1: {:x}: {:x}", self.idx, self.get_current_byte());
                 while self.get_current_byte() == START {
                     self.idx += 1;
                 }
                 let length = self.read_int();
+                println!("class 2: {:x}: {:x}", self.idx, self.get_current_byte());
+                if length >= REFERENCE_TAG {
+                    let index = length - REFERENCE_TAG;
+                    return self.object_table.get(index as usize);
+                }
                 let mut class_name = String::with_capacity(length as usize);
                 println!("Class name created with capacity {}", class_name.capacity());
                 self.read_exact_as_string(length as usize, &mut class_name);
@@ -289,6 +297,7 @@ impl<'a> TypedStreamReader<'a> {
     /// Parse custom NSDictionary data
     fn handle_ns_dict(&mut self, version: &u8) -> String {
         println!("Handling dict data!");
+        println!("dict 1: {:x}: {:x}", self.idx, self.get_current_byte());
         let mut out_s = String::new();
 
         // TODO: Use real errors
@@ -302,7 +311,10 @@ impl<'a> TypedStreamReader<'a> {
         if self.get_current_byte() == ENCODING_DETECTED {
             self.idx += 1;
         }
+
+        println!("dict 2 {:x}: {:x}", self.idx, self.get_current_byte());
         let length = self.get_type();
+        println!("length type: {length:?}");
         for detected_type in length {
             if let Type::UnsignedInt = detected_type {
                 dict_length = self.read_int();
@@ -323,11 +335,15 @@ impl<'a> TypedStreamReader<'a> {
             );
 
             // Read the key and value types
-            self.idx += 2; // TODO: Key types are repeated?
+            // TODO: Key types are repeated?
+            self.idx += 2;
             let key_types = self.get_type();
             let key_data = self.read_types(key_types);
             println!("Got key: {key_data:?}");
 
+            // TODO: Key types are repeated?
+            // TODO: Dict is off by one and parsing the double 98 98 as a string with length 0x98
+            self.idx += 1;
             let value_types = self.get_type();
             let value_data = self.read_types(value_types);
             println!("Got val: {value_data:?}");
@@ -352,6 +368,8 @@ impl<'a> TypedStreamReader<'a> {
                 self.idx += 1;
                 let object_types = self.read_type();
                 // types_table.push(object_types);
+                self.object_table
+                    .push(Archivable::Types(object_types.clone()));
                 self.string_table.push(object_types);
                 println!("Found objects: {:?}", self.object_table);
                 println!("Found types: {:?}", self.string_table);
@@ -385,6 +403,7 @@ impl<'a> TypedStreamReader<'a> {
                 }
                 Type::Object => {
                     println!("Reading object...");
+                    println!("{:x}: {:x}", self.idx, self.get_current_byte());
                     let object = self.read_object();
                     println!("Got object {object:?}");
                     if let Some(object) = object {
@@ -401,6 +420,10 @@ impl<'a> TypedStreamReader<'a> {
                                 )),
                             },
                             Archivable::Class(cls) => OutputData::String(cls.as_string()),
+                            Archivable::Types(other) => {
+                                out_v.extend(self.read_types(other));
+                                OutputData::None
+                            }
                         }
                     } else {
                         OutputData::None
