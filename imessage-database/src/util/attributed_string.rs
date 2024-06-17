@@ -112,7 +112,7 @@ impl Type {
 struct TypedStreamReader<'a> {
     stream: &'a [u8],
     idx: usize,
-    string_table: Vec<Vec<Type>>,
+    types_table: Vec<Vec<Type>>,
     object_table: Vec<Archivable>,
 }
 
@@ -121,7 +121,7 @@ impl<'a> TypedStreamReader<'a> {
         Self {
             stream,
             idx: 0,
-            string_table: vec![],
+            types_table: vec![],
             object_table: vec![],
         }
     }
@@ -129,7 +129,10 @@ impl<'a> TypedStreamReader<'a> {
     // TODO: Remove
     fn emit_objects_table(&self) {
         println!("Start objects table");
-        self.object_table.iter().enumerate().for_each(|(idx, obj)| println!("\t{idx}: {obj:?}"));
+        self.object_table
+            .iter()
+            .enumerate()
+            .for_each(|(idx, obj)| println!("\t{idx}: {obj:?}"));
         println!("End objects table");
     }
 
@@ -211,7 +214,7 @@ impl<'a> TypedStreamReader<'a> {
                 println!("{class_name} v{version}");
                 println!("{}: {:?}", self.idx, self.get_current_byte());
 
-                self.string_table
+                self.types_table
                     .push(vec![Type::new_string(class_name.clone())]);
 
                 self.object_table
@@ -268,7 +271,7 @@ impl<'a> TypedStreamReader<'a> {
     fn read_null_terminated_string(&mut self) -> String {
         let mut out_s = String::new();
         println!("{:x}", self.get_current_byte());
-        while self.get_current_byte() != 0x0000 {
+        while self.get_current_byte() != END {
             out_s.push(char::from_u32(self.get_current_byte() as u32).unwrap());
             self.idx += 1;
         }
@@ -288,10 +291,10 @@ impl<'a> TypedStreamReader<'a> {
                 }
                 self.idx += 1;
                 let object_types = self.read_type();
-                self.string_table.push(object_types);
-                println!("Found types: {:?}", self.string_table);
+                self.types_table.push(object_types);
+                println!("Found types: {:?}", self.types_table);
                 self.object_table.push(Archivable::Object);
-                self.string_table.last().unwrap().to_owned()
+                self.types_table.last().unwrap().to_owned()
             }
             END => {
                 println!("End of current object!");
@@ -304,7 +307,7 @@ impl<'a> TypedStreamReader<'a> {
                 }
 
                 let ref_tag = self.read_pointer();
-                let possible_types = self.string_table.get(ref_tag as usize).unwrap().clone();
+                let possible_types = self.types_table.get(ref_tag as usize).unwrap().clone();
                 println!("Got referenced type {ref_tag}: {possible_types:?}");
                 possible_types
             }
@@ -372,9 +375,11 @@ impl<'a> TypedStreamReader<'a> {
 
             out_v.push(result);
             self.emit_objects_table();
+            println!("Types table: {:?}", self.types_table);
         }
 
         self.emit_objects_table();
+        println!("Types table: {:?}", self.types_table);
         println!("Parsed data: {:?}\n", out_v);
         out_v
     }
@@ -417,6 +422,28 @@ mod tests {
             .unwrap()
             .as_path()
             .join("test_data/streamtyped/AttributedBodyTextOnly");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::new(&bytes);
+        println!("{parser:?}");
+        let result = parser.parse();
+
+        println!("\n\nGot data!");
+        result.iter().for_each(|item| println!("\n{item:?}"))
+
+        // let expected = "Noter test".to_string();
+
+        // assert_eq!(parsed, expected);
+    }
+
+    #[test]
+    fn test_parse_text_multi_part() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/streamtyped/Multipart");
         let mut file = File::open(plist_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
