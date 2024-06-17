@@ -41,15 +41,15 @@ impl Class {
 enum OutputData {
     String(String),
     Number(i32),
-    Dict(HashMap<String, String>),
+    Byte(u8),
+    Class(Class),
     None,
 }
 
 #[derive(Debug, Clone)]
 enum Archivable {
-    Object(Object),
+    Object,
     Class(Class),
-    Types(Vec<Type>),
 }
 
 // TODO: Remove clone
@@ -87,7 +87,6 @@ enum Type {
     Object,
     SignedInt,
     UnsignedInt,
-    ObjectName(Object),
     String(String),
     Unknown(u8),
 }
@@ -102,10 +101,6 @@ impl Type {
             0x0049 => Self::SignedInt,
             other => Self::Unknown(*other),
         }
-    }
-
-    fn new_class(class: Object) -> Self {
-        Self::ObjectName(class)
     }
 
     fn new_string(string: String) -> Self {
@@ -129,6 +124,18 @@ impl<'a> TypedStreamReader<'a> {
             string_table: vec![],
             object_table: vec![],
         }
+    }
+
+    // TODO: Remove
+    fn emit_objects_table(&self) {
+        println!("Start objects table");
+        self.object_table.iter().enumerate().for_each(|(idx, obj)| println!("\t{idx}: {obj:?}"));
+        println!("End objects table");
+    }
+
+    // TODO: Remove
+    fn print_loc(&self, name: &str) {
+        println!("{name}: {:x}: {:x}", self.idx, self.get_current_byte());
     }
 
     /// Read the current byte as a signed integer
@@ -174,7 +181,7 @@ impl<'a> TypedStreamReader<'a> {
 
     /// Read a reference pointer for a Type
     fn read_pointer(&mut self) -> u8 {
-        println!("pointer {:x}: {:x}", self.idx, self.get_current_byte());
+        self.print_loc("pointer");
         let result = self.get_current_byte() - REFERENCE_TAG;
         self.idx += 1;
         result
@@ -185,14 +192,15 @@ impl<'a> TypedStreamReader<'a> {
         match self.get_current_byte() {
             START => {
                 // Skip some header bytes
-                println!("class 1: {:x}: {:x}", self.idx, self.get_current_byte());
+                self.print_loc("class 1");
                 while self.get_current_byte() == START {
                     self.idx += 1;
                 }
                 let length = self.read_int();
-                println!("class 2: {:x}: {:x}", self.idx, self.get_current_byte());
+                self.print_loc("class 2");
                 if length >= REFERENCE_TAG {
                     let index = length - REFERENCE_TAG;
+                    println!("Getting referenced class name at {index}");
                     return self.object_table.get(index as usize);
                 }
                 let mut class_name = String::with_capacity(length as usize);
@@ -203,11 +211,11 @@ impl<'a> TypedStreamReader<'a> {
                 println!("{class_name} v{version}");
                 println!("{}: {:?}", self.idx, self.get_current_byte());
 
-                let found_class = Class::new(class_name, version);
-                let parsed_class = Object::from_class(&found_class);
                 self.string_table
-                    .push(vec![Type::new_class(parsed_class.clone())]);
-                self.object_table.push(Archivable::Object(parsed_class));
+                    .push(vec![Type::new_string(class_name.clone())]);
+
+                self.object_table
+                    .push(Archivable::Class(Class::new(class_name, version)));
 
                 self.read_class()?;
                 self.object_table.last()
@@ -218,6 +226,7 @@ impl<'a> TypedStreamReader<'a> {
             }
             _ => {
                 let index = self.read_pointer();
+                println!("Getting referenced class name at {index}");
                 self.object_table.get(index as usize)
             }
         }
@@ -230,10 +239,13 @@ impl<'a> TypedStreamReader<'a> {
                 if let Some(obj_class) = self.read_class() {
                     return Some(obj_class);
                 }
+                // TODO: Reference not getting read here for the second NSDict
+                println!("Failed to read class!");
                 None
             }
             EMPTY => {
                 self.idx += 1;
+                println!("Got empty object!");
                 None
             }
             _ => {
@@ -266,96 +278,6 @@ impl<'a> TypedStreamReader<'a> {
         out_s
     }
 
-    /// Parse custom NSString data
-    fn handle_ns_string(&mut self, version: &u8) -> String {
-        println!("Handling string data!");
-
-        // TODO: Use real errors
-        if version != &0x01 {
-            print!("Parse error: unsupported version!");
-            return String::new();
-        }
-
-        let mut out_s = String::new();
-        println!("Parsing encoded data!");
-        // TODO: recurse here, or something to parse the encoded data
-        let encodings = self.get_type();
-        for encoding in encodings {
-            if let Type::Utf8String = encoding {
-                let result = self.read_string();
-                println!("NSString Parsed {result} for {encoding:?}");
-                out_s.push_str(&result);
-            } else {
-                print!("Parse error: malformed encoded data type!");
-                return String::new();
-            }
-        }
-
-        out_s
-    }
-
-    /// Parse custom NSDictionary data
-    fn handle_ns_dict(&mut self, version: &u8) -> String {
-        println!("Handling dict data!");
-        println!("dict 1: {:x}: {:x}", self.idx, self.get_current_byte());
-        let mut out_s = String::new();
-
-        // TODO: Use real errors
-        if version != &0x00 {
-            print!("Parse error: unsupported version!");
-            return String::new();
-        }
-
-        // Read the size of the dict (the number of {key: val} pairs)
-        let mut dict_length: u8 = 0;
-        if self.get_current_byte() == ENCODING_DETECTED {
-            self.idx += 1;
-        }
-
-        println!("dict 2 {:x}: {:x}", self.idx, self.get_current_byte());
-        let length = self.get_type();
-        println!("length type: {length:?}");
-        for detected_type in length {
-            if let Type::UnsignedInt = detected_type {
-                dict_length = self.read_int();
-            }
-        }
-
-        println!("NSDict with {:?} items", dict_length);
-        // self.idx += 1; // Skip 0x92
-        // self.idx += 1; // Skip 0x84
-        println!("{:x}: {:x}", self.idx, self.get_current_byte());
-
-        for id in 0..dict_length {
-            // Read the key and value types
-            println!(
-                "Dict item {id} - {:x}: {:x}",
-                self.idx,
-                self.get_current_byte()
-            );
-
-            // Read the key and value types
-            // TODO: Key types are repeated?
-            self.idx += 2;
-            let key_types = self.get_type();
-            let key_data = self.read_types(key_types);
-            println!("Got key: {key_data:?}");
-
-            // TODO: Key types are repeated?
-            // TODO: Dict is off by one and parsing the double 98 98 as a string with length 0x98
-            self.idx += 1;
-            let value_types = self.get_type();
-            let value_data = self.read_types(value_types);
-            println!("Got val: {value_data:?}");
-
-            println!("{id}, {}", &format!("{key_data:?}: {value_data:?}"));
-
-            out_s.push_str(&format!("{key_data:?}: {value_data:?}"));
-        }
-
-        out_s
-    }
-
     fn get_type(&mut self) -> Vec<Type> {
         match self.get_current_byte() {
             START => {
@@ -364,15 +286,11 @@ impl<'a> TypedStreamReader<'a> {
                 while self.get_next_byte() == START {
                     self.idx += 1;
                 }
-
                 self.idx += 1;
                 let object_types = self.read_type();
-                // types_table.push(object_types);
-                self.object_table
-                    .push(Archivable::Types(object_types.clone()));
                 self.string_table.push(object_types);
-                println!("Found objects: {:?}", self.object_table);
                 println!("Found types: {:?}", self.string_table);
+                self.object_table.push(Archivable::Object);
                 self.string_table.last().unwrap().to_owned()
             }
             END => {
@@ -403,27 +321,15 @@ impl<'a> TypedStreamReader<'a> {
                 }
                 Type::Object => {
                     println!("Reading object...");
-                    println!("{:x}: {:x}", self.idx, self.get_current_byte());
+                    self.print_loc("reading type object at");
                     let object = self.read_object();
                     println!("Got object {object:?}");
                     if let Some(object) = object {
                         match object.clone() {
-                            Archivable::Object(obj) => match obj {
-                                Object::NSString(version) => {
-                                    OutputData::String(self.handle_ns_string(&version))
-                                }
-                                Object::NSDictionary(version) => {
-                                    OutputData::String(self.handle_ns_dict(&version))
-                                }
-                                other => OutputData::String(format!(
-                                    "{other:?} does not have parsing rules!"
-                                )),
-                            },
-                            Archivable::Class(cls) => OutputData::String(cls.as_string()),
-                            Archivable::Types(other) => {
-                                out_v.extend(self.read_types(other));
-                                OutputData::None
+                            Archivable::Object => {
+                                OutputData::String(format!("Custom obj {object:?}"))
                             }
+                            Archivable::Class(cls) => OutputData::Class(cls),
                         }
                     } else {
                         OutputData::None
@@ -431,16 +337,7 @@ impl<'a> TypedStreamReader<'a> {
                 }
                 Type::SignedInt => OutputData::Number(self.read_int() as i32),
                 Type::UnsignedInt => OutputData::Number(self.read_int() as i32),
-                Type::Unknown(_) => todo!(),
-                Type::ObjectName(name) => match &name {
-                    Object::NSString(version) => {
-                        OutputData::String(self.handle_ns_string(&version))
-                    }
-                    Object::NSDictionary(version) => {
-                        OutputData::String(self.handle_ns_dict(&version))
-                    }
-                    other => OutputData::String(format!("{other:?} does not have parsing rules!")),
-                },
+                Type::Unknown(byte) => OutputData::Byte(byte),
                 Type::String(s) => OutputData::String(s),
             };
             out_v.push(res);
@@ -458,11 +355,7 @@ impl<'a> TypedStreamReader<'a> {
         self.idx += 16;
 
         while self.idx < self.stream.len() {
-            if self.get_current_byte() == ENCODING_DETECTED {
-                println!("\nFound new encoding!");
-                self.idx += 1;
-                continue;
-            } else if self.get_current_byte() == END {
+            if self.get_current_byte() == END {
                 println!("End of object!");
                 self.idx += 1;
                 continue;
@@ -478,8 +371,10 @@ impl<'a> TypedStreamReader<'a> {
             println!("Resultant type: {result:?}");
 
             out_v.push(result);
+            self.emit_objects_table();
         }
 
+        self.emit_objects_table();
         println!("Parsed data: {:?}\n", out_v);
         out_v
     }
