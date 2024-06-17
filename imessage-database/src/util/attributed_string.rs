@@ -4,8 +4,6 @@
  Derived from `typedstream` source located [here](https://opensource.apple.com/source/gcc/gcc-1493/libobjc/objc/typedstream.h.auto.html) and [here](https://sourceforge.net/projects/aapl-darwin/files/Darwin-0.1/objc-1.tar.gz/download)
 */
 
-use std::{char, collections::HashMap, usize, vec};
-
 /// Indicates the start of a new object
 const START: u8 = 0x0084;
 /// No data to parse, possibly end of an inheritance chain
@@ -43,6 +41,7 @@ enum OutputData {
     Number(i32),
     Byte(u8),
     Class(Class),
+    NewObject,
     None,
 }
 
@@ -83,7 +82,7 @@ impl Object {
 #[derive(Debug, Clone)]
 enum Type {
     Utf8String,
-    NullTerminatedString,
+    EmbeddedData,
     Object,
     SignedInt,
     UnsignedInt,
@@ -96,7 +95,7 @@ impl Type {
         match byte {
             0x0040 => Self::Object,
             0x002B => Self::Utf8String,
-            0x002A => Self::NullTerminatedString,
+            0x002A => Self::EmbeddedData,
             0x0069 => Self::UnsignedInt,
             0x0049 => Self::SignedInt,
             other => Self::Unknown(*other),
@@ -225,7 +224,9 @@ impl<'a> TypedStreamReader<'a> {
             }
             EMPTY => {
                 self.idx += 1;
-                None
+                println!("End of class chain!");
+                self.object_table.last()
+                // None
             }
             _ => {
                 let index = self.read_pointer();
@@ -268,17 +269,11 @@ impl<'a> TypedStreamReader<'a> {
         string
     }
 
-    fn read_null_terminated_string(&mut self) -> String {
-        let mut out_s = String::new();
-        println!("{:x}", self.get_current_byte());
-        while self.get_current_byte() != END {
-            out_s.push(char::from_u32(self.get_current_byte() as u32).unwrap());
-            self.idx += 1;
-        }
-        // Skip the null byte at the end
+    fn read_embedded_data(&mut self) -> Vec<OutputData> {
+        // Skip the 0x84
         self.idx += 1;
-
-        out_s
+        let parsed_type = self.get_type();
+        self.read_types(parsed_type)
     }
 
     fn get_type(&mut self) -> Vec<Type> {
@@ -317,33 +312,28 @@ impl<'a> TypedStreamReader<'a> {
     fn read_types(&mut self, found_types: Vec<Type>) -> Vec<OutputData> {
         let mut out_v = vec![];
         for object_type in found_types {
-            let res = match object_type {
-                Type::Utf8String => OutputData::String(self.read_string()),
-                Type::NullTerminatedString => {
-                    OutputData::String(self.read_null_terminated_string())
-                }
+            match object_type {
+                Type::Utf8String => out_v.push(OutputData::String(self.read_string())),
+                Type::EmbeddedData => out_v.extend(self.read_embedded_data()),
                 Type::Object => {
                     println!("Reading object...");
-                    self.print_loc("reading type object at");
+                    self.print_loc("reading object at");
                     let object = self.read_object();
                     println!("Got object {object:?}");
                     if let Some(object) = object {
                         match object.clone() {
-                            Archivable::Object => {
-                                OutputData::String(format!("Custom obj {object:?}"))
-                            }
-                            Archivable::Class(cls) => OutputData::Class(cls),
+                            Archivable::Object => out_v.push(OutputData::NewObject),
+                            Archivable::Class(cls) => out_v.push(OutputData::Class(cls)),
                         }
                     } else {
-                        OutputData::None
+                        out_v.push(OutputData::None)
                     }
                 }
-                Type::SignedInt => OutputData::Number(self.read_int() as i32),
-                Type::UnsignedInt => OutputData::Number(self.read_int() as i32),
-                Type::Unknown(byte) => OutputData::Byte(byte),
-                Type::String(s) => OutputData::String(s),
+                Type::SignedInt => out_v.push(OutputData::Number(self.read_int() as i32)),
+                Type::UnsignedInt => out_v.push(OutputData::Number(self.read_int() as i32)),
+                Type::Unknown(byte) => out_v.push(OutputData::Byte(byte)),
+                Type::String(s) => out_v.push(OutputData::String(s)),
             };
-            out_v.push(res);
             continue;
         }
         out_v
