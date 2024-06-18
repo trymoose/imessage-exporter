@@ -14,7 +14,6 @@ const END: u8 = 0x0086;
 /// Type encoding data
 const ENCODING_DETECTED: u8 = 0x0095;
 
-// TODO: What are tags?
 /// When scanning for objects, bytes >= reference tag indicate an index in the table of
 /// already-seen types
 const REFERENCE_TAG: u8 = 0x0092;
@@ -35,47 +34,22 @@ impl Class {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 enum OutputData {
     String(String),
     Number(i32),
     Byte(u8),
     Class(Class),
     NewObject,
+    Reference(u8),
+    Placeholder,
     None,
 }
 
 #[derive(Debug, Clone)]
 enum Archivable {
-    Object,
+    Object(Vec<OutputData>),
     Class(Class),
-}
-
-// TODO: Remove clone
-#[derive(Debug, Clone)]
-enum Object {
-    NSMutableAttributedString(u8),
-    NSAttributedString(u8),
-    NSObject(u8),
-    NSMutableString(u8),
-    NSString(u8),
-    NSDictionary(u8),
-    Unknown(String),
-}
-
-impl Object {
-    fn from_class(class: &Class) -> Self {
-        match class.name.as_str() {
-            "NSMutableAttributedString" => Self::NSMutableAttributedString(class.version),
-            "NSAttributedString" => Self::NSAttributedString(class.version),
-            "NSObject" => Self::NSObject(class.version),
-            "NSMutableString" => Self::NSMutableString(class.version),
-            "NSString" => Self::NSString(class.version),
-            "NSDictionary" => Self::NSDictionary(class.version),
-            // TODO: Remove copy
-            _ => Self::Unknown(class.name.to_owned()),
-        }
-    }
 }
 
 // TODO: Remove clone
@@ -127,6 +101,12 @@ impl<'a> TypedStreamReader<'a> {
 
     // TODO: Remove
     fn emit_objects_table(&self) {
+        println!("Start types table");
+        self.types_table
+            .iter()
+            .enumerate()
+            .for_each(|(idx, types)| println!("\t{idx}: {types:?}"));
+        println!("End types table");
         println!("Start objects table");
         self.object_table
             .iter()
@@ -198,11 +178,13 @@ impl<'a> TypedStreamReader<'a> {
                 while self.get_current_byte() == START {
                     self.idx += 1;
                 }
-                let length = self.read_int();
                 self.print_loc("class 2");
+                let length = self.read_int();
                 if length >= REFERENCE_TAG {
                     let index = length - REFERENCE_TAG;
-                    println!("Getting referenced class name at {index}");
+                    // TODO: this is a reference to a string, we should build a class with that name
+                    // Or store the class as the Type
+                    println!("Getting referenced class at {index}");
                     return self.object_table.get(index as usize);
                 }
                 let mut class_name = String::with_capacity(length as usize);
@@ -226,11 +208,15 @@ impl<'a> TypedStreamReader<'a> {
                 self.idx += 1;
                 println!("End of class chain!");
                 self.object_table.last()
-                // None
+            }
+            ENCODING_DETECTED => {
+                let embedded_data = self.read_embedded_data();
+                self.object_table.push(Archivable::Object(embedded_data));
+                self.object_table.last()
             }
             _ => {
                 let index = self.read_pointer();
-                println!("Getting referenced class name at {index}");
+                println!("Getting referenced object at {index}");
                 self.object_table.get(index as usize)
             }
         }
@@ -243,7 +229,6 @@ impl<'a> TypedStreamReader<'a> {
                 if let Some(obj_class) = self.read_class() {
                     return Some(obj_class);
                 }
-                // TODO: Reference not getting read here for the second NSDict
                 println!("Failed to read class!");
                 None
             }
@@ -281,17 +266,14 @@ impl<'a> TypedStreamReader<'a> {
             START => {
                 println!("New type found!");
                 // Ignore repeated types, for example in a dict
-                while self.get_next_byte() == START {
-                    self.idx += 1;
-                }
                 self.idx += 1;
                 let object_types = self.read_type();
                 self.types_table.push(object_types);
                 println!("Found types: {:?}", self.types_table);
-                self.object_table.push(Archivable::Object);
                 self.types_table.last().unwrap().to_owned()
             }
             END => {
+                // TODO: This doesn't make any sense, we should have a Result<> or Option<> here
                 println!("End of current object!");
                 vec![]
             }
@@ -311,6 +293,9 @@ impl<'a> TypedStreamReader<'a> {
 
     fn read_types(&mut self, found_types: Vec<Type>) -> Vec<OutputData> {
         let mut out_v = vec![];
+        // Objects reserve their place in the table when they begin in the stream, not where there data is
+        // Which may be buried under an inheritance chain
+        // let mut placeholder: Option<usize> = None;
         for object_type in found_types {
             match object_type {
                 Type::Utf8String => out_v.push(OutputData::String(self.read_string())),
@@ -322,7 +307,7 @@ impl<'a> TypedStreamReader<'a> {
                     println!("Got object {object:?}");
                     if let Some(object) = object {
                         match object.clone() {
-                            Archivable::Object => out_v.push(OutputData::NewObject),
+                            Archivable::Object(data) => out_v.extend(data),
                             Archivable::Class(cls) => out_v.push(OutputData::Class(cls)),
                         }
                     } else {
@@ -336,6 +321,10 @@ impl<'a> TypedStreamReader<'a> {
             };
             continue;
         }
+        // if let Some(place) = placeholder {
+        //     println!("Inserting {out_v:?} to object table at {place}");
+        //     self.object_table[place] = Archivable::Object(out_v.clone())
+        // }
         out_v
     }
 
@@ -382,7 +371,7 @@ mod tests {
     use std::io::Read;
     use std::vec;
 
-    use crate::util::attributed_string::TypedStreamReader;
+    use crate::util::attributed_string::{Archivable, Class, TypedStreamReader};
 
     #[test]
     fn test_parse_text_mention() {
@@ -395,6 +384,45 @@ mod tests {
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::new(&bytes);
+        // parser.object_table = vec![
+        //     Archivable::Object,
+        //     Archivable::Class(Class {
+        //         name: "NSMutableAttributedString".to_string(),
+        //         version: 0,
+        //     }),
+        //     Archivable::Class(Class {
+        //         name: "NSAttributedString".to_string(),
+        //         version: 0,
+        //     }),
+        //     Archivable::Class(Class {
+        //         name: "NSObject".to_string(),
+        //         version: 0,
+        //     }),
+        //     Archivable::Object, // body text
+        //     Archivable::Class(Class {
+        //         name: "NSMutableString".to_string(),
+        //         version: 1,
+        //     }),
+        //     Archivable::Class(Class {
+        //         name: "NSString".to_string(),
+        //         version: 1,
+        //     }),
+        //     Archivable::Object, // key name
+        //     Archivable::Class(Class {
+        //         name: "NSDictionary".to_string(),
+        //         version: 0,
+        //     }),
+        //     Archivable::Object, // value data
+        //     Archivable::Object, // unknown
+        //     Archivable::Class(Class {
+        //         name: "NSNumber".to_string(),
+        //         version: 0,
+        //     }),
+        //     Archivable::Class(Class {
+        //         name: "NSValue".to_string(),
+        //         version: 0,
+        //     }),
+        // ];
         println!("{parser:?}");
         let result = parser.parse();
 
@@ -417,6 +445,45 @@ mod tests {
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::new(&bytes);
+        // parser.object_table = vec![
+        //     Archivable::Object,
+        //     Archivable::Class(Class {
+        //         name: "NSMutableAttributedString".to_string(),
+        //         version: 0,
+        //     }),
+        //     Archivable::Class(Class {
+        //         name: "NSAttributedString".to_string(),
+        //         version: 0,
+        //     }),
+        //     Archivable::Class(Class {
+        //         name: "NSObject".to_string(),
+        //         version: 0,
+        //     }),
+        //     Archivable::Object, // body text
+        //     Archivable::Class(Class {
+        //         name: "NSMutableString".to_string(),
+        //         version: 1,
+        //     }),
+        //     Archivable::Class(Class {
+        //         name: "NSString".to_string(),
+        //         version: 1,
+        //     }),
+        //     Archivable::Object, // key name
+        //     Archivable::Class(Class {
+        //         name: "NSDictionary".to_string(),
+        //         version: 0,
+        //     }),
+        //     Archivable::Object, // value data
+        //     Archivable::Object, // unknown
+        //     Archivable::Class(Class {
+        //         name: "NSNumber".to_string(),
+        //         version: 0,
+        //     }),
+        //     Archivable::Class(Class {
+        //         name: "NSValue".to_string(),
+        //         version: 0,
+        //     }),
+        // ];
         println!("{parser:?}");
         let result = parser.parse();
 
