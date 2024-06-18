@@ -367,6 +367,8 @@ impl<'a> TypedStreamReader<'a> {
                     if !class.embedded_data {
                         self.placeholder = None;
                     }
+                } else {
+                    self.placeholder = None;
                 }
                 // self.object_table.push(Archivable::Object(out_v.clone()));
             }
