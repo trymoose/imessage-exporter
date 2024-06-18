@@ -4,6 +4,8 @@
  Derived from `typedstream` source located [here](https://opensource.apple.com/source/gcc/gcc-1493/libobjc/objc/typedstream.h.auto.html) and [here](https://sourceforge.net/projects/aapl-darwin/files/Darwin-0.1/objc-1.tar.gz/download)
 */
 
+use std::{sync::Arc, vec};
+
 /// Indicates the start of a new object
 const START: u8 = 0x0084;
 /// No data to parse, possibly end of an inheritance chain
@@ -22,11 +24,16 @@ const REFERENCE_TAG: u8 = 0x0092;
 struct Class {
     name: String,
     version: u8,
+    embedded_data: bool,
 }
 
 impl Class {
-    fn new(name: String, version: u8) -> Self {
-        Self { name, version }
+    fn new(name: String, version: u8, embedded_data: bool) -> Self {
+        Self {
+            name,
+            version,
+            embedded_data,
+        }
     }
 
     fn as_string(&self) -> String {
@@ -64,6 +71,12 @@ enum Type {
     Unknown(u8),
 }
 
+#[derive(Debug)]
+enum ClassResult {
+    Index(u8),
+    ClassHierarchy(Vec<Archivable>),
+}
+
 impl Type {
     fn from_byte(byte: &u8) -> Self {
         match byte {
@@ -87,6 +100,9 @@ struct TypedStreamReader<'a> {
     idx: usize,
     types_table: Vec<Vec<Type>>,
     object_table: Vec<Archivable>,
+    /// Objects reserve their place in the table when they begin in the stream, not where there data is
+    /// Which may be buried under an inheritance chain
+    placeholder: Option<usize>,
 }
 
 impl<'a> TypedStreamReader<'a> {
@@ -96,6 +112,7 @@ impl<'a> TypedStreamReader<'a> {
             idx: 0,
             types_table: vec![],
             object_table: vec![],
+            placeholder: None,
         }
     }
 
@@ -170,7 +187,8 @@ impl<'a> TypedStreamReader<'a> {
     }
 
     /// Read a class
-    fn read_class(&mut self) -> Option<&Archivable> {
+    fn read_class(&mut self) -> ClassResult {
+        let mut out_v: Vec<Archivable> = vec![];
         match self.get_current_byte() {
             START => {
                 // Skip some header bytes
@@ -180,13 +198,16 @@ impl<'a> TypedStreamReader<'a> {
                 }
                 self.print_loc("class 2");
                 let length = self.read_int();
+
+                // TODO: this adds a new item to the object table, but it shouldn't
                 if length >= REFERENCE_TAG {
                     let index = length - REFERENCE_TAG;
                     // TODO: this is a reference to a string, we should build a class with that name
                     // Or store the class as the Type
                     println!("Getting referenced class at {index}");
-                    return self.object_table.get(index as usize);
+                    return ClassResult::Index(index);
                 }
+
                 let mut class_name = String::with_capacity(length as usize);
                 println!("Class name created with capacity {}", class_name.capacity());
                 self.read_exact_as_string(length as usize, &mut class_name);
@@ -198,38 +219,52 @@ impl<'a> TypedStreamReader<'a> {
                 self.types_table
                     .push(vec![Type::new_string(class_name.clone())]);
 
-                self.object_table
-                    .push(Archivable::Class(Class::new(class_name, version)));
+                out_v.push(Archivable::Class(Class::new(
+                    class_name,
+                    version,
+                    self.get_current_byte() == ENCODING_DETECTED,
+                )));
 
-                self.read_class()?;
-                self.object_table.last()
+                if let ClassResult::ClassHierarchy(parent) = self.read_class() {
+                    out_v.extend(parent);
+                }
             }
             EMPTY => {
                 self.idx += 1;
                 println!("End of class chain!");
-                self.object_table.last()
+                // self.object_table.last()
             }
             ENCODING_DETECTED => {
-                let embedded_data = self.read_embedded_data();
-                self.object_table.push(Archivable::Object(embedded_data));
-                self.object_table.last()
+                // let embedded_data = self.read_embedded_data();
+                // self.object_table.push(Archivable::Object(embedded_data));
+                self.idx += 1;
+                println!("Encoded data up next!");
+                // self.object_table.last()
             }
             _ => {
                 let index = self.read_pointer();
                 println!("Getting referenced object at {index}");
-                self.object_table.get(index as usize)
+                return ClassResult::Index(index);
             }
         }
+
+        ClassResult::ClassHierarchy(out_v)
     }
 
     /// read an object
     fn read_object(&mut self) -> Option<&Archivable> {
         match self.get_current_byte() {
             START => {
-                if let Some(obj_class) = self.read_class() {
-                    return Some(obj_class);
+                match self.read_class() {
+                    ClassResult::Index(idx) => {
+                        return self.object_table.get(idx as usize);
+                    }
+                    ClassResult::ClassHierarchy(classes) => {
+                        for class in classes.iter() {
+                            self.object_table.push(class.clone())
+                        }
+                    }
                 }
-                println!("Failed to read class!");
                 None
             }
             EMPTY => {
@@ -269,6 +304,7 @@ impl<'a> TypedStreamReader<'a> {
                 self.idx += 1;
                 let object_types = self.read_type();
                 self.types_table.push(object_types);
+                // self.object_table.push(Archivable::Object(vec![OutputData::NewObject]));
                 println!("Found types: {:?}", self.types_table);
                 self.types_table.last().unwrap().to_owned()
             }
@@ -293,14 +329,16 @@ impl<'a> TypedStreamReader<'a> {
 
     fn read_types(&mut self, found_types: Vec<Type>) -> Vec<OutputData> {
         let mut out_v = vec![];
-        // Objects reserve their place in the table when they begin in the stream, not where there data is
-        // Which may be buried under an inheritance chain
-        // let mut placeholder: Option<usize> = None;
+
         for object_type in found_types {
             match object_type {
                 Type::Utf8String => out_v.push(OutputData::String(self.read_string())),
                 Type::EmbeddedData => out_v.extend(self.read_embedded_data()),
                 Type::Object => {
+                    self.placeholder = Some(self.object_table.len());
+                    println!("Adding placeholder at {:?}", self.placeholder);
+                    self.object_table
+                        .push(Archivable::Object(vec![OutputData::Placeholder]));
                     println!("Reading object...");
                     self.print_loc("reading object at");
                     let object = self.read_object();
@@ -310,8 +348,6 @@ impl<'a> TypedStreamReader<'a> {
                             Archivable::Object(data) => out_v.extend(data),
                             Archivable::Class(cls) => out_v.push(OutputData::Class(cls)),
                         }
-                    } else {
-                        out_v.push(OutputData::None)
                     }
                 }
                 Type::SignedInt => out_v.push(OutputData::Number(self.read_int() as i32)),
@@ -321,10 +357,20 @@ impl<'a> TypedStreamReader<'a> {
             };
             continue;
         }
-        // if let Some(place) = placeholder {
-        //     println!("Inserting {out_v:?} to object table at {place}");
-        //     self.object_table[place] = Archivable::Object(out_v.clone())
-        // }
+        if let Some(spot) = self.placeholder {
+            if !out_v.is_empty() {
+                println!("Inserting {out_v:?} to object table at {spot}");
+                self.object_table[spot] = Archivable::Object(out_v.clone());
+                if let Some(OutputData::Class(class)) = out_v.last() {
+                    // TODO: This works, except for NSDict becuase it replaces the dict with the count of items
+                    // we may need custom parsers here for some known types like dict, string, number
+                    if !class.embedded_data {
+                        self.placeholder = None;
+                    }
+                }
+                // self.object_table.push(Archivable::Object(out_v.clone()));
+            }
+        }
         out_v
     }
 
@@ -384,45 +430,6 @@ mod tests {
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::new(&bytes);
-        // parser.object_table = vec![
-        //     Archivable::Object,
-        //     Archivable::Class(Class {
-        //         name: "NSMutableAttributedString".to_string(),
-        //         version: 0,
-        //     }),
-        //     Archivable::Class(Class {
-        //         name: "NSAttributedString".to_string(),
-        //         version: 0,
-        //     }),
-        //     Archivable::Class(Class {
-        //         name: "NSObject".to_string(),
-        //         version: 0,
-        //     }),
-        //     Archivable::Object, // body text
-        //     Archivable::Class(Class {
-        //         name: "NSMutableString".to_string(),
-        //         version: 1,
-        //     }),
-        //     Archivable::Class(Class {
-        //         name: "NSString".to_string(),
-        //         version: 1,
-        //     }),
-        //     Archivable::Object, // key name
-        //     Archivable::Class(Class {
-        //         name: "NSDictionary".to_string(),
-        //         version: 0,
-        //     }),
-        //     Archivable::Object, // value data
-        //     Archivable::Object, // unknown
-        //     Archivable::Class(Class {
-        //         name: "NSNumber".to_string(),
-        //         version: 0,
-        //     }),
-        //     Archivable::Class(Class {
-        //         name: "NSValue".to_string(),
-        //         version: 0,
-        //     }),
-        // ];
         println!("{parser:?}");
         let result = parser.parse();
 
@@ -445,45 +452,6 @@ mod tests {
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::new(&bytes);
-        // parser.object_table = vec![
-        //     Archivable::Object,
-        //     Archivable::Class(Class {
-        //         name: "NSMutableAttributedString".to_string(),
-        //         version: 0,
-        //     }),
-        //     Archivable::Class(Class {
-        //         name: "NSAttributedString".to_string(),
-        //         version: 0,
-        //     }),
-        //     Archivable::Class(Class {
-        //         name: "NSObject".to_string(),
-        //         version: 0,
-        //     }),
-        //     Archivable::Object, // body text
-        //     Archivable::Class(Class {
-        //         name: "NSMutableString".to_string(),
-        //         version: 1,
-        //     }),
-        //     Archivable::Class(Class {
-        //         name: "NSString".to_string(),
-        //         version: 1,
-        //     }),
-        //     Archivable::Object, // key name
-        //     Archivable::Class(Class {
-        //         name: "NSDictionary".to_string(),
-        //         version: 0,
-        //     }),
-        //     Archivable::Object, // value data
-        //     Archivable::Object, // unknown
-        //     Archivable::Class(Class {
-        //         name: "NSNumber".to_string(),
-        //         version: 0,
-        //     }),
-        //     Archivable::Class(Class {
-        //         name: "NSValue".to_string(),
-        //         version: 0,
-        //     }),
-        // ];
         println!("{parser:?}");
         let result = parser.parse();
 
