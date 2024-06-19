@@ -241,4 +241,25 @@ mod tests {
         let expected_item = None;
         assert_eq!(parsed.item_at(0), expected_item);
     }
+
+    #[test]
+    fn test_parse_multipart_deleted() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/edited_message/MutliPartOneDeleted.plist");
+        let plist_data = File::open(plist_path).unwrap();
+        let plist = Value::from_reader(plist_data).unwrap();
+        println!("{:?}", plist);
+        let parsed = EditedMessage::from_map(&plist).unwrap();
+
+        let expected = EditedMessage { events: vec![] };
+
+        assert_eq!(parsed, expected);
+        assert!(parsed.is_deleted());
+        assert_eq!(parsed.items(), 0);
+
+        let expected_item = None;
+        assert_eq!(parsed.item_at(0), expected_item);
+    }
 }
