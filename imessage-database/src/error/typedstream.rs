@@ -6,18 +6,18 @@ use std::fmt::{Display, Formatter, Result};
 
 /// Errors that can happen when parsing `typedstream` data
 #[derive(Debug)]
-pub enum StreamTypedError {
-    OutOfBounds(u8, u8),
+pub enum TypedStreamError {
+    OutOfBounds(usize, usize),
     InvalidHeader,
 }
 
-impl Display for StreamTypedError {
+impl Display for TypedStreamError {
     fn fmt(&self, fmt: &mut Formatter<'_>) -> Result {
         match self {
-            StreamTypedError::OutOfBounds(idx, len) => {
+            TypedStreamError::OutOfBounds(idx, len) => {
                 write!(fmt, "Index {idx:x} is outside of range {len:x}!")
             }
-            StreamTypedError::InvalidHeader => write!(fmt, "Invalid typedstream header!"),
+            TypedStreamError::InvalidHeader => write!(fmt, "Invalid typedstream header!"),
         }
     }
 }

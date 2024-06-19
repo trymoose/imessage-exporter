@@ -4,6 +4,8 @@
  Derived from `typedstream` source located [here](https://opensource.apple.com/source/gcc/gcc-1493/libobjc/objc/typedstream.h.auto.html), [here](https://opensource.apple.com/source/gcc/gcc-5484/libobjc/archive.c.auto.html), and [here](https://sourceforge.net/projects/aapl-darwin/files/Darwin-0.1/objc-1.tar.gz/download)
 */
 
+use crate::error::typedstream::TypedStreamError;
+
 /// Indicates the start of a new object
 const START: u8 = 0x0084;
 /// No data to parse, possibly end of an inheritance chain
@@ -133,14 +135,18 @@ impl<'a> TypedStreamReader<'a> {
 
     // TODO: Remove
     fn print_loc(&self, name: &str) {
-        println!("{name}: {:x}: {:x}", self.idx, self.get_current_byte());
+        println!(
+            "{name}: {:x}: {:x}",
+            self.idx,
+            self.get_current_byte().unwrap()
+        );
     }
 
     /// Read the current byte as a signed integer
-    fn read_int(&mut self) -> u8 {
-        let value = u8::from_le_bytes([self.get_current_byte()]);
+    fn read_int(&mut self) -> Result<u8, TypedStreamError> {
+        let value = u8::from_le_bytes([self.get_current_byte()?]);
         self.idx += 1;
-        value
+        Ok(value)
     }
 
     /// Read exactly `n` bytes from the stream
@@ -151,52 +157,61 @@ impl<'a> TypedStreamReader<'a> {
     }
 
     /// Read `n` bytes as a String
+    /// TODO: Result<(), TypedStreamError>
     fn read_exact_as_string(&mut self, n: usize, string: &mut String) {
         let str = std::str::from_utf8(self.read_exact_bytes(n)).unwrap();
         string.push_str(str);
     }
 
+    fn get_byte(&self, byte_idx: usize) -> Result<u8, TypedStreamError> {
+        if byte_idx < self.stream.len() {
+            return Ok(self.stream[byte_idx]);
+        }
+        return Err(TypedStreamError::OutOfBounds(byte_idx, self.stream.len()));
+    }
+
     /// Read the current byte
-    fn get_current_byte(&self) -> u8 {
-        self.stream[self.idx]
+    fn get_current_byte(&self) -> Result<u8, TypedStreamError> {
+        self.get_byte(self.idx)
     }
 
     /// Read the next byte
     // TODO: Bounds check
-    fn get_next_byte(&self) -> u8 {
-        self.stream[self.idx + 1]
+    fn get_next_byte(&self) -> Result<u8, TypedStreamError> {
+        self.get_byte(self.idx + 1)
     }
 
     /// Determine the current types
-    fn read_type(&mut self) -> Vec<Type> {
+    fn read_type(&mut self) -> Result<Vec<Type>, TypedStreamError> {
         let length = self.read_int();
-        println!("type length: {length}");
-        self.read_exact_bytes(length as usize)
+        println!("type length: {length:?}");
+        Ok(self
+            .read_exact_bytes(length? as usize)
             .iter()
             .map(Type::from_byte)
-            .collect()
+            .collect())
     }
 
     /// Read a reference pointer for a Type
-    fn read_pointer(&mut self) -> u8 {
+    fn read_pointer(&mut self) -> Result<u8, TypedStreamError> {
         self.print_loc("pointer");
-        let result = self.get_current_byte() - REFERENCE_TAG;
+        let result = self.get_current_byte()? - REFERENCE_TAG;
         self.idx += 1;
-        result
+        Ok(result)
     }
 
     /// Read a class
-    fn read_class(&mut self) -> ClassResult {
+    fn read_class(&mut self) -> Result<ClassResult, TypedStreamError> {
         let mut out_v: Vec<Archivable> = vec![];
-        match self.get_current_byte() {
+        match self.get_current_byte()? {
             START => {
                 // Skip some header bytes
                 self.print_loc("class 1");
-                while self.get_current_byte() == START {
+                while self.get_current_byte()? == START {
                     self.idx += 1;
                 }
                 self.print_loc("class 2");
-                let length = self.read_int();
+                let length = self.read_int()?;
 
                 // TODO: this adds a new item to the object table, but it shouldn't
                 if length >= REFERENCE_TAG {
@@ -204,14 +219,14 @@ impl<'a> TypedStreamReader<'a> {
                     // TODO: this is a reference to a string, we should build a class with that name
                     // Or store the class as the Type
                     println!("Getting referenced class at {index}");
-                    return ClassResult::Index(index);
+                    return Ok(ClassResult::Index(index));
                 }
 
                 let mut class_name = String::with_capacity(length as usize);
                 println!("Class name created with capacity {}", class_name.capacity());
                 self.read_exact_as_string(length as usize, &mut class_name);
 
-                let version = self.read_int();
+                let version = self.read_int()?;
                 println!("{class_name} v{version}");
                 println!("{}: {:?}", self.idx, self.get_current_byte());
 
@@ -221,10 +236,10 @@ impl<'a> TypedStreamReader<'a> {
                 out_v.push(Archivable::Class(Class::new(
                     class_name,
                     version,
-                    self.get_current_byte() == ENCODING_DETECTED,
+                    self.get_current_byte()? == ENCODING_DETECTED,
                 )));
 
-                if let ClassResult::ClassHierarchy(parent) = self.read_class() {
+                if let ClassResult::ClassHierarchy(parent) = self.read_class()? {
                     out_v.extend(parent);
                 }
             }
@@ -237,21 +252,21 @@ impl<'a> TypedStreamReader<'a> {
                 println!("Encoded data up next!");
             }
             _ => {
-                let index = self.read_pointer();
+                let index = self.read_pointer()?;
                 println!("Getting referenced object at {index}");
-                return ClassResult::Index(index);
+                return Ok(ClassResult::Index(index));
             }
         }
-        ClassResult::ClassHierarchy(out_v)
+        Ok(ClassResult::ClassHierarchy(out_v))
     }
 
     /// read an object
-    fn read_object(&mut self) -> Option<&Archivable> {
-        match self.get_current_byte() {
+    fn read_object(&mut self) -> Result<Option<&Archivable>, TypedStreamError> {
+        match self.get_current_byte()? {
             START => {
-                match self.read_class() {
+                match self.read_class()? {
                     ClassResult::Index(idx) => {
-                        return self.object_table.get(idx as usize);
+                        return Ok(self.object_table.get(idx as usize));
                     }
                     ClassResult::ClassHierarchy(classes) => {
                         for class in classes.iter() {
@@ -259,76 +274,80 @@ impl<'a> TypedStreamReader<'a> {
                         }
                     }
                 }
-                None
+                Ok(None)
             }
             EMPTY => {
                 self.idx += 1;
                 println!("Got empty object!");
-                None
+                Ok(None)
             }
             _ => {
-                let index = self.read_pointer();
-                self.object_table.get(index as usize)
+                let index = self.read_pointer()?;
+                Ok(self.object_table.get(index as usize))
             }
         }
     }
 
     /// Read String data
-    fn read_string(&mut self) -> String {
-        let length = self.read_int();
+    fn read_string(&mut self) -> Result<String, TypedStreamError> {
+        let length = self.read_int()?;
         let mut string = String::with_capacity(length as usize);
         println!("String created with capacity {}", string.capacity());
         self.read_exact_as_string(length as usize, &mut string);
 
-        string
+        Ok(string)
     }
 
     /// [Archivable] data can be embedded on a class or in a C String
-    fn read_embedded_data(&mut self) -> Option<Archivable> {
+    fn read_embedded_data(&mut self) -> Result<Option<Archivable>, TypedStreamError> {
         // Skip the 0x84
         self.idx += 1;
-        let parsed_type = self.get_type();
-        self.read_types(parsed_type?)
+        match self.get_type()? {
+            Some(types) => self.read_types(types),
+            None => Ok(None),
+        }
     }
 
-    fn get_type(&mut self) -> Option<Vec<Type>> {
-        match self.get_current_byte() {
+    fn get_type(&mut self) -> Result<Option<Vec<Type>>, TypedStreamError> {
+        match self.get_current_byte()? {
             START => {
                 println!("New type found!");
                 // Ignore repeated types, for example in a dict
                 self.idx += 1;
-                let object_types = self.read_type();
+                let object_types = self.read_type()?;
                 self.types_table.push(object_types);
                 // self.object_table.push(Archivable::Object(vec![OutputData::NewObject]));
                 println!("Found types: {:?}", self.types_table);
-                Some(self.types_table.last().unwrap().to_owned())
+                Ok(Some(self.types_table.last().unwrap().to_owned()))
             }
             END => {
-                // TODO: This doesn't make any sense, we should have a Result<> or Option<> here
                 println!("End of current object!");
-                None
+                Ok(None)
             }
             _ => {
                 // Ignore repeated types, for example in a dict
-                while self.get_current_byte() == self.get_next_byte() {
+                while self.get_current_byte()? == self.get_next_byte()? {
                     self.idx += 1;
                 }
 
-                let ref_tag = self.read_pointer();
+                let ref_tag = self.read_pointer()?;
                 let possible_types = self.types_table.get(ref_tag as usize).unwrap().clone();
                 println!("Got referenced type {ref_tag}: {possible_types:?}");
-                Some(possible_types)
+                Ok(Some(possible_types))
             }
         }
     }
 
-    fn read_types(&mut self, found_types: Vec<Type>) -> Option<Archivable> {
+    fn read_types(
+        &mut self,
+        found_types: Vec<Type>,
+    ) -> Result<Option<Archivable>, TypedStreamError> {
         let mut out_v = vec![];
         let mut is_obj: bool = false;
 
         for object_type in found_types {
             match object_type {
-                Type::Utf8String => out_v.push(OutputData::String(self.read_string())),
+                Type::Utf8String => out_v.push(OutputData::String(self.read_string()?)),
                 Type::EmbeddedData => {
                     return self.read_embedded_data();
                 }
@@ -339,7 +358,7 @@ impl<'a> TypedStreamReader<'a> {
                     self.object_table.push(Archivable::Placeholder);
                     println!("Reading object...");
                     self.print_loc("reading object at");
-                    let object = self.read_object();
+                    let object = self.read_object()?;
                     println!("Got object {object:?}");
                     if let Some(object) = object {
                         match object.clone() {
@@ -350,8 +369,8 @@ impl<'a> TypedStreamReader<'a> {
                         }
                     }
                 }
-                Type::SignedInt => out_v.push(OutputData::Number(self.read_int() as i32)),
-                Type::UnsignedInt => out_v.push(OutputData::Number(self.read_int() as i32)),
+                Type::SignedInt => out_v.push(OutputData::Number(self.read_int()? as i32)),
+                Type::UnsignedInt => out_v.push(OutputData::Number(self.read_int()? as i32)),
                 Type::Unknown(byte) => out_v.push(OutputData::Byte(byte)),
                 Type::String(s) => out_v.push(OutputData::String(s)),
             };
@@ -377,30 +396,30 @@ impl<'a> TypedStreamReader<'a> {
                         self.object_table[spot] = Archivable::Object(class.clone(), out_v.clone());
                     }
                     self.placeholder = None;
-                    return self.object_table.get(spot).cloned();
+                    return Ok(self.object_table.get(spot).cloned());
                 // We got some data for a class that was already seen
                 } else if let Some(Archivable::Object(_, data)) = self.object_table.last_mut() {
                     println!("Got archived object");
                     data.extend(out_v.clone());
-                    return self.object_table.last().cloned();
+                    return Ok(self.object_table.last().cloned());
                 // We got some data that is not part of a class, i.e. a field in the parent object for which we don't know the name
                 } else {
                     self.object_table[spot] = Archivable::Data(out_v.clone());
                     self.placeholder = None;
-                    return self.object_table.get(spot).cloned();
+                    return Ok(self.object_table.get(spot).cloned());
                 }
             }
         }
 
         // TODO: This, but only for non-objects? Clean this logic up
         if !out_v.is_empty() && !is_obj {
-            return Some(Archivable::Data(out_v.clone()));
+            return Ok(Some(Archivable::Data(out_v.clone())));
         }
-        None
+        Ok(None)
     }
 
     /// Attempt to get the data from the typed stream
-    pub fn parse(&mut self) -> Vec<Archivable> {
+    pub fn parse(&mut self) -> Result<Vec<Archivable>, TypedStreamError> {
         let mut out_v = vec![];
 
         // Skip header
@@ -408,7 +427,7 @@ impl<'a> TypedStreamReader<'a> {
         self.idx += 16;
 
         while self.idx < self.stream.len() {
-            if self.get_current_byte() == END {
+            if self.get_current_byte()? == END {
                 println!("End of object!");
                 self.idx += 1;
                 continue;
@@ -418,16 +437,18 @@ impl<'a> TypedStreamReader<'a> {
 
             // First, get the current type
             // TODO: remove unwrap
-            let found_types = self.get_type().unwrap();
+            let found_types = self.get_type()?;
             println!("Received types: {:?}", found_types);
 
-            let result = self.read_types(found_types);
+            let result = self.read_types(found_types.unwrap());
             println!("Resultant type: {result:?}");
-            match result {
-                Some(output) => {
-                    out_v.push(output);
+            if let Ok(res) = result {
+                match res {
+                    Some(output) => {
+                        out_v.push(output);
+                    }
+                    None => {}
                 }
-                None => {}
             }
             self.emit_objects_table();
             println!("Types table: {:?}", self.types_table);
@@ -436,7 +457,7 @@ impl<'a> TypedStreamReader<'a> {
         self.emit_objects_table();
         println!("Types table: {:?}", self.types_table);
         println!("Parsed data: {:?}\n", out_v);
-        out_v
+        Ok(out_v)
     }
 }
 
@@ -461,7 +482,7 @@ mod tests {
 
         let mut parser = TypedStreamReader::new(&bytes);
         println!("{parser:?}");
-        let result = parser.parse();
+        let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
         result.iter().for_each(|item| println!("{item:?}"));
@@ -558,7 +579,7 @@ mod tests {
 
         let mut parser = TypedStreamReader::new(&bytes);
         println!("{parser:?}");
-        let result = parser.parse();
+        let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
         result.iter().for_each(|item| println!("{item:?}"));
@@ -616,7 +637,7 @@ mod tests {
 
         let mut parser = TypedStreamReader::new(&bytes);
         println!("{parser:?}");
-        let result = parser.parse();
+        let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
         result.iter().for_each(|item| println!("{item:?}"));
@@ -792,7 +813,7 @@ mod tests {
 
         let mut parser = TypedStreamReader::new(&bytes);
         println!("{parser:?}");
-        let result = parser.parse();
+        let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
         result.iter().for_each(|item| println!("{item:?}"));
