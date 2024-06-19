@@ -4,20 +4,15 @@
  Derived from `typedstream` source located [here](https://opensource.apple.com/source/gcc/gcc-1493/libobjc/objc/typedstream.h.auto.html) and [here](https://sourceforge.net/projects/aapl-darwin/files/Darwin-0.1/objc-1.tar.gz/download)
 */
 
-use std::{sync::Arc, vec};
-
 /// Indicates the start of a new object
 const START: u8 = 0x0084;
 /// No data to parse, possibly end of an inheritance chain
 const EMPTY: u8 = 0x0085;
 /// Indicates the last byte of an object
 const END: u8 = 0x0086;
-
 /// Type encoding data
 const ENCODING_DETECTED: u8 = 0x0095;
-
-/// When scanning for objects, bytes >= reference tag indicate an index in the table of
-/// already-seen types
+/// When scanning for objects, bytes >= reference tag indicate an index in the table of already-seen types
 const REFERENCE_TAG: u8 = 0x0092;
 
 #[derive(Debug, Clone)]
@@ -47,10 +42,6 @@ enum OutputData {
     Number(i32),
     Byte(u8),
     Class(Class),
-    NewObject,
-    Reference(u8),
-    Placeholder,
-    None,
 }
 
 #[derive(Debug, Clone)]
@@ -377,7 +368,7 @@ impl<'a> TypedStreamReader<'a> {
                     println!("Got archived class");
                     if class.embedded_data {
                         self.object_table[spot] = Archivable::Object(class.clone(), out_v.clone());
-                    } 
+                    }
                     self.placeholder = None;
                 } else if let Some(Archivable::Object(_, data)) = self.object_table.last_mut() {
                     println!("Got archived object");
@@ -434,7 +425,7 @@ mod tests {
     use std::io::Read;
     use std::vec;
 
-    use crate::util::attributed_string::TypedStreamReader;
+    use crate::util::typedstream::TypedStreamReader;
 
     #[test]
     fn test_parse_text_mention() {

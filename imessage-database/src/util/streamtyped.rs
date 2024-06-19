@@ -1,5 +1,5 @@
 /*!
- Contains logic to parse text from streamtyped binary data.
+ Contains logic to parse text from `attributedBody`'s `typedstream` data.
 */
 
 use crate::error::streamtyped::StreamTypedError;
@@ -14,9 +14,9 @@ const START_PATTERN: [u8; 2] = [0x0001, 0x002b];
 /// - <https://www.compart.com/en/unicode/U+0084>
 const END_PATTERN: [u8; 2] = [0x0086, 0x0084];
 
-/// Parse the body text from a known type of `streamtyped` `attributedBody` file.
+/// Parse the body text from a known type of `typedstream` `attributedBody` file.
 ///
-/// `attributedBody` `streamtyped` data looks like:
+/// `attributedBody` `typedstream` data looks like:
 ///
 /// ```txt
 /// streamtyped���@���NSAttributedString�NSObject����NSString��+Example message  ��iI���� NSDictionary��i����__kIMMessagePartAttributeName����NSNumber��NSValue��*������
