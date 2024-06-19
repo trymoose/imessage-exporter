@@ -15,7 +15,7 @@ const ENCODING_DETECTED: u8 = 0x0095;
 /// When scanning for objects, bytes >= reference tag indicate an index in the table of already-seen types
 const REFERENCE_TAG: u8 = 0x0092;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Class {
     name: String,
     version: u8,
@@ -32,7 +32,7 @@ impl Class {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OutputData {
     String(String),
     Number(i32),
@@ -40,11 +40,11 @@ pub enum OutputData {
     Class(Class),
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Archivable {
     /// An instance of a class that may contain some data
     Object(Class, Vec<OutputData>),
-    /// Some data that is likely a field on the object described by the `typedstream` but not part of a class 
+    /// Some data that is likely a field on the object described by the `typedstream` but not part of a class
     Data(Vec<OutputData>),
     /// A class referenced in the `typedstream`
     Class(Class),
@@ -283,14 +283,15 @@ impl<'a> TypedStreamReader<'a> {
         string
     }
 
+    /// [Archivable] data can be embedded on a class or in a C String
     fn read_embedded_data(&mut self) -> Option<Archivable> {
         // Skip the 0x84
         self.idx += 1;
         let parsed_type = self.get_type();
-        self.read_types(parsed_type)
+        self.read_types(parsed_type?)
     }
 
-    fn get_type(&mut self) -> Vec<Type> {
+    fn get_type(&mut self) -> Option<Vec<Type>> {
         match self.get_current_byte() {
             START => {
                 println!("New type found!");
@@ -300,12 +301,12 @@ impl<'a> TypedStreamReader<'a> {
                 self.types_table.push(object_types);
                 // self.object_table.push(Archivable::Object(vec![OutputData::NewObject]));
                 println!("Found types: {:?}", self.types_table);
-                self.types_table.last().unwrap().to_owned()
+                Some(self.types_table.last().unwrap().to_owned())
             }
             END => {
                 // TODO: This doesn't make any sense, we should have a Result<> or Option<> here
                 println!("End of current object!");
-                vec![]
+                None
             }
             _ => {
                 // Ignore repeated types, for example in a dict
@@ -316,7 +317,7 @@ impl<'a> TypedStreamReader<'a> {
                 let ref_tag = self.read_pointer();
                 let possible_types = self.types_table.get(ref_tag as usize).unwrap().clone();
                 println!("Got referenced type {ref_tag}: {possible_types:?}");
-                possible_types
+                Some(possible_types)
             }
         }
     }
@@ -416,7 +417,8 @@ impl<'a> TypedStreamReader<'a> {
             println!("Parsed data: {:?}\n", out_v);
 
             // First, get the current type
-            let found_types = self.get_type();
+            // TODO: remove unwrap
+            let found_types = self.get_type().unwrap();
             println!("Received types: {:?}", found_types);
 
             let result = self.read_types(found_types);
@@ -445,7 +447,7 @@ mod tests {
     use std::io::Read;
     use std::vec;
 
-    use crate::util::typedstream::TypedStreamReader;
+    use crate::util::typedstream::{Archivable, Class, OutputData, TypedStreamReader};
 
     #[test]
     fn test_parse_text_mention() {
@@ -462,11 +464,86 @@ mod tests {
         let result = parser.parse();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("{item:?}"))
+        result.iter().for_each(|item| println!("{item:?}"));
 
-        // let expected = "Noter test".to_string();
+        let expected = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String("Test Dad ".to_string())],
+            ),
+            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(5)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(1)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSValue".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(0)],
+            ),
+            Archivable::Data(vec![OutputData::Number(2), OutputData::Number(3)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(2)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMentionConfirmedMention".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String("+15558675309".to_string())],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Data(vec![OutputData::Number(0)]),
+            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(1)]),
+        ];
 
-        // assert_eq!(parsed, expected);
+        assert_eq!(result, expected);
     }
 
     #[test]
@@ -484,11 +561,47 @@ mod tests {
         let result = parser.parse();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("{item:?}"))
+        result.iter().for_each(|item| println!("{item:?}"));
 
-        // let expected = "Noter test".to_string();
+        let expected = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String("Noter test".to_string())],
+            ),
+            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(10)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(1)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSValue".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(0)],
+            ),
+        ];
 
-        // assert_eq!(parsed, expected);
+        assert_eq!(result, expected);
     }
 
     #[test]
@@ -506,11 +619,165 @@ mod tests {
         let result = parser.parse();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("{item:?}"))
+        result.iter().for_each(|item| println!("{item:?}"));
 
-        // let expected = "Noter test".to_string();
+        let expected = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String("￼test 1￼test 2 ￼test 3".to_string())],
+            ),
+            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(1)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(2)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMFileTransferGUIDAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "at_0_F0668F79-20C2-49C9-A87F-1B007ABB0CED".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSValue".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(0)],
+            ),
+            Archivable::Data(vec![OutputData::Number(2), OutputData::Number(6)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(1)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Data(vec![OutputData::Number(1)]),
+            Archivable::Data(vec![OutputData::Number(3), OutputData::Number(1)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(2)],
+            ),
+            Archivable::Data(vec![OutputData::String(
+                "__kIMFileTransferGUIDAttributeName".to_string(),
+            )]),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "at_2_F0668F79-20C2-49C9-A87F-1B007ABB0CED".to_string(),
+                )],
+            ),
+            Archivable::Data(vec![OutputData::String(
+                "__kIMMessagePartAttributeName".to_string(),
+            )]),
+            Archivable::Data(vec![OutputData::Number(2)]),
+            Archivable::Data(vec![OutputData::Number(4), OutputData::Number(7)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(1)],
+            ),
+            Archivable::Data(vec![OutputData::String(
+                "__kIMMessagePartAttributeName".to_string(),
+            )]),
+            Archivable::Data(vec![OutputData::Number(3)]),
+            Archivable::Data(vec![OutputData::Number(5), OutputData::Number(1)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(2)],
+            ),
+            Archivable::Data(vec![OutputData::String(
+                "__kIMFileTransferGUIDAttributeName".to_string(),
+            )]),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "at_4_F0668F79-20C2-49C9-A87F-1B007ABB0CED".to_string(),
+                )],
+            ),
+            Archivable::Data(vec![OutputData::String(
+                "__kIMMessagePartAttributeName".to_string(),
+            )]),
+            Archivable::Data(vec![OutputData::Number(4)]),
+            Archivable::Data(vec![OutputData::Number(6), OutputData::Number(6)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(1)],
+            ),
+            Archivable::Data(vec![OutputData::String(
+                "__kIMMessagePartAttributeName".to_string(),
+            )]),
+            Archivable::Data(vec![OutputData::Number(5)]),
+        ];
 
-        // assert_eq!(parsed, expected);
+        assert_eq!(result, expected);
     }
 
     #[test]
@@ -528,10 +795,108 @@ mod tests {
         let result = parser.parse();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("{item:?}"))
+        result.iter().for_each(|item| println!("{item:?}"));
 
-        // let expected = "Noter test".to_string();
+        let expected = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "From arbitrary byte stream:\r￼To native Rust data structures:\r".to_string(),
+                )],
+            ),
+            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(28)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(1)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSValue".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(0)],
+            ),
+            Archivable::Data(vec![OutputData::Number(2), OutputData::Number(1)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(2)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMFileTransferGUIDAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "D0551D89-4E11-43D0-9A0E-06F19704E97B".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Data(vec![OutputData::Number(1)]),
+            Archivable::Data(vec![OutputData::Number(3), OutputData::Number(32)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(1)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Data(vec![OutputData::Number(2)]),
+        ];
 
-        // assert_eq!(parsed, expected);
+        assert_eq!(result, expected);
     }
 }
