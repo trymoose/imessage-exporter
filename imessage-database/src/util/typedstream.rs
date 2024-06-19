@@ -265,7 +265,7 @@ impl<'a> TypedStreamReader<'a> {
 
                 let mut class_name = String::with_capacity(length as usize);
                 println!("Class name created with capacity {}", class_name.capacity());
-                self.read_exact_as_string(length as usize, &mut class_name);
+                self.read_exact_as_string(length as usize, &mut class_name)?;
 
                 let version = self.read_int()?;
                 println!("{class_name} v{version}");
@@ -334,7 +334,7 @@ impl<'a> TypedStreamReader<'a> {
         let length = self.read_int()?;
         let mut string = String::with_capacity(length as usize);
         println!("String created with capacity {}", string.capacity());
-        self.read_exact_as_string(length as usize, &mut string);
+        self.read_exact_as_string(length as usize, &mut string)?;
 
         Ok(string)
     }
@@ -410,8 +410,8 @@ impl<'a> TypedStreamReader<'a> {
                         }
                     }
                 }
-                Type::SignedInt => out_v.push(OutputData::Number(self.read_int()? as u32)),
-                Type::UnsignedInt => out_v.push(OutputData::Number(self.read_int()? as u32)),
+                Type::SignedInt => out_v.push(OutputData::Number(self.read_int()?)),
+                Type::UnsignedInt => out_v.push(OutputData::Number(self.read_int()?)),
                 Type::Unknown(byte) => out_v.push(OutputData::Byte(byte)),
                 Type::String(s) => out_v.push(OutputData::String(s)),
             };
