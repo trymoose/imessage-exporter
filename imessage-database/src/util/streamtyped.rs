@@ -94,7 +94,7 @@ mod tests {
         let plist_path = current_dir()
             .unwrap()
             .as_path()
-            .join("test_data/streamtyped/AttributedBodyTextOnly");
+            .join("test_data/typedstream/AttributedBodyTextOnly");
         let mut file = File::open(plist_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
@@ -110,7 +110,7 @@ mod tests {
         let plist_path = current_dir()
             .unwrap()
             .as_path()
-            .join("test_data/streamtyped/AttributedBodyTextOnly2");
+            .join("test_data/typedstream/AttributedBodyTextOnly2");
         let mut file = File::open(plist_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
@@ -126,7 +126,7 @@ mod tests {
         let plist_path = current_dir()
             .unwrap()
             .as_path()
-            .join("test_data/streamtyped/WeirdText");
+            .join("test_data/typedstream/WeirdText");
         let mut file = File::open(plist_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
@@ -142,7 +142,7 @@ mod tests {
         let plist_path = current_dir()
             .unwrap()
             .as_path()
-            .join("test_data/streamtyped/URL");
+            .join("test_data/typedstream/URL");
         let mut file = File::open(plist_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
@@ -158,7 +158,7 @@ mod tests {
         let plist_path = current_dir()
             .unwrap()
             .as_path()
-            .join("test_data/streamtyped/MultiPart");
+            .join("test_data/typedstream/MultiPart");
         let mut file = File::open(plist_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
@@ -174,7 +174,7 @@ mod tests {
         let plist_path = current_dir()
             .unwrap()
             .as_path()
-            .join("test_data/streamtyped/ExtraData");
+            .join("test_data/typedstream/ExtraData");
         let mut file = File::open(plist_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
@@ -190,7 +190,7 @@ mod tests {
         let plist_path = current_dir()
             .unwrap()
             .as_path()
-            .join("test_data/streamtyped/Blank");
+            .join("test_data/typedstream/Blank");
         let mut file = File::open(plist_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
@@ -204,7 +204,7 @@ mod tests {
         let plist_path = current_dir()
             .unwrap()
             .as_path()
-            .join("test_data/streamtyped/MultiPartWithDeleted");
+            .join("test_data/typedstream/MultiPartWithDeleted");
         let mut file = File::open(plist_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
