@@ -142,7 +142,7 @@ impl<'a> TypedStreamReader<'a> {
         );
     }
 
-    /// Read the current byte as a signed integer
+    /// Read the current byte as an unsigned integer
     fn read_int(&mut self) -> Result<u8, TypedStreamError> {
         let value = u8::from_le_bytes([self.get_current_byte()?]);
         self.idx += 1;
@@ -418,13 +418,29 @@ impl<'a> TypedStreamReader<'a> {
         Ok(None)
     }
 
+    fn validate_header(&mut self) -> Result<(), TypedStreamError> {
+        // Encoding type
+        let typedstream_version = self.read_int()?;
+        // Encoding signature
+        let signature = self.read_string()?;
+        self.idx += 1;
+        // System version
+        let system_version = self.read_int()?;
+
+        if typedstream_version != 4 || signature != "streamtyped" || system_version != 232 {
+            return Err(TypedStreamError::InvalidHeader);
+        }
+
+        self.idx += 1;
+
+        Ok(())
+    }
+
     /// Attempt to get the data from the typed stream
     pub fn parse(&mut self) -> Result<Vec<Archivable>, TypedStreamError> {
         let mut out_v = vec![];
 
-        // Skip header
-        // TODO: Parse it
-        self.idx += 16;
+        self.validate_header()?;
 
         while self.idx < self.stream.len() {
             if self.get_current_byte()? == END {
@@ -469,6 +485,23 @@ mod tests {
     use std::vec;
 
     use crate::util::typedstream::{Archivable, Class, OutputData, TypedStreamReader};
+
+    #[test]
+    fn test_parse_header() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/AttributedBodyTextOnly");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::new(&bytes);
+        println!("{parser:?}");
+        let result = parser.validate_header();
+
+        assert!(result.is_ok());
+    }
 
     #[test]
     fn test_parse_text_mention() {
