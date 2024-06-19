@@ -55,8 +55,10 @@ enum OutputData {
 
 #[derive(Debug, Clone)]
 enum Archivable {
-    Object(Vec<OutputData>),
+    Object(Class, Vec<OutputData>),
+    Data(Vec<OutputData>),
     Class(Class),
+    Placeholder,
 }
 
 // TODO: Remove clone
@@ -337,16 +339,17 @@ impl<'a> TypedStreamReader<'a> {
                 Type::Object => {
                     self.placeholder = Some(self.object_table.len());
                     println!("Adding placeholder at {:?}", self.placeholder);
-                    self.object_table
-                        .push(Archivable::Object(vec![OutputData::Placeholder]));
+                    self.object_table.push(Archivable::Placeholder);
                     println!("Reading object...");
                     self.print_loc("reading object at");
                     let object = self.read_object();
                     println!("Got object {object:?}");
                     if let Some(object) = object {
                         match object.clone() {
-                            Archivable::Object(data) => out_v.extend(data),
+                            Archivable::Object(_, data) => out_v.extend(data),
                             Archivable::Class(cls) => out_v.push(OutputData::Class(cls)),
+                            Archivable::Placeholder => {}
+                            Archivable::Data(data) => out_v.extend(data),
                         }
                     }
                 }
@@ -357,20 +360,33 @@ impl<'a> TypedStreamReader<'a> {
             };
             continue;
         }
+
+        // If we had reserved a place for an object, fill that spot
         if let Some(spot) = self.placeholder {
             if !out_v.is_empty() {
                 println!("Inserting {out_v:?} to object table at {spot}");
-                self.object_table[spot] = Archivable::Object(out_v.clone());
                 if let Some(OutputData::Class(class)) = out_v.last() {
-                    // TODO: This works, except for NSDict becuase it replaces the dict with the count of items
-                    // we may need custom parsers here for some known types like dict, string, number
-                    if !class.embedded_data {
+                    println!("Got output class");
+                    if class.embedded_data {
+                        self.object_table[spot] = Archivable::Object(class.clone(), vec![])
+                    } else {
+                        self.object_table.remove(spot);
                         self.placeholder = None;
                     }
+                } else if let Some(Archivable::Class(class)) = self.object_table.last() {
+                    println!("Got archived class");
+                    if class.embedded_data {
+                        self.object_table[spot] = Archivable::Object(class.clone(), out_v.clone());
+                    } else {
+                        self.placeholder = None;
+                    }
+                } else if let Some(Archivable::Object(_, data)) = self.object_table.last_mut() {
+                    println!("Got archived object");
+                    data.extend(out_v.clone());
                 } else {
+                    self.object_table[spot] = Archivable::Data(out_v.clone());
                     self.placeholder = None;
                 }
-                // self.object_table.push(Archivable::Object(out_v.clone()));
             }
         }
         out_v
@@ -419,7 +435,7 @@ mod tests {
     use std::io::Read;
     use std::vec;
 
-    use crate::util::attributed_string::{Archivable, Class, TypedStreamReader};
+    use crate::util::attributed_string::TypedStreamReader;
 
     #[test]
     fn test_parse_text_mention() {
