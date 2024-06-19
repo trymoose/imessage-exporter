@@ -6,26 +6,30 @@
 
 use crate::error::typedstream::TypedStreamError;
 
+/// Indicates an int value stored in 2 bytes
+const TWO_BYTES: u8 = 0x0081;
+/// Indicates an int value stored in 4 bytes
+const FOUR_BYTES: u8 = 0x0082;
 /// Indicates the start of a new object
 const START: u8 = 0x0084;
 /// No data to parse, possibly end of an inheritance chain
 const EMPTY: u8 = 0x0085;
 /// Indicates the last byte of an object
 const END: u8 = 0x0086;
-/// Type encoding data
+/// [Type] encoding data
 const ENCODING_DETECTED: u8 = 0x0095;
-/// When scanning for objects, bytes >= reference tag indicate an index in the table of already-seen types
-const REFERENCE_TAG: u8 = 0x0092;
+/// When scanning for objects, bytes larger than the reference tag indicate an index in the table of already-seen types
+const REFERENCE_TAG: u32 = 0x0092;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Class {
     name: String,
-    version: u8,
+    version: u32,
     embedded_data: bool,
 }
 
 impl Class {
-    fn new(name: String, version: u8, embedded_data: bool) -> Self {
+    fn new(name: String, version: u32, embedded_data: bool) -> Self {
         Self {
             name,
             version,
@@ -37,7 +41,7 @@ impl Class {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum OutputData {
     String(String),
-    Number(i32),
+    Number(u32),
     Byte(u8),
     Class(Class),
 }
@@ -71,7 +75,7 @@ enum Type {
 
 #[derive(Debug)]
 enum ClassResult {
-    Index(u8),
+    Index(u32),
     ClassHierarchy(Vec<Archivable>),
 }
 
@@ -142,11 +146,45 @@ impl<'a> TypedStreamReader<'a> {
         );
     }
 
-    /// Read the current byte as an unsigned integer
-    fn read_int(&mut self) -> Result<u8, TypedStreamError> {
-        let value = u8::from_le_bytes([self.get_current_byte()?]);
-        self.idx += 1;
-        Ok(value)
+    /// Read an unsigned integer from the stream
+    fn read_int(&mut self) -> Result<u32, TypedStreamError> {
+        match self.get_current_byte()? {
+            TWO_BYTES => {
+                self.idx += 1;
+                let value = u16::from_le_bytes(
+                    self.stream
+                        .get(self.idx..self.idx + 2)
+                        .ok_or(TypedStreamError::OutOfBounds(
+                            self.idx + 2,
+                            self.stream.len(),
+                        ))?
+                        .try_into()
+                        .map_err(TypedStreamError::SliceError)?,
+                );
+                self.idx += 2;
+                Ok(value as u32)
+            }
+            FOUR_BYTES => {
+                self.idx += 1;
+                let value = u32::from_le_bytes(
+                    self.stream
+                        .get(self.idx..self.idx + 4)
+                        .ok_or(TypedStreamError::OutOfBounds(
+                            self.idx + 4,
+                            self.stream.len(),
+                        ))?
+                        .try_into()
+                        .map_err(TypedStreamError::SliceError)?,
+                );
+                self.idx += 4;
+                Ok(value)
+            }
+            _ => {
+                let value = u8::from_le_bytes([self.get_current_byte()?]);
+                self.idx += 1;
+                Ok(value as u32)
+            }
+        }
     }
 
     /// Read exactly `n` bytes from the stream
@@ -176,7 +214,6 @@ impl<'a> TypedStreamReader<'a> {
     }
 
     /// Read the next byte
-    // TODO: Bounds check
     fn get_next_byte(&self) -> Result<u8, TypedStreamError> {
         self.get_byte(self.idx + 1)
     }
@@ -193,9 +230,9 @@ impl<'a> TypedStreamReader<'a> {
     }
 
     /// Read a reference pointer for a Type
-    fn read_pointer(&mut self) -> Result<u8, TypedStreamError> {
+    fn read_pointer(&mut self) -> Result<u32, TypedStreamError> {
         self.print_loc("pointer");
-        let result = self.get_current_byte()? - REFERENCE_TAG;
+        let result = self.get_current_byte()? as u32 - REFERENCE_TAG;
         self.idx += 1;
         Ok(result)
     }
@@ -369,8 +406,8 @@ impl<'a> TypedStreamReader<'a> {
                         }
                     }
                 }
-                Type::SignedInt => out_v.push(OutputData::Number(self.read_int()? as i32)),
-                Type::UnsignedInt => out_v.push(OutputData::Number(self.read_int()? as i32)),
+                Type::SignedInt => out_v.push(OutputData::Number(self.read_int()? as u32)),
+                Type::UnsignedInt => out_v.push(OutputData::Number(self.read_int()? as u32)),
                 Type::Unknown(byte) => out_v.push(OutputData::Byte(byte)),
                 Type::String(s) => out_v.push(OutputData::String(s)),
             };
@@ -656,6 +693,28 @@ mod tests {
         ];
 
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parse_text_long() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/LongMessage");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::new(&bytes);
+        println!("{parser:?}");
+        let result = parser.parse().unwrap();
+
+        println!("\n\nGot data!");
+        result.iter().for_each(|item| println!("{item:?}"));
+
+        let expected = Archivable::Data(vec![OutputData::Number(1), OutputData::Number(2359)]);
+
+        assert_eq!(result[1], expected);
     }
 
     #[test]
