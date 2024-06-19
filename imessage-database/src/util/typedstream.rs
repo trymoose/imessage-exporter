@@ -150,33 +150,35 @@ impl<'a> TypedStreamReader<'a> {
     fn read_int(&mut self) -> Result<u32, TypedStreamError> {
         match self.get_current_byte()? {
             TWO_BYTES => {
+                let size = 2;
                 self.idx += 1;
                 let value = u16::from_le_bytes(
                     self.stream
-                        .get(self.idx..self.idx + 2)
+                        .get(self.idx..self.idx + size)
                         .ok_or(TypedStreamError::OutOfBounds(
-                            self.idx + 2,
+                            self.idx + size,
                             self.stream.len(),
                         ))?
                         .try_into()
                         .map_err(TypedStreamError::SliceError)?,
                 );
-                self.idx += 2;
+                self.idx += size;
                 Ok(value as u32)
             }
             FOUR_BYTES => {
+                let size = 4;
                 self.idx += 1;
                 let value = u32::from_le_bytes(
                     self.stream
-                        .get(self.idx..self.idx + 4)
+                        .get(self.idx..self.idx + size)
                         .ok_or(TypedStreamError::OutOfBounds(
-                            self.idx + 4,
+                            self.idx + size,
                             self.stream.len(),
                         ))?
                         .try_into()
                         .map_err(TypedStreamError::SliceError)?,
                 );
-                self.idx += 4;
+                self.idx += size;
                 Ok(value)
             }
             _ => {
@@ -188,24 +190,29 @@ impl<'a> TypedStreamReader<'a> {
     }
 
     /// Read exactly `n` bytes from the stream
-    fn read_exact_bytes(&mut self, n: usize) -> &[u8] {
+    fn read_exact_bytes(&mut self, n: usize) -> Result<&[u8], TypedStreamError> {
         let range = &self.stream[self.idx..self.idx + n];
         self.idx += n;
-        range
+        Ok(range)
     }
 
     /// Read `n` bytes as a String
-    /// TODO: Result<(), TypedStreamError>
-    fn read_exact_as_string(&mut self, n: usize, string: &mut String) {
-        let str = std::str::from_utf8(self.read_exact_bytes(n)).unwrap();
+    fn read_exact_as_string(
+        &mut self,
+        n: usize,
+        string: &mut String,
+    ) -> Result<(), TypedStreamError> {
+        let str = std::str::from_utf8(self.read_exact_bytes(n)?)
+            .map_err(TypedStreamError::StringParseError)?;
         string.push_str(str);
+        Ok(())
     }
 
     fn get_byte(&self, byte_idx: usize) -> Result<u8, TypedStreamError> {
         if byte_idx < self.stream.len() {
             return Ok(self.stream[byte_idx]);
         }
-        return Err(TypedStreamError::OutOfBounds(byte_idx, self.stream.len()));
+        Err(TypedStreamError::OutOfBounds(byte_idx, self.stream.len()))
     }
 
     /// Read the current byte
@@ -223,7 +230,7 @@ impl<'a> TypedStreamReader<'a> {
         let length = self.read_int();
         println!("type length: {length:?}");
         Ok(self
-            .read_exact_bytes(length? as usize)
+            .read_exact_bytes(length? as usize)?
             .iter()
             .map(Type::from_byte)
             .collect())
@@ -250,11 +257,8 @@ impl<'a> TypedStreamReader<'a> {
                 self.print_loc("class 2");
                 let length = self.read_int()?;
 
-                // TODO: this adds a new item to the object table, but it shouldn't
                 if length >= REFERENCE_TAG {
                     let index = length - REFERENCE_TAG;
-                    // TODO: this is a reference to a string, we should build a class with that name
-                    // Or store the class as the Type
                     println!("Getting referenced class at {index}");
                     return Ok(ClassResult::Index(index));
                 }
@@ -489,10 +493,10 @@ impl<'a> TypedStreamReader<'a> {
             println!("Parsed data: {:?}\n", out_v);
 
             // First, get the current type
-            // TODO: remove unwrap
             let found_types = self.get_type()?;
             println!("Received types: {:?}", found_types);
 
+            // TODO: remove unwrap
             let result = self.read_types(found_types.unwrap());
             println!("Resultant type: {result:?}");
             if let Ok(res) = result {

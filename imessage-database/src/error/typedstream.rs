@@ -4,7 +4,7 @@
 
 use std::{
     array::TryFromSliceError,
-    fmt::{Display, Formatter, Result},
+    fmt::{Display, Formatter, Result}, str::Utf8Error,
 };
 
 /// Errors that can happen when parsing `typedstream` data
@@ -13,6 +13,7 @@ pub enum TypedStreamError {
     OutOfBounds(usize, usize),
     InvalidHeader,
     SliceError(TryFromSliceError),
+    StringParseError(Utf8Error),
 }
 
 impl Display for TypedStreamError {
@@ -25,6 +26,7 @@ impl Display for TypedStreamError {
             TypedStreamError::SliceError(why) => {
                 write!(fmt, "Unable to slice source stream: {why}")
             }
+            TypedStreamError::StringParseError(why) => write!(fmt, "Failed to parse string: {why}"),
         }
     }
 }
