@@ -16,7 +16,7 @@ const ENCODING_DETECTED: u8 = 0x0095;
 const REFERENCE_TAG: u8 = 0x0092;
 
 #[derive(Debug, Clone)]
-struct Class {
+pub struct Class {
     name: String,
     version: u8,
     embedded_data: bool,
@@ -41,10 +41,17 @@ pub enum OutputData {
 }
 
 #[derive(Debug, Clone)]
-enum Archivable {
+pub enum Archivable {
+    /// An instance of a class that may contain some data
     Object(Class, Vec<OutputData>),
+    /// Some data that is likely a field on the object described by the `typedstream` but not part of a class 
     Data(Vec<OutputData>),
+    /// A class referenced in the `typedstream`
     Class(Class),
+    /// A placeholder, only used when reserving a spot in the objects table for a reference to be filled with read class information.
+    /// In a `typedstream`, the classes are stored in order of inheritance, so the top-level class described by the `typedstream`
+    /// comes before the ones it inherits from. To preserve the order, we reserve the first slot to store the actual object's data
+    /// and then later add it back to the right place.
     Placeholder,
 }
 
@@ -85,12 +92,15 @@ impl Type {
 
 #[derive(Debug)]
 pub struct TypedStreamReader<'a> {
+    /// The typedstream we want to parse
     stream: &'a [u8],
+    /// The current index we are at in the stream
     idx: usize,
+    /// As we parse the `typedstream`, build a table of seen types to reference in the future
     types_table: Vec<Vec<Type>>,
+    /// As we parse the `typedstream`, build a table of seen archivable data to reference in the future
     object_table: Vec<Archivable>,
-    /// Objects reserve their place in the table when they begin in the stream, not where there data is
-    /// Which may be buried under an inheritance chain
+    /// Used to store the position of the current [Archivable::Placeholder]
     placeholder: Option<usize>,
 }
 
@@ -232,7 +242,6 @@ impl<'a> TypedStreamReader<'a> {
                 return ClassResult::Index(index);
             }
         }
-
         ClassResult::ClassHierarchy(out_v)
     }
 
@@ -274,7 +283,7 @@ impl<'a> TypedStreamReader<'a> {
         string
     }
 
-    fn read_embedded_data(&mut self) -> Vec<OutputData> {
+    fn read_embedded_data(&mut self) -> Option<Archivable> {
         // Skip the 0x84
         self.idx += 1;
         let parsed_type = self.get_type();
@@ -312,14 +321,18 @@ impl<'a> TypedStreamReader<'a> {
         }
     }
 
-    fn read_types(&mut self, found_types: Vec<Type>) -> Vec<OutputData> {
+    fn read_types(&mut self, found_types: Vec<Type>) -> Option<Archivable> {
         let mut out_v = vec![];
+        let mut is_obj: bool = false;
 
         for object_type in found_types {
             match object_type {
                 Type::Utf8String => out_v.push(OutputData::String(self.read_string())),
-                Type::EmbeddedData => out_v.extend(self.read_embedded_data()),
+                Type::EmbeddedData => {
+                    return self.read_embedded_data();
+                }
                 Type::Object => {
+                    is_obj = true;
                     self.placeholder = Some(self.object_table.len());
                     println!("Adding placeholder at {:?}", self.placeholder);
                     self.object_table.push(Archivable::Placeholder);
@@ -363,22 +376,30 @@ impl<'a> TypedStreamReader<'a> {
                         self.object_table[spot] = Archivable::Object(class.clone(), out_v.clone());
                     }
                     self.placeholder = None;
+                    return self.object_table.get(spot).cloned();
                 // We got some data for a class that was already seen
                 } else if let Some(Archivable::Object(_, data)) = self.object_table.last_mut() {
                     println!("Got archived object");
                     data.extend(out_v.clone());
+                    return self.object_table.last().cloned();
                 // We got some data that is not part of a class, i.e. a field in the parent object for which we don't know the name
                 } else {
                     self.object_table[spot] = Archivable::Data(out_v.clone());
                     self.placeholder = None;
+                    return self.object_table.get(spot).cloned();
                 }
             }
         }
-        out_v
+
+        // TODO: This, but only for non-objects? Clean this logic up
+        if !out_v.is_empty() && !is_obj {
+            return Some(Archivable::Data(out_v.clone()));
+        }
+        None
     }
 
     /// Attempt to get the data from the typed stream
-    pub fn parse(&mut self) -> Vec<Vec<OutputData>> {
+    pub fn parse(&mut self) -> Vec<Archivable> {
         let mut out_v = vec![];
 
         // Skip header
@@ -400,8 +421,12 @@ impl<'a> TypedStreamReader<'a> {
 
             let result = self.read_types(found_types);
             println!("Resultant type: {result:?}");
-
-            out_v.push(result);
+            match result {
+                Some(output) => {
+                    out_v.push(output);
+                }
+                None => {}
+            }
             self.emit_objects_table();
             println!("Types table: {:?}", self.types_table);
         }
