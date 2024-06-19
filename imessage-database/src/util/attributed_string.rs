@@ -501,4 +501,26 @@ mod tests {
 
         // assert_eq!(parsed, expected);
     }
+
+    #[test]
+    fn test_parse_text_multi_part_deleted() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/streamtyped/MultiPartWithDeleted");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::new(&bytes);
+        println!("{parser:?}");
+        let result = parser.parse();
+
+        println!("\n\nGot data!");
+        result.iter().for_each(|item| println!("\n{item:?}"))
+
+        // let expected = "Noter test".to_string();
+
+        // assert_eq!(parsed, expected);
+    }
 }
