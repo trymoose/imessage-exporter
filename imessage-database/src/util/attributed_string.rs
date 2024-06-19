@@ -377,9 +377,8 @@ impl<'a> TypedStreamReader<'a> {
                     println!("Got archived class");
                     if class.embedded_data {
                         self.object_table[spot] = Archivable::Object(class.clone(), out_v.clone());
-                    } else {
-                        self.placeholder = None;
-                    }
+                    } 
+                    self.placeholder = None;
                 } else if let Some(Archivable::Object(_, data)) = self.object_table.last_mut() {
                     println!("Got archived object");
                     data.extend(out_v.clone());
