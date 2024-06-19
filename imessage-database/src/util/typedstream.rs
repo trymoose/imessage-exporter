@@ -30,14 +30,10 @@ impl Class {
             embedded_data,
         }
     }
-
-    fn as_string(&self) -> String {
-        return format!("{} v{}", self.name, self.version);
-    }
 }
 
 #[derive(Debug, Clone)]
-enum OutputData {
+pub enum OutputData {
     String(String),
     Number(i32),
     Byte(u8),
@@ -88,7 +84,7 @@ impl Type {
 }
 
 #[derive(Debug)]
-struct TypedStreamReader<'a> {
+pub struct TypedStreamReader<'a> {
     stream: &'a [u8],
     idx: usize,
     types_table: Vec<Vec<Type>>,
@@ -99,7 +95,7 @@ struct TypedStreamReader<'a> {
 }
 
 impl<'a> TypedStreamReader<'a> {
-    fn new(stream: &'a [u8]) -> Self {
+    pub fn new(stream: &'a [u8]) -> Self {
         Self {
             stream,
             idx: 0,
@@ -225,14 +221,10 @@ impl<'a> TypedStreamReader<'a> {
             EMPTY => {
                 self.idx += 1;
                 println!("End of class chain!");
-                // self.object_table.last()
             }
             ENCODING_DETECTED => {
-                // let embedded_data = self.read_embedded_data();
-                // self.object_table.push(Archivable::Object(embedded_data));
                 self.idx += 1;
                 println!("Encoded data up next!");
-                // self.object_table.last()
             }
             _ => {
                 let index = self.read_pointer();
@@ -349,13 +341,13 @@ impl<'a> TypedStreamReader<'a> {
                 Type::Unknown(byte) => out_v.push(OutputData::Byte(byte)),
                 Type::String(s) => out_v.push(OutputData::String(s)),
             };
-            continue;
         }
 
         // If we had reserved a place for an object, fill that spot
         if let Some(spot) = self.placeholder {
             if !out_v.is_empty() {
                 println!("Inserting {out_v:?} to object table at {spot}");
+                // We got a class, but do not have its respective data yet
                 if let Some(OutputData::Class(class)) = out_v.last() {
                     println!("Got output class");
                     if class.embedded_data {
@@ -364,15 +356,18 @@ impl<'a> TypedStreamReader<'a> {
                         self.object_table.remove(spot);
                         self.placeholder = None;
                     }
+                // We got some data to fill a class that we have not seen yet
                 } else if let Some(Archivable::Class(class)) = self.object_table.last() {
                     println!("Got archived class");
                     if class.embedded_data {
                         self.object_table[spot] = Archivable::Object(class.clone(), out_v.clone());
                     }
                     self.placeholder = None;
+                // We got some data for a class that was already seen
                 } else if let Some(Archivable::Object(_, data)) = self.object_table.last_mut() {
                     println!("Got archived object");
                     data.extend(out_v.clone());
+                // We got some data that is not part of a class, i.e. a field in the parent object for which we don't know the name
                 } else {
                     self.object_table[spot] = Archivable::Data(out_v.clone());
                     self.placeholder = None;
@@ -383,7 +378,7 @@ impl<'a> TypedStreamReader<'a> {
     }
 
     /// Attempt to get the data from the typed stream
-    fn parse(&mut self) -> Vec<Vec<OutputData>> {
+    pub fn parse(&mut self) -> Vec<Vec<OutputData>> {
         let mut out_v = vec![];
 
         // Skip header
@@ -442,7 +437,7 @@ mod tests {
         let result = parser.parse();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("\n{item:?}"))
+        result.iter().for_each(|item| println!("{item:?}"))
 
         // let expected = "Noter test".to_string();
 
@@ -464,7 +459,7 @@ mod tests {
         let result = parser.parse();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("\n{item:?}"))
+        result.iter().for_each(|item| println!("{item:?}"))
 
         // let expected = "Noter test".to_string();
 
@@ -486,7 +481,7 @@ mod tests {
         let result = parser.parse();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("\n{item:?}"))
+        result.iter().for_each(|item| println!("{item:?}"))
 
         // let expected = "Noter test".to_string();
 
@@ -508,7 +503,7 @@ mod tests {
         let result = parser.parse();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("\n{item:?}"))
+        result.iter().for_each(|item| println!("{item:?}"))
 
         // let expected = "Noter test".to_string();
 
