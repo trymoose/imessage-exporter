@@ -186,6 +186,23 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_text_long() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/LongMessage");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+        let parsed = parse(bytes).unwrap();
+
+        let expected = "Sed nibh velit,";
+
+        assert_eq!(&parsed[..expected.len()], expected);
+        assert_eq!(parsed.len(), 2359);
+    }
+
+    #[test]
     fn test_parse_text_blank() {
         let plist_path = current_dir()
             .unwrap()
