@@ -717,9 +717,37 @@ mod tests {
         println!("\n\nGot data!");
         result.iter().for_each(|item| println!("{item:?}"));
 
-        let expected = Archivable::Data(vec![OutputData::Number(1), OutputData::Number(2359)]);
+        let expected = vec![
+            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(2359)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(1)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSValue".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(0)],
+            ),
+        ];
 
-        assert_eq!(result[1], expected);
+        assert_eq!(result[1..], expected);
     }
 
     #[test]
