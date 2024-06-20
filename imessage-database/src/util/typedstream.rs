@@ -75,7 +75,7 @@ enum Type {
 
 #[derive(Debug)]
 enum ClassResult {
-    Index(u32),
+    Index(usize),
     ClassHierarchy(Vec<Archivable>),
 }
 
@@ -260,7 +260,7 @@ impl<'a> TypedStreamReader<'a> {
                 if length >= REFERENCE_TAG {
                     let index = length - REFERENCE_TAG;
                     println!("Getting referenced class at {index}");
-                    return Ok(ClassResult::Index(index));
+                    return Ok(ClassResult::Index(index as usize));
                 }
 
                 let mut class_name = String::with_capacity(length as usize);
@@ -295,7 +295,7 @@ impl<'a> TypedStreamReader<'a> {
             _ => {
                 let index = self.read_pointer()?;
                 println!("Getting referenced object at {index}");
-                return Ok(ClassResult::Index(index));
+                return Ok(ClassResult::Index(index as usize));
             }
         }
         Ok(ClassResult::ClassHierarchy(out_v))
@@ -307,7 +307,7 @@ impl<'a> TypedStreamReader<'a> {
             START => {
                 match self.read_class()? {
                     ClassResult::Index(idx) => {
-                        return Ok(self.object_table.get(idx as usize));
+                        return Ok(self.object_table.get(idx));
                     }
                     ClassResult::ClassHierarchy(classes) => {
                         for class in classes.iter() {
@@ -349,20 +349,22 @@ impl<'a> TypedStreamReader<'a> {
         }
     }
 
+    /// Gets the current type from the stream, either by reading it from the stream or reading it from
+    /// the specified index of the types table. Because methods that use this type can also mutate self,
+    /// returning a reference here means other methods could make that reference to the table invalid,
+    /// which is disallowed in Rust. Thus, we return a clone of the cached data.
     fn get_type(&mut self) -> Result<Option<Vec<Type>>, TypedStreamError> {
         match self.get_current_byte()? {
             START => {
-                println!("New type found!");
                 // Ignore repeated types, for example in a dict
                 self.idx += 1;
+
                 let object_types = self.read_type()?;
                 self.types_table.push(object_types);
-                // self.object_table.push(Archivable::Object(vec![OutputData::NewObject]));
-                println!("Found types: {:?}", self.types_table);
-                Ok(Some(self.types_table.last().unwrap().to_owned()))
+                Ok(self.types_table.last().cloned())
             }
             END => {
-                println!("End of current object!");
+                // This indicates the end of the current object
                 Ok(None)
             }
             _ => {
@@ -372,13 +374,12 @@ impl<'a> TypedStreamReader<'a> {
                 }
 
                 let ref_tag = self.read_pointer()?;
-                let possible_types = self.types_table.get(ref_tag as usize).unwrap().clone();
-                println!("Got referenced type {ref_tag}: {possible_types:?}");
-                Ok(Some(possible_types))
+                Ok(self.types_table.get(ref_tag as usize).cloned())
             }
         }
     }
 
+    /// Given some types, look at the stream and parse the data according to the specified type
     fn read_types(
         &mut self,
         found_types: Vec<Type>,
@@ -386,8 +387,8 @@ impl<'a> TypedStreamReader<'a> {
         let mut out_v = vec![];
         let mut is_obj: bool = false;
 
-        for object_type in found_types {
-            match object_type {
+        for found_type in found_types {
+            match found_type {
                 Type::Utf8String => out_v.push(OutputData::String(self.read_string()?)),
                 Type::EmbeddedData => {
                     return self.read_embedded_data();
@@ -399,14 +400,14 @@ impl<'a> TypedStreamReader<'a> {
                     self.object_table.push(Archivable::Placeholder);
                     println!("Reading object...");
                     self.print_loc("reading object at");
-                    let object = self.read_object()?;
-                    println!("Got object {object:?}");
-                    if let Some(object) = object {
+                    if let Some(object) = self.read_object()? {
                         match object.clone() {
                             Archivable::Object(_, data) => out_v.extend(data),
                             Archivable::Class(cls) => out_v.push(OutputData::Class(cls)),
-                            Archivable::Placeholder => {}
                             Archivable::Data(data) => out_v.extend(data),
+                            Archivable::Placeholder => {
+                                unreachable!()
+                            } // This case should not hit
                         }
                     }
                 }
