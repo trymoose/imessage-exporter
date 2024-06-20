@@ -1,5 +1,7 @@
 /*!
- Contains logic to parse text from `attributedBody`'s `typedstream` data.
+ Contains logic to parse text from `attributedBody`'s `typedstream` data. This module contains legacy simple `typedstream` parser.
+
+ It is called `streamtyped` because that is the header string contained in the data.
 */
 
 use crate::error::streamtyped::StreamTypedError;
