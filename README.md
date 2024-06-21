@@ -43,3 +43,4 @@ The FAQ document is located [here](/docs/faq.md).
 - [SQLiteFlow](https://www.sqliteflow.com), the SQL viewer I used to explore and reverse engineer the iMessage database
 - [Xplist](https://github.com/ic005k/Xplist), an invaluable tool for reverse engineering the `payload_data` plist format
 - [Compart](https://www.compart.com/en/unicode/), an amazing resource for looking up esoteric unicode details
+- [Archive.org](https://archive.org/details/darwin_0.1), for hosting the Darwin source referenced in reverse engineering the `typedstream` format
