@@ -13,20 +13,23 @@ use crate::error::typedstream::TypedStreamError;
 const I_16: u8 = 0x81;
 /// Indicates an [i32] in the byte stream
 const I_32: u8 = 0x82;
-/// Indicates a float in the byte stream, the encoding determines the size
+/// Indicates a float or double in the byte stream; the [Type] determines the size
 const DECIMAL: u8 = 0x83;
 /// Indicates the start of a new object
 const START: u8 = 0x84;
-/// No data to parse, possibly end of an inheritance chain
+/// Indicates that there is no more data to parse, for example the end of a class inheritance chain
 const EMPTY: u8 = 0x85;
 /// Indicates the last byte of an object
 const END: u8 = 0x86;
-/// When scanning for objects, bytes larger than the reference tag indicate an index in the table of already-seen types
+/// Bytes equal or greater in value than the reference tag indicate an index in the table of already-seen types
 const REFERENCE_TAG: i64 = 0x92;
 
+/// Represents a class stored in the `typedstream`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Class {
+    /// The name of the class,
     name: String,
+    /// The encoded version of the class
     version: i64,
 }
 
@@ -36,6 +39,7 @@ impl Class {
     }
 }
 
+/// Rust structures containing data stored in the `typedstream`
 #[derive(Debug, Clone, PartialEq)]
 pub enum OutputData {
     String(String),
@@ -46,6 +50,7 @@ pub enum OutputData {
     Class(Class),
 }
 
+/// Types of data that can be archived into the `typedstream`
 #[derive(Debug, Clone, PartialEq)]
 pub enum Archivable {
     /// An instance of a class that may contain some data
@@ -61,6 +66,7 @@ pub enum Archivable {
     Placeholder,
 }
 
+/// Represents types of data that can be stored in a `typedstream`
 // TODO: Remove clone
 #[derive(Debug, Clone)]
 enum Type {
@@ -75,9 +81,12 @@ enum Type {
     Unknown(u8),
 }
 
+/// Represents data that results from attempting to parse a class from the `typedstream`
 #[derive(Debug)]
 enum ClassResult {
+    /// A reference to an already-seen class in the [TypedStreamReader::object_table]
     Index(usize),
+    /// A new class heirarchy to be inserted into the [TypedStreamReader::object_table]
     ClassHierarchy(Vec<Archivable>),
 }
 
@@ -100,6 +109,7 @@ impl Type {
     }
 }
 
+/// Contains logic and data used to parse data from a `typedstream`
 #[derive(Debug)]
 pub struct TypedStreamReader<'a> {
     /// The typedstream we want to parse
