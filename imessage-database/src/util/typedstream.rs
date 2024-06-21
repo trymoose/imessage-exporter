@@ -85,7 +85,7 @@ impl Type {
             0x0040 => Self::Object,
             0x002B => Self::Utf8String,
             0x002A => Self::EmbeddedData,
-            0x0069 => Self::UnsignedInt,
+            0x0069 | 0x70 | 0x71 | 0x72 => Self::UnsignedInt,
             0x0049 => Self::SignedInt,
             other => Self::Unknown(*other),
         }
@@ -288,10 +288,6 @@ impl<'a> TypedStreamReader<'a> {
                 self.idx += 1;
                 println!("End of class chain!");
             }
-            ENCODING_DETECTED => {
-                self.idx += 1;
-                println!("Encoded data up next!");
-            }
             _ => {
                 let index = self.read_pointer()?;
                 println!("Getting referenced object at {index}");
@@ -395,20 +391,32 @@ impl<'a> TypedStreamReader<'a> {
                 }
                 Type::Object => {
                     is_obj = true;
-                    self.placeholder = Some(self.object_table.len());
+                    let length = self.object_table.len();
+                    self.placeholder = Some(length);
                     println!("Adding placeholder at {:?}", self.placeholder);
                     self.object_table.push(Archivable::Placeholder);
                     println!("Reading object...");
                     self.print_loc("reading object at");
                     if let Some(object) = self.read_object()? {
                         match object.clone() {
-                            Archivable::Object(_, data) => out_v.extend(data),
+                            Archivable::Object(cls, data) => {
+                                // If this is a new class, i.e. one without any data, we handle it later
+                                // If the class already has data in it, we just want to use that class
+                                // And put the data we found inside of it
+                                if !data.is_empty() {
+                                    self.object_table[length] =
+                                        Archivable::Object(cls.clone(), vec![]);
+                                }
+                                out_v.extend(data)
+                            }
                             Archivable::Class(cls) => out_v.push(OutputData::Class(cls)),
                             Archivable::Data(data) => out_v.extend(data),
                             Archivable::Placeholder => {
                                 unreachable!()
                             } // This case should not hit
                         }
+                    } else {
+                        println!("NO OBJECT?");
                     }
                 }
                 Type::SignedInt => out_v.push(OutputData::Number(self.read_int()?)),
@@ -424,28 +432,22 @@ impl<'a> TypedStreamReader<'a> {
                 println!("Inserting {out_v:?} to object table at {spot}");
                 // We got a class, but do not have its respective data yet
                 if let Some(OutputData::Class(class)) = out_v.last() {
-                    println!("Got output class");
-                    if class.embedded_data {
-                        self.object_table[spot] = Archivable::Object(class.clone(), vec![])
-                    } else {
-                        self.object_table.remove(spot);
-                        self.placeholder = None;
-                    }
-                // We got some data to fill a class that we have not seen yet
+                    println!("Got output class {class:?}");
+                    self.object_table[spot] = Archivable::Object(class.clone(), vec![]);
                 } else if let Some(Archivable::Class(class)) = self.object_table.last() {
-                    println!("Got archived class");
-                    if class.embedded_data {
-                        self.object_table[spot] = Archivable::Object(class.clone(), out_v.clone());
-                    }
+                    println!("Got archived class {class:?}");
+                    self.object_table[spot] = Archivable::Object(class.clone(), out_v.clone());
                     self.placeholder = None;
                     return Ok(self.object_table.get(spot).cloned());
                 // We got some data for a class that was already seen
                 } else if let Some(Archivable::Object(_, data)) = self.object_table.last_mut() {
                     println!("Got archived object");
                     data.extend(out_v.clone());
+                    self.placeholder = None;
                     return Ok(self.object_table.last().cloned());
                 // We got some data that is not part of a class, i.e. a field in the parent object for which we don't know the name
                 } else {
+                    println!("Got archived data");
                     self.object_table[spot] = Archivable::Data(out_v.clone());
                     self.placeholder = None;
                     return Ok(self.object_table.get(spot).cloned());
@@ -494,22 +496,17 @@ impl<'a> TypedStreamReader<'a> {
             println!("Parsed data: {:?}\n", out_v);
 
             // First, get the current type
-            let found_types = self.get_type()?;
-            println!("Received types: {:?}", found_types);
+            if let Some(found_types) = self.get_type()? {
+                println!("Received types: {:?}", found_types);
 
-            // TODO: remove unwrap
-            let result = self.read_types(found_types.unwrap());
-            println!("Resultant type: {result:?}");
-            if let Ok(res) = result {
-                match res {
-                    Some(output) => {
-                        out_v.push(output);
-                    }
-                    None => {}
+                let result = self.read_types(found_types);
+                println!("Resultant type: {result:?}");
+                self.emit_objects_table();
+                println!("Types table: {:?}", self.types_table);
+                if let Ok(Some(res)) = result {
+                    out_v.push(res);
                 }
             }
-            self.emit_objects_table();
-            println!("Types table: {:?}", self.types_table);
         }
 
         self.emit_objects_table();
@@ -635,7 +632,14 @@ mod tests {
                     "__kIMMessagePartAttributeName".to_string(),
                 )],
             ),
-            Archivable::Data(vec![OutputData::Number(0)]),
+            Archivable::Object(
+                Class {
+                    name: "NSValue".to_string(),
+                    version: 0,
+                    embedded_data: true,
+                },
+                vec![OutputData::Number(0)],
+            ),
             Archivable::Data(vec![OutputData::Number(1), OutputData::Number(1)]),
         ];
 
@@ -692,6 +696,82 @@ mod tests {
                     name: "NSValue".to_string(),
                     version: 0,
                     embedded_data: true,
+                },
+                vec![OutputData::Number(0)],
+            ),
+        ];
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parse_text_basic_2() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/AttributedBodyTextOnly2");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::new(&bytes);
+        println!("{parser:?}");
+        let result = parser.parse().unwrap();
+
+        println!("\n\nGot data!");
+        result.iter().for_each(|item| println!("\t{item:?}"));
+
+        let expected = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: false,
+                },
+                vec![OutputData::String("Test 3".to_string())],
+            ),
+            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(6)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                    embedded_data: false,
+                },
+                vec![OutputData::Number(2)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: false,
+                },
+                vec![OutputData::String(
+                    "__kIMBaseWritingDirectionAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSValue".to_string(),
+                    version: 0,
+                    embedded_data: false,
+                },
+                vec![OutputData::Number(157)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: false,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                    embedded_data: false,
                 },
                 vec![OutputData::Number(0)],
             ),
@@ -765,7 +845,8 @@ mod tests {
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("{item:?}"));
+        result.iter().for_each(|item| println!("\t{item:?}"));
+        println!("\n\n");
 
         let expected = vec![
             Archivable::Object(
@@ -815,6 +896,7 @@ mod tests {
                     "__kIMMessagePartAttributeName".to_string(),
                 )],
             ),
+            // TODO: This should probably be a NSNumber
             Archivable::Object(
                 Class {
                     name: "NSValue".to_string(),
@@ -842,7 +924,14 @@ mod tests {
                     "__kIMMessagePartAttributeName".to_string(),
                 )],
             ),
-            Archivable::Data(vec![OutputData::Number(1)]),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                    embedded_data: false,
+                },
+                vec![OutputData::Number(1)],
+            ),
             Archivable::Data(vec![OutputData::Number(3), OutputData::Number(1)]),
             Archivable::Object(
                 Class {
@@ -852,9 +941,16 @@ mod tests {
                 },
                 vec![OutputData::Number(2)],
             ),
-            Archivable::Data(vec![OutputData::String(
-                "__kIMFileTransferGUIDAttributeName".to_string(),
-            )]),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMFileTransferGUIDAttributeName".to_string(),
+                )],
+            ),
             Archivable::Object(
                 Class {
                     name: "NSString".to_string(),
@@ -865,10 +961,24 @@ mod tests {
                     "at_2_F0668F79-20C2-49C9-A87F-1B007ABB0CED".to_string(),
                 )],
             ),
-            Archivable::Data(vec![OutputData::String(
-                "__kIMMessagePartAttributeName".to_string(),
-            )]),
-            Archivable::Data(vec![OutputData::Number(2)]),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                    embedded_data: false,
+                },
+                vec![OutputData::Number(2)],
+            ),
             Archivable::Data(vec![OutputData::Number(4), OutputData::Number(7)]),
             Archivable::Object(
                 Class {
@@ -878,10 +988,24 @@ mod tests {
                 },
                 vec![OutputData::Number(1)],
             ),
-            Archivable::Data(vec![OutputData::String(
-                "__kIMMessagePartAttributeName".to_string(),
-            )]),
-            Archivable::Data(vec![OutputData::Number(3)]),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                    embedded_data: false,
+                },
+                vec![OutputData::Number(3)],
+            ),
             Archivable::Data(vec![OutputData::Number(5), OutputData::Number(1)]),
             Archivable::Object(
                 Class {
@@ -891,9 +1015,16 @@ mod tests {
                 },
                 vec![OutputData::Number(2)],
             ),
-            Archivable::Data(vec![OutputData::String(
-                "__kIMFileTransferGUIDAttributeName".to_string(),
-            )]),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMFileTransferGUIDAttributeName".to_string(),
+                )],
+            ),
             Archivable::Object(
                 Class {
                     name: "NSString".to_string(),
@@ -904,10 +1035,24 @@ mod tests {
                     "at_4_F0668F79-20C2-49C9-A87F-1B007ABB0CED".to_string(),
                 )],
             ),
-            Archivable::Data(vec![OutputData::String(
-                "__kIMMessagePartAttributeName".to_string(),
-            )]),
-            Archivable::Data(vec![OutputData::Number(4)]),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                    embedded_data: false,
+                },
+                vec![OutputData::Number(4)],
+            ),
             Archivable::Data(vec![OutputData::Number(6), OutputData::Number(6)]),
             Archivable::Object(
                 Class {
@@ -917,10 +1062,24 @@ mod tests {
                 },
                 vec![OutputData::Number(1)],
             ),
-            Archivable::Data(vec![OutputData::String(
-                "__kIMMessagePartAttributeName".to_string(),
-            )]),
-            Archivable::Data(vec![OutputData::Number(5)]),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                    embedded_data: true,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                    embedded_data: false,
+                },
+                vec![OutputData::Number(5)],
+            ),
         ];
 
         assert_eq!(result, expected);
@@ -941,7 +1100,7 @@ mod tests {
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("{item:?}"));
+        result.iter().for_each(|item| println!("\t{item:?}"));
 
         let expected = vec![
             Archivable::Object(
@@ -1020,7 +1179,14 @@ mod tests {
                     "__kIMMessagePartAttributeName".to_string(),
                 )],
             ),
-            Archivable::Data(vec![OutputData::Number(1)]),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                    embedded_data: false,
+                },
+                vec![OutputData::Number(1)],
+            ),
             Archivable::Data(vec![OutputData::Number(3), OutputData::Number(32)]),
             Archivable::Object(
                 Class {
@@ -1040,8 +1206,19 @@ mod tests {
                     "__kIMMessagePartAttributeName".to_string(),
                 )],
             ),
-            Archivable::Data(vec![OutputData::Number(2)]),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                    embedded_data: false,
+                },
+                vec![OutputData::Number(2)],
+            ),
         ];
+
+        println!("\n\nExpected data!");
+        expected.iter().for_each(|item| println!("\t{item:?}"));
+        println!("\n\n");
 
         assert_eq!(result, expected);
     }
