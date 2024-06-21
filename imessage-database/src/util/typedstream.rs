@@ -16,8 +16,6 @@ const START: u8 = 0x0084;
 const EMPTY: u8 = 0x0085;
 /// Indicates the last byte of an object
 const END: u8 = 0x0086;
-/// [Type] encoding data
-const ENCODING_DETECTED: u8 = 0x0095;
 /// When scanning for objects, bytes larger than the reference tag indicate an index in the table of already-seen types
 const REFERENCE_TAG: u32 = 0x0092;
 
@@ -25,16 +23,11 @@ const REFERENCE_TAG: u32 = 0x0092;
 pub struct Class {
     name: String,
     version: u32,
-    embedded_data: bool,
 }
 
 impl Class {
-    fn new(name: String, version: u32, embedded_data: bool) -> Self {
-        Self {
-            name,
-            version,
-            embedded_data,
-        }
+    fn new(name: String, version: u32) -> Self {
+        Self { name, version }
     }
 }
 
@@ -274,11 +267,7 @@ impl<'a> TypedStreamReader<'a> {
                 self.types_table
                     .push(vec![Type::new_string(class_name.clone())]);
 
-                out_v.push(Archivable::Class(Class::new(
-                    class_name,
-                    version,
-                    self.get_current_byte()? == ENCODING_DETECTED,
-                )));
+                out_v.push(Archivable::Class(Class::new(class_name, version)));
 
                 if let ClassResult::ClassHierarchy(parent) = self.read_class()? {
                     out_v.extend(parent);
@@ -564,7 +553,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String("Test Dad ".to_string())],
             ),
@@ -573,7 +561,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(1)],
             ),
@@ -581,7 +568,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -591,7 +577,6 @@ mod tests {
                 Class {
                     name: "NSValue".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(0)],
             ),
@@ -600,7 +585,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(2)],
             ),
@@ -608,7 +592,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMentionConfirmedMention".to_string(),
@@ -618,7 +601,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String("+15558675309".to_string())],
             ),
@@ -626,7 +608,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -636,7 +617,6 @@ mod tests {
                 Class {
                     name: "NSValue".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(0)],
             ),
@@ -668,7 +648,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String("Noter test".to_string())],
             ),
@@ -677,7 +656,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(1)],
             ),
@@ -685,7 +663,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -695,7 +672,6 @@ mod tests {
                 Class {
                     name: "NSValue".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(0)],
             ),
@@ -726,7 +702,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: false,
                 },
                 vec![OutputData::String("Test 3".to_string())],
             ),
@@ -735,7 +710,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: false,
                 },
                 vec![OutputData::Number(2)],
             ),
@@ -743,7 +717,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: false,
                 },
                 vec![OutputData::String(
                     "__kIMBaseWritingDirectionAttributeName".to_string(),
@@ -753,7 +726,6 @@ mod tests {
                 Class {
                     name: "NSValue".to_string(),
                     version: 0,
-                    embedded_data: false,
                 },
                 vec![OutputData::Number(157)],
             ),
@@ -761,7 +733,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: false,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -771,7 +742,6 @@ mod tests {
                 Class {
                     name: "NSNumber".to_string(),
                     version: 0,
-                    embedded_data: false,
                 },
                 vec![OutputData::Number(0)],
             ),
@@ -803,7 +773,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(1)],
             ),
@@ -811,7 +780,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -821,7 +789,6 @@ mod tests {
                 Class {
                     name: "NSValue".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(0)],
             ),
@@ -853,7 +820,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String("￼test 1￼test 2 ￼test 3".to_string())],
             ),
@@ -862,7 +828,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(2)],
             ),
@@ -870,7 +835,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMFileTransferGUIDAttributeName".to_string(),
@@ -880,7 +844,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "at_0_F0668F79-20C2-49C9-A87F-1B007ABB0CED".to_string(),
@@ -890,7 +853,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -901,7 +863,6 @@ mod tests {
                 Class {
                     name: "NSValue".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(0)],
             ),
@@ -910,7 +871,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(1)],
             ),
@@ -918,7 +878,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -928,7 +887,6 @@ mod tests {
                 Class {
                     name: "NSNumber".to_string(),
                     version: 0,
-                    embedded_data: false,
                 },
                 vec![OutputData::Number(1)],
             ),
@@ -937,7 +895,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(2)],
             ),
@@ -945,7 +902,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMFileTransferGUIDAttributeName".to_string(),
@@ -955,7 +911,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "at_2_F0668F79-20C2-49C9-A87F-1B007ABB0CED".to_string(),
@@ -965,7 +920,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -975,7 +929,6 @@ mod tests {
                 Class {
                     name: "NSNumber".to_string(),
                     version: 0,
-                    embedded_data: false,
                 },
                 vec![OutputData::Number(2)],
             ),
@@ -984,7 +937,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(1)],
             ),
@@ -992,7 +944,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -1002,7 +953,6 @@ mod tests {
                 Class {
                     name: "NSNumber".to_string(),
                     version: 0,
-                    embedded_data: false,
                 },
                 vec![OutputData::Number(3)],
             ),
@@ -1011,7 +961,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(2)],
             ),
@@ -1019,7 +968,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMFileTransferGUIDAttributeName".to_string(),
@@ -1029,7 +977,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "at_4_F0668F79-20C2-49C9-A87F-1B007ABB0CED".to_string(),
@@ -1039,7 +986,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -1049,7 +995,6 @@ mod tests {
                 Class {
                     name: "NSNumber".to_string(),
                     version: 0,
-                    embedded_data: false,
                 },
                 vec![OutputData::Number(4)],
             ),
@@ -1058,7 +1003,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(1)],
             ),
@@ -1066,7 +1010,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -1076,7 +1019,6 @@ mod tests {
                 Class {
                     name: "NSNumber".to_string(),
                     version: 0,
-                    embedded_data: false,
                 },
                 vec![OutputData::Number(5)],
             ),
@@ -1107,7 +1049,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "From arbitrary byte stream:\r￼To native Rust data structures:\r".to_string(),
@@ -1118,7 +1059,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(1)],
             ),
@@ -1126,7 +1066,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -1136,7 +1075,6 @@ mod tests {
                 Class {
                     name: "NSValue".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(0)],
             ),
@@ -1145,7 +1083,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(2)],
             ),
@@ -1153,7 +1090,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMFileTransferGUIDAttributeName".to_string(),
@@ -1163,7 +1099,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "D0551D89-4E11-43D0-9A0E-06F19704E97B".to_string(),
@@ -1173,7 +1108,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -1183,7 +1117,6 @@ mod tests {
                 Class {
                     name: "NSNumber".to_string(),
                     version: 0,
-                    embedded_data: false,
                 },
                 vec![OutputData::Number(1)],
             ),
@@ -1192,7 +1125,6 @@ mod tests {
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
-                    embedded_data: true,
                 },
                 vec![OutputData::Number(1)],
             ),
@@ -1200,7 +1132,6 @@ mod tests {
                 Class {
                     name: "NSString".to_string(),
                     version: 1,
-                    embedded_data: true,
                 },
                 vec![OutputData::String(
                     "__kIMMessagePartAttributeName".to_string(),
@@ -1210,7 +1141,6 @@ mod tests {
                 Class {
                     name: "NSNumber".to_string(),
                     version: 0,
-                    embedded_data: false,
                 },
                 vec![OutputData::Number(2)],
             ),
