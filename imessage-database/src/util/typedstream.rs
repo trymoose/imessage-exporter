@@ -1,7 +1,10 @@
 /*!
  Contains logic to parse detailed data from `typedstream` data, focussing specifically on [NSAttributedString](https://developer.apple.com/documentation/foundation/nsattributedstring) data.
 
- Derived from `typedstream` source located [here](https://opensource.apple.com/source/gcc/gcc-1493/libobjc/objc/typedstream.h.auto.html), [here](https://opensource.apple.com/source/gcc/gcc-5484/libobjc/archive.c.auto.html), and [here](https://sourceforge.net/projects/aapl-darwin/files/Darwin-0.1/objc-1.tar.gz/download)
+ Logic referenced from `typedstream` source located at:
+   - [`typedstream.h`](https://opensource.apple.com/source/gcc/gcc-1493/libobjc/objc/typedstream.h.auto.html)
+   - [`archive.c`](https://opensource.apple.com/source/gcc/gcc-5484/libobjc/archive.c.auto.html)
+   - [`objc/typedstream.m`](https://archive.org/details/darwin_0.1)
 */
 
 use crate::error::typedstream::TypedStreamError;
@@ -75,11 +78,11 @@ enum ClassResult {
 impl Type {
     fn from_byte(byte: &u8) -> Self {
         match byte {
-            0x0040 => Self::Object,
-            0x002B => Self::Utf8String,
-            0x002A => Self::EmbeddedData,
-            0x0069 | 0x70 | 0x71 | 0x72 => Self::UnsignedInt,
-            0x0049 => Self::SignedInt,
+            0x40 => Self::Object,
+            0x2B => Self::Utf8String,
+            0x2A => Self::EmbeddedData,
+            0x69 | 0x6c | 0x71 | 0x73  => Self::UnsignedInt,
+            0x49 | 0x4c | 0x51 | 0x53 => Self::SignedInt,
             other => Self::Unknown(*other),
         }
     }
@@ -423,7 +426,7 @@ impl<'a> TypedStreamReader<'a> {
                 if let Some(OutputData::Class(class)) = out_v.last() {
                     println!("Got output class {class:?}");
                     self.object_table[spot] = Archivable::Object(class.clone(), vec![]);
-                // The spot after the current placeholder contains the class at the top of the class heirarchy, i.e. 
+                // The spot after the current placeholder contains the class at the top of the class heirarchy, i.e.
                 // if we get a placeholder and then find a new class heirarchy, the object table holds the class chain
                 // in descending order of inheritance
                 } else if let Some(Archivable::Class(class)) = self.object_table.get(spot + 1) {
