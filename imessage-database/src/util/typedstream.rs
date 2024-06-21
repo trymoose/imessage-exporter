@@ -423,7 +423,10 @@ impl<'a> TypedStreamReader<'a> {
                 if let Some(OutputData::Class(class)) = out_v.last() {
                     println!("Got output class {class:?}");
                     self.object_table[spot] = Archivable::Object(class.clone(), vec![]);
-                } else if let Some(Archivable::Class(class)) = self.object_table.last() {
+                // The spot after the current placeholder contains the class at the top of the class heirarchy, i.e. 
+                // if we get a placeholder and then find a new class heirarchy, the object table holds the class chain
+                // in descending order of inheritance
+                } else if let Some(Archivable::Class(class)) = self.object_table.get(spot + 1) {
                     println!("Got archived class {class:?}");
                     self.object_table[spot] = Archivable::Object(class.clone(), out_v.clone());
                     self.placeholder = None;
@@ -551,7 +554,7 @@ mod tests {
         let expected = vec![
             Archivable::Object(
                 Class {
-                    name: "NSString".to_string(),
+                    name: "NSMutableString".to_string(),
                     version: 1,
                 },
                 vec![OutputData::String("Test Dad ".to_string())],
@@ -575,7 +578,7 @@ mod tests {
             ),
             Archivable::Object(
                 Class {
-                    name: "NSValue".to_string(),
+                    name: "NSNumber".to_string(),
                     version: 0,
                 },
                 vec![OutputData::Number(0)],
@@ -615,7 +618,7 @@ mod tests {
             ),
             Archivable::Object(
                 Class {
-                    name: "NSValue".to_string(),
+                    name: "NSNumber".to_string(),
                     version: 0,
                 },
                 vec![OutputData::Number(0)],
@@ -646,7 +649,7 @@ mod tests {
         let expected = vec![
             Archivable::Object(
                 Class {
-                    name: "NSString".to_string(),
+                    name: "NSMutableString".to_string(),
                     version: 1,
                 },
                 vec![OutputData::String("Noter test".to_string())],
@@ -670,7 +673,7 @@ mod tests {
             ),
             Archivable::Object(
                 Class {
-                    name: "NSValue".to_string(),
+                    name: "NSNumber".to_string(),
                     version: 0,
                 },
                 vec![OutputData::Number(0)],
@@ -724,7 +727,7 @@ mod tests {
             ),
             Archivable::Object(
                 Class {
-                    name: "NSValue".to_string(),
+                    name: "NSNumber".to_string(),
                     version: 0,
                 },
                 vec![OutputData::Number(157)],
@@ -787,7 +790,7 @@ mod tests {
             ),
             Archivable::Object(
                 Class {
-                    name: "NSValue".to_string(),
+                    name: "NSNumber".to_string(),
                     version: 0,
                 },
                 vec![OutputData::Number(0)],
@@ -818,7 +821,7 @@ mod tests {
         let expected = vec![
             Archivable::Object(
                 Class {
-                    name: "NSString".to_string(),
+                    name: "NSMutableString".to_string(),
                     version: 1,
                 },
                 vec![OutputData::String("￼test 1￼test 2 ￼test 3".to_string())],
@@ -858,10 +861,9 @@ mod tests {
                     "__kIMMessagePartAttributeName".to_string(),
                 )],
             ),
-            // TODO: This should probably be a NSNumber
             Archivable::Object(
                 Class {
-                    name: "NSValue".to_string(),
+                    name: "NSNumber".to_string(),
                     version: 0,
                 },
                 vec![OutputData::Number(0)],
@@ -1047,7 +1049,7 @@ mod tests {
         let expected = vec![
             Archivable::Object(
                 Class {
-                    name: "NSString".to_string(),
+                    name: "NSMutableString".to_string(),
                     version: 1,
                 },
                 vec![OutputData::String(
@@ -1073,7 +1075,7 @@ mod tests {
             ),
             Archivable::Object(
                 Class {
-                    name: "NSValue".to_string(),
+                    name: "NSNumber".to_string(),
                     version: 0,
                 },
                 vec![OutputData::Number(0)],
