@@ -9,40 +9,44 @@
 
 use crate::error::typedstream::TypedStreamError;
 
-/// Indicates an int value stored in 2 bytes
-const TWO_BYTES: u8 = 0x0081;
-/// Indicates an int value stored in 4 bytes
-const FOUR_BYTES: u8 = 0x0082;
+/// Indicates an [i16] in the byte stream
+const I_16: u8 = 0x81;
+/// Indicates an [i32] in the byte stream
+const I_32: u8 = 0x82;
+/// Indicates a float in the byte stream, the encoding determines the size
+const DECIMAL: u8 = 0x83;
 /// Indicates the start of a new object
-const START: u8 = 0x0084;
+const START: u8 = 0x84;
 /// No data to parse, possibly end of an inheritance chain
-const EMPTY: u8 = 0x0085;
+const EMPTY: u8 = 0x85;
 /// Indicates the last byte of an object
-const END: u8 = 0x0086;
+const END: u8 = 0x86;
 /// When scanning for objects, bytes larger than the reference tag indicate an index in the table of already-seen types
-const REFERENCE_TAG: u32 = 0x0092;
+const REFERENCE_TAG: i64 = 0x92;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Class {
     name: String,
-    version: u32,
+    version: i64,
 }
 
 impl Class {
-    fn new(name: String, version: u32) -> Self {
+    fn new(name: String, version: i64) -> Self {
         Self { name, version }
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum OutputData {
     String(String),
-    Number(u32),
+    Integer(i64),
+    Float(f32),
+    Double(f64),
     Byte(u8),
     Class(Class),
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum Archivable {
     /// An instance of a class that may contain some data
     Object(Class, Vec<OutputData>),
@@ -65,6 +69,8 @@ enum Type {
     Object,
     SignedInt,
     UnsignedInt,
+    Float,
+    Double,
     String(String),
     Unknown(u8),
 }
@@ -81,7 +87,9 @@ impl Type {
             0x40 => Self::Object,
             0x2B => Self::Utf8String,
             0x2A => Self::EmbeddedData,
-            0x69 | 0x6c | 0x71 | 0x73  => Self::UnsignedInt,
+            0x66 => Self::Float,
+            0x64 => Self::Double,
+            0x69 | 0x6c | 0x71 | 0x73 => Self::UnsignedInt,
             0x49 | 0x4c | 0x51 | 0x53 => Self::SignedInt,
             other => Self::Unknown(*other),
         }
@@ -142,10 +150,11 @@ impl<'a> TypedStreamReader<'a> {
         );
     }
 
-    /// Read an unsigned integer from the stream
-    fn read_int(&mut self) -> Result<u32, TypedStreamError> {
+    /// Read an unsigned integer from the stream. Because we don't know the size of the integer ahead of time,
+    /// we store it in the largest possible value.
+    fn read_int(&mut self) -> Result<i64, TypedStreamError> {
         match self.get_current_byte()? {
-            TWO_BYTES => {
+            I_16 => {
                 let size = 2;
                 self.idx += 1;
                 let value = u16::from_le_bytes(
@@ -159,9 +168,9 @@ impl<'a> TypedStreamReader<'a> {
                         .map_err(TypedStreamError::SliceError)?,
                 );
                 self.idx += size;
-                Ok(value as u32)
+                Ok(value as i64)
             }
-            FOUR_BYTES => {
+            I_32 => {
                 let size = 4;
                 self.idx += 1;
                 let value = u32::from_le_bytes(
@@ -175,14 +184,50 @@ impl<'a> TypedStreamReader<'a> {
                         .map_err(TypedStreamError::SliceError)?,
                 );
                 self.idx += size;
-                Ok(value)
+                Ok(value as i64)
             }
             _ => {
                 let value = u8::from_le_bytes([self.get_current_byte()?]);
                 self.idx += 1;
-                Ok(value as u32)
+                Ok(value as i64)
             }
         }
+    }
+
+    /// Read a single-precision float from the byte stream
+    fn read_float(&mut self) -> Result<f32, TypedStreamError> {
+        let size = 4;
+        self.idx += 1;
+        let value = f32::from_le_bytes(
+            self.stream
+                .get(self.idx..self.idx + size)
+                .ok_or(TypedStreamError::OutOfBounds(
+                    self.idx + size,
+                    self.stream.len(),
+                ))?
+                .try_into()
+                .map_err(TypedStreamError::SliceError)?,
+        );
+        self.idx += size;
+        Ok(value)
+    }
+
+    /// Read a double-precision float from the byte stream
+    fn read_double(&mut self) -> Result<f64, TypedStreamError> {
+        let size = 8;
+        self.idx += 1;
+        let value = f64::from_le_bytes(
+            self.stream
+                .get(self.idx..self.idx + size)
+                .ok_or(TypedStreamError::OutOfBounds(
+                    self.idx + size,
+                    self.stream.len(),
+                ))?
+                .try_into()
+                .map_err(TypedStreamError::SliceError)?,
+        );
+        self.idx += size;
+        Ok(value)
     }
 
     /// Read exactly `n` bytes from the stream
@@ -235,7 +280,7 @@ impl<'a> TypedStreamReader<'a> {
     /// Read a reference pointer for a Type
     fn read_pointer(&mut self) -> Result<u32, TypedStreamError> {
         self.print_loc("pointer");
-        let result = self.get_current_byte()? as u32 - REFERENCE_TAG;
+        let result = self.get_current_byte()? as u32 - REFERENCE_TAG as u32;
         self.idx += 1;
         Ok(result)
     }
@@ -411,8 +456,10 @@ impl<'a> TypedStreamReader<'a> {
                         println!("NO OBJECT?");
                     }
                 }
-                Type::SignedInt => out_v.push(OutputData::Number(self.read_int()?)),
-                Type::UnsignedInt => out_v.push(OutputData::Number(self.read_int()?)),
+                Type::SignedInt => out_v.push(OutputData::Integer(self.read_int()?)),
+                Type::UnsignedInt => out_v.push(OutputData::Integer(self.read_int()?)),
+                Type::Float => out_v.push(OutputData::Float(self.read_float()?)),
+                Type::Double => out_v.push(OutputData::Double(self.read_double()?)),
                 Type::Unknown(byte) => out_v.push(OutputData::Byte(byte)),
                 Type::String(s) => out_v.push(OutputData::String(s)),
             };
@@ -562,13 +609,13 @@ mod tests {
                 },
                 vec![OutputData::String("Test Dad ".to_string())],
             ),
-            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(5)]),
+            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(5)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(1)],
+                vec![OutputData::Integer(1)],
             ),
             Archivable::Object(
                 Class {
@@ -584,15 +631,15 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(0)],
+                vec![OutputData::Integer(0)],
             ),
-            Archivable::Data(vec![OutputData::Number(2), OutputData::Number(3)]),
+            Archivable::Data(vec![OutputData::Integer(2), OutputData::Integer(3)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(2)],
+                vec![OutputData::Integer(2)],
             ),
             Archivable::Object(
                 Class {
@@ -624,9 +671,9 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(0)],
+                vec![OutputData::Integer(0)],
             ),
-            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(1)]),
+            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(1)]),
         ];
 
         assert_eq!(result, expected);
@@ -657,13 +704,13 @@ mod tests {
                 },
                 vec![OutputData::String("Noter test".to_string())],
             ),
-            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(10)]),
+            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(10)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(1)],
+                vec![OutputData::Integer(1)],
             ),
             Archivable::Object(
                 Class {
@@ -679,7 +726,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(0)],
+                vec![OutputData::Integer(0)],
             ),
         ];
 
@@ -711,13 +758,13 @@ mod tests {
                 },
                 vec![OutputData::String("Test 3".to_string())],
             ),
-            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(6)]),
+            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(6)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(2)],
+                vec![OutputData::Integer(2)],
             ),
             Archivable::Object(
                 Class {
@@ -733,7 +780,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(157)],
+                vec![OutputData::Integer(157)],
             ),
             Archivable::Object(
                 Class {
@@ -749,7 +796,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(0)],
+                vec![OutputData::Integer(0)],
             ),
         ];
 
@@ -774,13 +821,13 @@ mod tests {
         result.iter().for_each(|item| println!("{item:?}"));
 
         let expected = vec![
-            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(2359)]),
+            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(2359)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(1)],
+                vec![OutputData::Integer(1)],
             ),
             Archivable::Object(
                 Class {
@@ -796,7 +843,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(0)],
+                vec![OutputData::Integer(0)],
             ),
         ];
 
@@ -829,13 +876,13 @@ mod tests {
                 },
                 vec![OutputData::String("￼test 1￼test 2 ￼test 3".to_string())],
             ),
-            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(1)]),
+            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(1)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(2)],
+                vec![OutputData::Integer(2)],
             ),
             Archivable::Object(
                 Class {
@@ -869,15 +916,15 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(0)],
+                vec![OutputData::Integer(0)],
             ),
-            Archivable::Data(vec![OutputData::Number(2), OutputData::Number(6)]),
+            Archivable::Data(vec![OutputData::Integer(2), OutputData::Integer(6)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(1)],
+                vec![OutputData::Integer(1)],
             ),
             Archivable::Object(
                 Class {
@@ -893,15 +940,15 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(1)],
+                vec![OutputData::Integer(1)],
             ),
-            Archivable::Data(vec![OutputData::Number(3), OutputData::Number(1)]),
+            Archivable::Data(vec![OutputData::Integer(3), OutputData::Integer(1)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(2)],
+                vec![OutputData::Integer(2)],
             ),
             Archivable::Object(
                 Class {
@@ -935,15 +982,15 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(2)],
+                vec![OutputData::Integer(2)],
             ),
-            Archivable::Data(vec![OutputData::Number(4), OutputData::Number(7)]),
+            Archivable::Data(vec![OutputData::Integer(4), OutputData::Integer(7)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(1)],
+                vec![OutputData::Integer(1)],
             ),
             Archivable::Object(
                 Class {
@@ -959,15 +1006,15 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(3)],
+                vec![OutputData::Integer(3)],
             ),
-            Archivable::Data(vec![OutputData::Number(5), OutputData::Number(1)]),
+            Archivable::Data(vec![OutputData::Integer(5), OutputData::Integer(1)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(2)],
+                vec![OutputData::Integer(2)],
             ),
             Archivable::Object(
                 Class {
@@ -1001,15 +1048,15 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(4)],
+                vec![OutputData::Integer(4)],
             ),
-            Archivable::Data(vec![OutputData::Number(6), OutputData::Number(6)]),
+            Archivable::Data(vec![OutputData::Integer(6), OutputData::Integer(6)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(1)],
+                vec![OutputData::Integer(1)],
             ),
             Archivable::Object(
                 Class {
@@ -1025,7 +1072,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(5)],
+                vec![OutputData::Integer(5)],
             ),
         ];
 
@@ -1059,13 +1106,13 @@ mod tests {
                     "From arbitrary byte stream:\r￼To native Rust data structures:\r".to_string(),
                 )],
             ),
-            Archivable::Data(vec![OutputData::Number(1), OutputData::Number(28)]),
+            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(28)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(1)],
+                vec![OutputData::Integer(1)],
             ),
             Archivable::Object(
                 Class {
@@ -1081,15 +1128,15 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(0)],
+                vec![OutputData::Integer(0)],
             ),
-            Archivable::Data(vec![OutputData::Number(2), OutputData::Number(1)]),
+            Archivable::Data(vec![OutputData::Integer(2), OutputData::Integer(1)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(2)],
+                vec![OutputData::Integer(2)],
             ),
             Archivable::Object(
                 Class {
@@ -1123,15 +1170,15 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(1)],
+                vec![OutputData::Integer(1)],
             ),
-            Archivable::Data(vec![OutputData::Number(3), OutputData::Number(32)]),
+            Archivable::Data(vec![OutputData::Integer(3), OutputData::Integer(32)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(1)],
+                vec![OutputData::Integer(1)],
             ),
             Archivable::Object(
                 Class {
@@ -1147,7 +1194,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Number(2)],
+                vec![OutputData::Integer(2)],
             ),
         ];
 
