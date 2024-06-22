@@ -9,11 +9,11 @@
 
 use crate::error::typedstream::TypedStreamError;
 
-/// Indicates an [i16] in the byte stream
+/// Indicates an [`i16`] in the byte stream
 const I_16: u8 = 0x81;
-/// Indicates an [i32] in the byte stream
+/// Indicates an [`i32`] in the byte stream
 const I_32: u8 = 0x82;
-/// Indicates an [f32] or [f64] in the byte stream; the [Type] determines the size
+/// Indicates an [`f32`] or [`f64`] in the byte stream; the [`Type`] determines the size
 const DECIMAL: u8 = 0x83;
 /// Indicates the start of a new object
 const START: u8 = 0x84;
@@ -27,7 +27,7 @@ const REFERENCE_TAG: i64 = 0x92;
 /// Represents a class stored in the `typedstream`
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Class {
-    /// The name of the class,
+    /// The name of the class
     name: String,
     /// The encoded version of the class
     version: i64,
@@ -42,22 +42,28 @@ impl Class {
 /// Rust structures containing data stored in the `typedstream`
 #[derive(Debug, Clone, PartialEq)]
 pub enum OutputData {
+    /// Text data
     String(String),
+    /// All integer types are coerced into this container
     Integer(i64),
+    /// Floating point numbers
     Float(f32),
+    /// Double precision floats
     Double(f64),
+    /// Bytes whose type is not known
     Byte(u8),
+    /// A found class, in order of inheritance
     Class(Class),
 }
 
 /// Types of data that can be archived into the `typedstream`
 #[derive(Debug, Clone, PartialEq)]
 pub enum Archivable {
-    /// An instance of a class that may contain some data
+    /// An instance of a class that may contain some embedded data
     Object(Class, Vec<OutputData>),
     /// Some data that is likely a field on the object described by the `typedstream` but not part of a class
     Data(Vec<OutputData>),
-    /// A class referenced in the `typedstream`
+    /// A class referenced in the `typedstream`, usually part of an inheritance heirarchy that does not contain any data itself
     Class(Class),
     /// A placeholder, only used when reserving a spot in the objects table for a reference to be filled with read class information.
     /// In a `typedstream`, the classes are stored in order of inheritance, so the top-level class described by the `typedstream`
@@ -67,26 +73,38 @@ pub enum Archivable {
 }
 
 /// Represents types of data that can be stored in a `typedstream`
+///
+/// Types are cached in [`TypedStreamReader::types_table`]; the first time one is seen they are present
+/// in the stream literally, but afterwards are only referenced by index in order of appearance.
 // TODO: Remove clone
 #[derive(Debug, Clone)]
 enum Type {
+    /// Encoded string data, usually embedded in an object
     Utf8String,
+    /// Encoded bytes that can be parsed again as data
     EmbeddedData,
+    /// An instance of a class, usually with data
     Object,
+    /// An [`i8`], [`i16`], or [`i32`]
     SignedInt,
+    /// A [`u8`], [`u16`], or [`u32`]
     UnsignedInt,
+    /// An [`f32`]
     Float,
+    /// An [`f64`]
     Double,
+    /// Some text we can reuse later, i.e. a class name
     String(String),
+    /// Data for which we do not know the type, likely for something this parser does not implement
     Unknown(u8),
 }
 
 /// Represents data that results from attempting to parse a class from the `typedstream`
 #[derive(Debug)]
 enum ClassResult {
-    /// A reference to an already-seen class in the [TypedStreamReader::object_table]
+    /// A reference to an already-seen class in the [`TypedStreamReader::object_table`]
     Index(usize),
-    /// A new class heirarchy to be inserted into the [TypedStreamReader::object_table]
+    /// A new class heirarchy to be inserted into the [`TypedStreamReader::object_table`]
     ClassHierarchy(Vec<Archivable>),
 }
 
@@ -112,15 +130,15 @@ impl Type {
 /// Contains logic and data used to parse data from a `typedstream`
 #[derive(Debug)]
 pub struct TypedStreamReader<'a> {
-    /// The typedstream we want to parse
+    /// The `typedstream` we want to parse
     stream: &'a [u8],
     /// The current index we are at in the stream
     idx: usize,
-    /// As we parse the `typedstream`, build a table of seen types to reference in the future
+    /// As we parse the `typedstream`, build a table of seen [`Type`]s to reference in the future
     types_table: Vec<Vec<Type>>,
     /// As we parse the `typedstream`, build a table of seen archivable data to reference in the future
     object_table: Vec<Archivable>,
-    /// Used to store the position of the current [Archivable::Placeholder]
+    /// Stores the position of the current [`Archivable::Placeholder`]
     placeholder: Option<usize>,
 }
 
@@ -259,6 +277,7 @@ impl<'a> TypedStreamReader<'a> {
         Ok(())
     }
 
+    /// Get the byte at a given index, if the index is within the bounds of the `typedstream`
     fn get_byte(&self, byte_idx: usize) -> Result<u8, TypedStreamError> {
         if byte_idx < self.stream.len() {
             return Ok(self.stream[byte_idx]);
@@ -344,7 +363,7 @@ impl<'a> TypedStreamReader<'a> {
         Ok(ClassResult::ClassHierarchy(out_v))
     }
 
-    /// read an object
+    /// Read an object into the cache and emit, or emit an already-cached object
     fn read_object(&mut self) -> Result<Option<&Archivable>, TypedStreamError> {
         match self.get_current_byte()? {
             START => {
@@ -382,7 +401,7 @@ impl<'a> TypedStreamReader<'a> {
         Ok(string)
     }
 
-    /// [Archivable] data can be embedded on a class or in a C String
+    /// [`Archivable`] data can be embedded on a class or in a C String marked as [`Type::EmbeddedData`]
     fn read_embedded_data(&mut self) -> Result<Option<Archivable>, TypedStreamError> {
         // Skip the 0x84
         self.idx += 1;
@@ -393,7 +412,7 @@ impl<'a> TypedStreamReader<'a> {
     }
 
     /// Gets the current type from the stream, either by reading it from the stream or reading it from
-    /// the specified index of the types table. Because methods that use this type can also mutate self,
+    /// the specified index of [`TypedStreamReader::types_table`]. Because methods that use this type can also mutate self,
     /// returning a reference here means other methods could make that reference to the table invalid,
     /// which is disallowed in Rust. Thus, we return a clone of the cached data.
     fn get_type(&mut self) -> Result<Option<Vec<Type>>, TypedStreamError> {
@@ -422,7 +441,7 @@ impl<'a> TypedStreamReader<'a> {
         }
     }
 
-    /// Given some types, look at the stream and parse the data according to the specified type
+    /// Given some [`Type`]s, look at the stream and parse the data according to the specified [`Type`]
     fn read_types(
         &mut self,
         found_types: Vec<Type>,
@@ -514,6 +533,9 @@ impl<'a> TypedStreamReader<'a> {
         Ok(None)
     }
 
+    /// In the original source there are several variants of the header, but we
+    /// only need to validate that this is the header used by macOS/iOS, as iMessage
+    /// is probably not available on any NeXT platform
     fn validate_header(&mut self) -> Result<(), TypedStreamError> {
         // Encoding type
         let typedstream_version = self.read_int()?;
@@ -532,7 +554,17 @@ impl<'a> TypedStreamReader<'a> {
         Ok(())
     }
 
-    /// Attempt to get the data from the typed stream
+    /// Attempt to get the data from the `typedstream`
+    ///
+    /// Output looks like:
+    ///
+    /// ```rust
+    /// Object(Class { name: "NSMutableString", version: 1 }, [String("Example")]) // The message text
+    /// Data([Integer(1), Integer(7)])  // The next object describes properties for the range of chars 1 through 7
+    /// Object(Class { name: "NSDictionary", version: 0 }, [Integer(1)])  // The first property is a `NSDictionary` with 1 item
+    /// Object(Class { name: "NSString", version: 1 }, [String("__kIMMessagePartAttributeName")])  // The first key in the `NSDictionary`
+    /// Object(Class { name: "NSNumber", version: 0 }, [Integer(0)])  // The first value in the `NSDictionary`
+    /// ```
     pub fn parse(&mut self) -> Result<Vec<Archivable>, TypedStreamError> {
         let mut out_v = vec![];
 
