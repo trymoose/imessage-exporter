@@ -236,6 +236,24 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_text_attachment() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/Attachment");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+        let parsed = parse(bytes).unwrap();
+        println!("{:?}", parsed);
+
+        let expected =
+            "\u{FFFC}This is how the notes look to me fyi, in case it helps make sense of anything";
+
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
     fn test_can_drop_chars() {
         assert_eq!(
             drop_chars(1, String::from("Hello world")).unwrap(),
