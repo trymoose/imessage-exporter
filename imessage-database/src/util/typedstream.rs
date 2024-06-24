@@ -70,6 +70,7 @@ pub enum Archivable {
     /// comes before the ones it inherits from. To preserve the order, we reserve the first slot to store the actual object's data
     /// and then later add it back to the right place.
     Placeholder,
+    Type(Vec<Type>),
 }
 
 /// Represents types of data that can be stored in a `typedstream`
@@ -77,8 +78,8 @@ pub enum Archivable {
 /// Types are cached in [`TypedStreamReader::types_table`]; the first time one is seen they are present
 /// in the stream literally, but afterwards are only referenced by index in order of appearance.
 // TODO: Remove clone
-#[derive(Debug, Clone)]
-enum Type {
+#[derive(Debug, Clone, PartialEq)]
+pub enum Type {
     /// Encoded string data, usually embedded in an object
     Utf8String,
     /// Encoded bytes that can be parsed again as data
@@ -116,7 +117,7 @@ impl Type {
             0x2A => Self::EmbeddedData,
             0x66 => Self::Float,
             0x64 => Self::Double,
-            0x69 | 0x6c | 0x71 | 0x73 => Self::UnsignedInt,
+            0x69 | 0x6c | 0x71 | 0x73 => Self::UnsignedInt, // TODO: These are reversed + implement
             0x49 | 0x4c | 0x51 | 0x53 => Self::SignedInt,
             other => Self::Unknown(*other),
         }
@@ -186,32 +187,20 @@ impl<'a> TypedStreamReader<'a> {
                 let size = 2;
                 self.idx += 1;
                 let value = u16::from_le_bytes(
-                    self.stream
-                        .get(self.idx..self.idx + size)
-                        .ok_or(TypedStreamError::OutOfBounds(
-                            self.idx + size,
-                            self.stream.len(),
-                        ))?
+                    self.read_exact_bytes(size)?
                         .try_into()
                         .map_err(TypedStreamError::SliceError)?,
                 );
-                self.idx += size;
                 Ok(value as i64)
             }
             I_32 => {
                 let size = 4;
                 self.idx += 1;
                 let value = u32::from_le_bytes(
-                    self.stream
-                        .get(self.idx..self.idx + size)
-                        .ok_or(TypedStreamError::OutOfBounds(
-                            self.idx + size,
-                            self.stream.len(),
-                        ))?
+                    self.read_exact_bytes(size)?
                         .try_into()
                         .map_err(TypedStreamError::SliceError)?,
                 );
-                self.idx += size;
                 Ok(value as i64)
             }
             _ => {
@@ -224,43 +213,49 @@ impl<'a> TypedStreamReader<'a> {
 
     /// Read a single-precision float from the byte stream
     fn read_float(&mut self) -> Result<f32, TypedStreamError> {
-        let size = 4;
-        self.idx += 1;
-        let value = f32::from_le_bytes(
-            self.stream
-                .get(self.idx..self.idx + size)
-                .ok_or(TypedStreamError::OutOfBounds(
-                    self.idx + size,
-                    self.stream.len(),
-                ))?
-                .try_into()
-                .map_err(TypedStreamError::SliceError)?,
-        );
-        self.idx += size;
-        Ok(value)
+        match self.get_current_byte()? {
+            DECIMAL => {
+                let size = 4;
+                self.idx += 1;
+                let value = f32::from_le_bytes(
+                    self.read_exact_bytes(size)?
+                        .try_into()
+                        .map_err(TypedStreamError::SliceError)?,
+                );
+                Ok(value)
+            }
+            I_16 | I_32 => Ok(self.read_int()? as f32),
+            _ => {
+                self.idx += 1;
+                Ok(self.read_int()? as f32)
+            }
+        }
     }
 
     /// Read a double-precision float from the byte stream
     fn read_double(&mut self) -> Result<f64, TypedStreamError> {
-        let size = 8;
-        self.idx += 1;
-        let value = f64::from_le_bytes(
-            self.stream
-                .get(self.idx..self.idx + size)
-                .ok_or(TypedStreamError::OutOfBounds(
-                    self.idx + size,
-                    self.stream.len(),
-                ))?
-                .try_into()
-                .map_err(TypedStreamError::SliceError)?,
-        );
-        self.idx += size;
-        Ok(value)
+        self.print_loc("dub");
+        match self.get_current_byte()? {
+            DECIMAL => {
+                let size = 8;
+                self.idx += 1;
+                let value = f64::from_le_bytes(
+                    self.read_exact_bytes(size)?
+                        .try_into()
+                        .map_err(TypedStreamError::SliceError)?,
+                );
+                Ok(value)
+            }
+            I_16 | I_32 => Ok(self.read_int()? as f64),
+            _ => {
+                self.idx += 1;
+                Ok(self.read_int()? as f64)
+            }
+        }
     }
 
     /// Read exactly `n` bytes from the stream
     fn read_exact_bytes(&mut self, n: usize) -> Result<&[u8], TypedStreamError> {
-        // let range = &self.stream[self.idx..self.idx + n];
         let range =
             self.stream
                 .get(self.idx..self.idx + n)
@@ -304,10 +299,10 @@ impl<'a> TypedStreamReader<'a> {
 
     /// Determine the current types
     fn read_type(&mut self) -> Result<Vec<Type>, TypedStreamError> {
-        let length = self.read_int();
+        let length = self.read_int()?;
         println!("type length: {length:?}");
         Ok(self
-            .read_exact_bytes(length? as usize)?
+            .read_exact_bytes(length as usize)?
             .iter()
             .map(Type::from_byte)
             .collect())
@@ -429,6 +424,12 @@ impl<'a> TypedStreamReader<'a> {
                 self.idx += 1;
 
                 let object_types = self.read_type()?;
+
+                // Embedded data is stored as a C String in the objects table
+                if object_types == vec![Type::EmbeddedData] {
+                    self.object_table
+                        .push(Archivable::Type(object_types.clone()));
+                }
                 self.types_table.push(object_types);
                 Ok(self.types_table.last().cloned())
             }
@@ -485,8 +486,9 @@ impl<'a> TypedStreamReader<'a> {
                             Archivable::Class(cls) => out_v.push(OutputData::Class(cls)),
                             Archivable::Data(data) => out_v.extend(data),
                             Archivable::Placeholder => {
-                                unreachable!()
-                            } // This case should not hit
+                                unreachable!() // This case should not hit
+                            }
+                            Archivable::Type(_) => {} // This case should do nothing
                         }
                     } else {
                         println!("NO OBJECT?");
@@ -564,8 +566,8 @@ impl<'a> TypedStreamReader<'a> {
     /// Attempt to get the data from the `typedstream`
     ///
     /// Output looks like:
-    ///
-    /// ```rust
+    /// TODO: Make this better
+    /// ```txt
     /// Object(Class { name: "NSMutableString", version: 1 }, [String("Example")]) // The message text
     /// Data([Integer(1), Integer(7)])  // The next object describes properties for the range of chars 1 through 7
     /// Object(Class { name: "NSDictionary", version: 0 }, [Integer(1)])  // The first property is a `NSDictionary` with 1 item
@@ -1250,6 +1252,184 @@ mod tests {
         println!("\n\nExpected data!");
         expected.iter().for_each(|item| println!("\t{item:?}"));
         println!("\n\n");
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parse_text_attachment() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/Attachment");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::new(&bytes);
+        println!("{parser:?}");
+        let result = parser.parse().unwrap();
+
+        println!("\n\nGot data!");
+        result.iter().for_each(|item| println!("\t{item:?}"));
+
+        let expected = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSMutableString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String("\u{FFFC}This is how the notes look to me fyi, in case it helps make sense of anything".to_string())],
+            ),
+            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(1)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::Integer(6)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMFileTransferGUIDAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "at_0_2E5F12C3-E649-48AA-954D-3EA67C016BCC".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMInlineMediaHeightAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::Double(1139.0)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMBaseWritingDirectionAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::Integer(160)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::Integer(0)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMFilenameAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "Messages Image(785748029).png".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMInlineMediaWidthAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::Double(952.0)],
+            ),
+            Archivable::Data(vec![OutputData::Integer(2), OutputData::Integer(77)]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::Integer(2)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMBaseWritingDirectionAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::Integer(160)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::Integer(1)],
+            ),
+        ];
 
         assert_eq!(result, expected);
     }
