@@ -260,7 +260,14 @@ impl<'a> TypedStreamReader<'a> {
 
     /// Read exactly `n` bytes from the stream
     fn read_exact_bytes(&mut self, n: usize) -> Result<&[u8], TypedStreamError> {
-        let range = &self.stream[self.idx..self.idx + n];
+        // let range = &self.stream[self.idx..self.idx + n];
+        let range =
+            self.stream
+                .get(self.idx..self.idx + n)
+                .ok_or(TypedStreamError::OutOfBounds(
+                    self.idx + n,
+                    self.stream.len(),
+                ))?;
         self.idx += n;
         Ok(range)
     }
