@@ -22,7 +22,7 @@ const EMPTY: u8 = 0x85;
 /// Indicates the last byte of an object
 const END: u8 = 0x86;
 /// Bytes equal or greater in value than the reference tag indicate an index in the table of already-seen types
-const REFERENCE_TAG: i64 = 0x92;
+const REFERENCE_TAG: u64 = 0x92;
 
 /// Represents a class stored in the `typedstream`
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -30,11 +30,11 @@ pub struct Class {
     /// The name of the class
     name: String,
     /// The encoded version of the class
-    version: i64,
+    version: u64,
 }
 
 impl Class {
-    fn new(name: String, version: i64) -> Self {
+    fn new(name: String, version: u64) -> Self {
         Self { name, version }
     }
 }
@@ -44,8 +44,10 @@ impl Class {
 pub enum OutputData {
     /// Text data
     String(String),
-    /// All integer types are coerced into this container
-    Integer(i64),
+    /// Signed integer types are coerced into this container
+    SignedInteger(i64),
+    /// Unsigned integer types are coerced into this container
+    UnsignedInteger(u64),
     /// Floating point numbers
     Float(f32),
     /// Double precision floats
@@ -117,8 +119,8 @@ impl Type {
             0x2A => Self::EmbeddedData,
             0x66 => Self::Float,
             0x64 => Self::Double,
-            0x69 | 0x6c | 0x71 | 0x73 => Self::UnsignedInt, // TODO: These are reversed + implement
-            0x49 | 0x4c | 0x51 | 0x53 => Self::SignedInt,
+            0x69 | 0x6c | 0x71 | 0x73 => Self::SignedInt, // TODO: These are reversed + implement
+            0x49 | 0x4c | 0x51 | 0x53 => Self::UnsignedInt,
             other => Self::Unknown(*other),
         }
     }
@@ -179,14 +181,14 @@ impl<'a> TypedStreamReader<'a> {
         );
     }
 
-    /// Read an unsigned integer from the stream. Because we don't know the size of the integer ahead of time,
+    /// Read a signed integer from the stream. Because we don't know the size of the integer ahead of time,
     /// we store it in the largest possible value.
-    fn read_int(&mut self) -> Result<i64, TypedStreamError> {
+    fn read_signed_int(&mut self) -> Result<i64, TypedStreamError> {
         match self.get_current_byte()? {
             I_16 => {
                 let size = 2;
                 self.idx += 1;
-                let value = u16::from_le_bytes(
+                let value = i16::from_le_bytes(
                     self.read_exact_bytes(size)?
                         .try_into()
                         .map_err(TypedStreamError::SliceError)?,
@@ -196,7 +198,7 @@ impl<'a> TypedStreamReader<'a> {
             I_32 => {
                 let size = 4;
                 self.idx += 1;
-                let value = u32::from_le_bytes(
+                let value = i32::from_le_bytes(
                     self.read_exact_bytes(size)?
                         .try_into()
                         .map_err(TypedStreamError::SliceError)?,
@@ -204,9 +206,44 @@ impl<'a> TypedStreamReader<'a> {
                 Ok(value as i64)
             }
             _ => {
-                let value = u8::from_le_bytes([self.get_current_byte()?]);
+                if self.get_current_byte()? > REFERENCE_TAG as u8 {
+                    self.idx += 1;
+                }
+                let value = i8::from_le_bytes([self.get_current_byte()?]);
                 self.idx += 1;
                 Ok(value as i64)
+            }
+        }
+    }
+
+    /// Read an unsigned integer from the stream. Because we don't know the size of the integer ahead of time,
+    /// we store it in the largest possible value.
+    fn read_unsigned_int(&mut self) -> Result<u64, TypedStreamError> {
+        match self.get_current_byte()? {
+            I_16 => {
+                let size = 2;
+                self.idx += 1;
+                let value = u16::from_le_bytes(
+                    self.read_exact_bytes(size)?
+                        .try_into()
+                        .map_err(TypedStreamError::SliceError)?,
+                );
+                Ok(value as u64)
+            }
+            I_32 => {
+                let size = 4;
+                self.idx += 1;
+                let value = u32::from_le_bytes(
+                    self.read_exact_bytes(size)?
+                        .try_into()
+                        .map_err(TypedStreamError::SliceError)?,
+                );
+                Ok(value as u64)
+            }
+            _ => {
+                let value = u8::from_le_bytes([self.get_current_byte()?]);
+                self.idx += 1;
+                Ok(value as u64)
             }
         }
     }
@@ -224,10 +261,10 @@ impl<'a> TypedStreamReader<'a> {
                 );
                 Ok(value)
             }
-            I_16 | I_32 => Ok(self.read_int()? as f32),
+            I_16 | I_32 => Ok(self.read_signed_int()? as f32),
             _ => {
                 self.idx += 1;
-                Ok(self.read_int()? as f32)
+                Ok(self.read_signed_int()? as f32)
             }
         }
     }
@@ -246,10 +283,10 @@ impl<'a> TypedStreamReader<'a> {
                 );
                 Ok(value)
             }
-            I_16 | I_32 => Ok(self.read_int()? as f64),
+            I_16 | I_32 => Ok(self.read_signed_int()? as f64),
             _ => {
                 self.idx += 1;
-                Ok(self.read_int()? as f64)
+                Ok(self.read_signed_int()? as f64)
             }
         }
     }
@@ -299,7 +336,7 @@ impl<'a> TypedStreamReader<'a> {
 
     /// Determine the current types
     fn read_type(&mut self) -> Result<Vec<Type>, TypedStreamError> {
-        let length = self.read_int()?;
+        let length = self.read_unsigned_int()?;
         println!("type length: {length:?}");
         Ok(self
             .read_exact_bytes(length as usize)?
@@ -327,7 +364,7 @@ impl<'a> TypedStreamReader<'a> {
                     self.idx += 1;
                 }
                 self.print_loc("class 2");
-                let length = self.read_int()?;
+                let length = self.read_unsigned_int()?;
 
                 if length >= REFERENCE_TAG {
                     let index = length - REFERENCE_TAG;
@@ -339,7 +376,7 @@ impl<'a> TypedStreamReader<'a> {
                 println!("Class name created with capacity {}", class_name.capacity());
                 self.read_exact_as_string(length as usize, &mut class_name)?;
 
-                let version = self.read_int()?;
+                let version = self.read_unsigned_int()?;
                 println!("{class_name} v{version}");
                 println!("{}: {:?}", self.idx, self.get_current_byte());
 
@@ -395,7 +432,7 @@ impl<'a> TypedStreamReader<'a> {
 
     /// Read String data
     fn read_string(&mut self) -> Result<String, TypedStreamError> {
-        let length = self.read_int()?;
+        let length = self.read_unsigned_int()?;
         let mut string = String::with_capacity(length as usize);
         println!("String created with capacity {}", string.capacity());
         self.read_exact_as_string(length as usize, &mut string)?;
@@ -407,7 +444,7 @@ impl<'a> TypedStreamReader<'a> {
     fn read_embedded_data(&mut self) -> Result<Option<Archivable>, TypedStreamError> {
         // Skip the 0x84
         self.idx += 1;
-        match self.get_type()? {
+        match self.get_type(true)? {
             Some(types) => self.read_types(types),
             None => Ok(None),
         }
@@ -417,7 +454,7 @@ impl<'a> TypedStreamReader<'a> {
     /// the specified index of [`TypedStreamReader::types_table`]. Because methods that use this type can also mutate self,
     /// returning a reference here means other methods could make that reference to the table invalid,
     /// which is disallowed in Rust. Thus, we return a clone of the cached data.
-    fn get_type(&mut self) -> Result<Option<Vec<Type>>, TypedStreamError> {
+    fn get_type(&mut self, embedded: bool) -> Result<Option<Vec<Type>>, TypedStreamError> {
         match self.get_current_byte()? {
             START => {
                 // Ignore repeated types, for example in a dict
@@ -426,7 +463,7 @@ impl<'a> TypedStreamReader<'a> {
                 let object_types = self.read_type()?;
 
                 // Embedded data is stored as a C String in the objects table
-                if object_types == vec![Type::EmbeddedData] {
+                if embedded {
                     self.object_table
                         .push(Archivable::Type(object_types.clone()));
                 }
@@ -494,8 +531,10 @@ impl<'a> TypedStreamReader<'a> {
                         println!("NO OBJECT?");
                     }
                 }
-                Type::SignedInt => out_v.push(OutputData::Integer(self.read_int()?)),
-                Type::UnsignedInt => out_v.push(OutputData::Integer(self.read_int()?)),
+                Type::SignedInt => out_v.push(OutputData::SignedInteger(self.read_signed_int()?)),
+                Type::UnsignedInt => {
+                    out_v.push(OutputData::UnsignedInteger(self.read_unsigned_int()?))
+                }
                 Type::Float => out_v.push(OutputData::Float(self.read_float()?)),
                 Type::Double => out_v.push(OutputData::Double(self.read_double()?)),
                 Type::Unknown(byte) => out_v.push(OutputData::Byte(byte)),
@@ -520,13 +559,14 @@ impl<'a> TypedStreamReader<'a> {
                     self.placeholder = None;
                     return Ok(self.object_table.get(spot).cloned());
                 // We got some data for a class that was already seen
-                } else if let Some(Archivable::Object(_, data)) = self.object_table.last_mut() {
+                } else if let Some(Archivable::Object(_, data)) = self.object_table.get_mut(spot) {
                     println!("Got archived object");
                     data.extend(out_v.clone());
                     self.placeholder = None;
-                    return Ok(self.object_table.last().cloned());
+                    return Ok(self.object_table.get(spot).cloned());
                 // We got some data that is not part of a class, i.e. a field in the parent object for which we don't know the name
                 } else {
+                    println!("{:?}", self.object_table.last_mut());
                     println!("Got archived data");
                     self.object_table[spot] = Archivable::Data(out_v.clone());
                     self.placeholder = None;
@@ -547,12 +587,12 @@ impl<'a> TypedStreamReader<'a> {
     /// is probably not available on any NeXT platform
     fn validate_header(&mut self) -> Result<(), TypedStreamError> {
         // Encoding type
-        let typedstream_version = self.read_int()?;
+        let typedstream_version = self.read_unsigned_int()?;
         // Encoding signature
         let signature = self.read_string()?;
         self.idx += 1;
         // System version
-        let system_version = self.read_int()?;
+        let system_version = self.read_unsigned_int()?;
 
         if typedstream_version != 4 || signature != "streamtyped" || system_version != 232 {
             return Err(TypedStreamError::InvalidHeader);
@@ -589,7 +629,7 @@ impl<'a> TypedStreamReader<'a> {
             println!("Parsed data: {:?}\n", out_v);
 
             // First, get the current type
-            if let Some(found_types) = self.get_type()? {
+            if let Some(found_types) = self.get_type(false)? {
                 println!("Received types: {:?}", found_types);
 
                 let result = self.read_types(found_types);
@@ -660,13 +700,16 @@ mod tests {
                 },
                 vec![OutputData::String("Test Dad ".to_string())],
             ),
-            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(5)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(5),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(1)],
+                vec![OutputData::SignedInteger(1)],
             ),
             Archivable::Object(
                 Class {
@@ -682,15 +725,18 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(0)],
+                vec![OutputData::SignedInteger(0)],
             ),
-            Archivable::Data(vec![OutputData::Integer(2), OutputData::Integer(3)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(2),
+                OutputData::UnsignedInteger(3),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(2)],
+                vec![OutputData::SignedInteger(2)],
             ),
             Archivable::Object(
                 Class {
@@ -722,9 +768,12 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(0)],
+                vec![OutputData::SignedInteger(0)],
             ),
-            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(1)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(1),
+            ]),
         ];
 
         assert_eq!(result, expected);
@@ -755,13 +804,16 @@ mod tests {
                 },
                 vec![OutputData::String("Noter test".to_string())],
             ),
-            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(10)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(10),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(1)],
+                vec![OutputData::SignedInteger(1)],
             ),
             Archivable::Object(
                 Class {
@@ -777,7 +829,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(0)],
+                vec![OutputData::SignedInteger(0)],
             ),
         ];
 
@@ -809,13 +861,16 @@ mod tests {
                 },
                 vec![OutputData::String("Test 3".to_string())],
             ),
-            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(6)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(6),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(2)],
+                vec![OutputData::SignedInteger(2)],
             ),
             Archivable::Object(
                 Class {
@@ -831,7 +886,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(157)],
+                vec![OutputData::SignedInteger(-1)],
             ),
             Archivable::Object(
                 Class {
@@ -847,7 +902,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(0)],
+                vec![OutputData::SignedInteger(0)],
             ),
         ];
 
@@ -872,13 +927,16 @@ mod tests {
         result.iter().for_each(|item| println!("{item:?}"));
 
         let expected = vec![
-            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(2359)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(2359),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(1)],
+                vec![OutputData::SignedInteger(1)],
             ),
             Archivable::Object(
                 Class {
@@ -894,7 +952,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(0)],
+                vec![OutputData::SignedInteger(0)],
             ),
         ];
 
@@ -927,13 +985,16 @@ mod tests {
                 },
                 vec![OutputData::String("￼test 1￼test 2 ￼test 3".to_string())],
             ),
-            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(1)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(1),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(2)],
+                vec![OutputData::SignedInteger(2)],
             ),
             Archivable::Object(
                 Class {
@@ -967,15 +1028,18 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(0)],
+                vec![OutputData::SignedInteger(0)],
             ),
-            Archivable::Data(vec![OutputData::Integer(2), OutputData::Integer(6)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(2),
+                OutputData::UnsignedInteger(6),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(1)],
+                vec![OutputData::SignedInteger(1)],
             ),
             Archivable::Object(
                 Class {
@@ -991,15 +1055,18 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(1)],
+                vec![OutputData::SignedInteger(1)],
             ),
-            Archivable::Data(vec![OutputData::Integer(3), OutputData::Integer(1)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(3),
+                OutputData::UnsignedInteger(1),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(2)],
+                vec![OutputData::SignedInteger(2)],
             ),
             Archivable::Object(
                 Class {
@@ -1033,15 +1100,18 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(2)],
+                vec![OutputData::SignedInteger(2)],
             ),
-            Archivable::Data(vec![OutputData::Integer(4), OutputData::Integer(7)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(4),
+                OutputData::UnsignedInteger(7),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(1)],
+                vec![OutputData::SignedInteger(1)],
             ),
             Archivable::Object(
                 Class {
@@ -1057,15 +1127,18 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(3)],
+                vec![OutputData::SignedInteger(3)],
             ),
-            Archivable::Data(vec![OutputData::Integer(5), OutputData::Integer(1)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(5),
+                OutputData::UnsignedInteger(1),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(2)],
+                vec![OutputData::SignedInteger(2)],
             ),
             Archivable::Object(
                 Class {
@@ -1099,15 +1172,18 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(4)],
+                vec![OutputData::SignedInteger(4)],
             ),
-            Archivable::Data(vec![OutputData::Integer(6), OutputData::Integer(6)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(6),
+                OutputData::UnsignedInteger(6),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(1)],
+                vec![OutputData::SignedInteger(1)],
             ),
             Archivable::Object(
                 Class {
@@ -1123,7 +1199,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(5)],
+                vec![OutputData::SignedInteger(5)],
             ),
         ];
 
@@ -1157,13 +1233,16 @@ mod tests {
                     "From arbitrary byte stream:\r￼To native Rust data structures:\r".to_string(),
                 )],
             ),
-            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(28)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(28),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(1)],
+                vec![OutputData::SignedInteger(1)],
             ),
             Archivable::Object(
                 Class {
@@ -1179,15 +1258,18 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(0)],
+                vec![OutputData::SignedInteger(0)],
             ),
-            Archivable::Data(vec![OutputData::Integer(2), OutputData::Integer(1)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(2),
+                OutputData::UnsignedInteger(1),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(2)],
+                vec![OutputData::SignedInteger(2)],
             ),
             Archivable::Object(
                 Class {
@@ -1221,15 +1303,18 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(1)],
+                vec![OutputData::SignedInteger(1)],
             ),
-            Archivable::Data(vec![OutputData::Integer(3), OutputData::Integer(32)]),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(3),
+                OutputData::UnsignedInteger(32),
+            ]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(1)],
+                vec![OutputData::SignedInteger(1)],
             ),
             Archivable::Object(
                 Class {
@@ -1245,7 +1330,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(2)],
+                vec![OutputData::SignedInteger(2)],
             ),
         ];
 
@@ -1281,13 +1366,13 @@ mod tests {
                 },
                 vec![OutputData::String("\u{FFFC}This is how the notes look to me fyi, in case it helps make sense of anything".to_string())],
             ),
-            Archivable::Data(vec![OutputData::Integer(1), OutputData::Integer(1)]),
+            Archivable::Data(vec![OutputData::SignedInteger(1), OutputData::UnsignedInteger(1)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(6)],
+                vec![OutputData::SignedInteger(6)],
             ),
             Archivable::Object(
                 Class {
@@ -1337,7 +1422,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(160)],
+                vec![OutputData::SignedInteger(-1)],
             ),
             Archivable::Object(
                 Class {
@@ -1353,7 +1438,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(0)],
+                vec![OutputData::SignedInteger(0)],
             ),
             Archivable::Object(
                 Class {
@@ -1389,13 +1474,13 @@ mod tests {
                 },
                 vec![OutputData::Double(952.0)],
             ),
-            Archivable::Data(vec![OutputData::Integer(2), OutputData::Integer(77)]),
+            Archivable::Data(vec![OutputData::SignedInteger(2), OutputData::UnsignedInteger(77)]),
             Archivable::Object(
                 Class {
                     name: "NSDictionary".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(2)],
+                vec![OutputData::SignedInteger(2)],
             ),
             Archivable::Object(
                 Class {
@@ -1411,7 +1496,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(160)],
+                vec![OutputData::SignedInteger(-1)],
             ),
             Archivable::Object(
                 Class {
@@ -1427,7 +1512,7 @@ mod tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::Integer(1)],
+                vec![OutputData::SignedInteger(1)],
             ),
         ];
 
