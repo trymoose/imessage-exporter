@@ -123,7 +123,7 @@ impl Type {
             0x2A => Self::EmbeddedData,
             0x66 => Self::Float,
             0x64 => Self::Double,
-            0x69 | 0x6c | 0x71 | 0x73 => Self::SignedInt, // TODO: These are reversed + implement
+            0x69 | 0x6c | 0x71 | 0x73 => Self::SignedInt,
             0x49 | 0x4c | 0x51 | 0x53 => Self::UnsignedInt,
             other => Self::Unknown(*other),
         }
@@ -131,6 +131,22 @@ impl Type {
 
     fn new_string(string: String) -> Self {
         Self::String(string)
+    }
+
+    fn get_array_length(types: &[u8]) -> Option<Vec<Type>> {
+        if types.first() == Some(&0x5b) {
+            let len =
+                types[1..]
+                    .iter()
+                    .take_while(|a| a.is_ascii_digit())
+                    .fold(None, |acc, ch| {
+                        char::from_u32(*ch as u32)?
+                            .to_digit(10)
+                            .map(|b| acc.unwrap_or(0) * 10 + b)
+                    })?;
+            return Some(vec![Type::Array(len as usize)]);
+        }
+        None
     }
 }
 
@@ -353,17 +369,7 @@ impl<'a> TypedStreamReader<'a> {
         // Handle array size
         // TODO: this needs to be a free function
         if types.first() == Some(&0x5b) {
-            let len = types[1..]
-                .iter()
-                .take_while(|a| a.is_ascii_digit())
-                .fold(None, |acc, ch| {
-                    char::from_u32(*ch as u32)
-                        .unwrap()
-                        .to_digit(10)
-                        .map(|b| acc.unwrap_or(0) * 10 + b)
-                })
-                .unwrap();
-            return Ok(vec![Type::Array(len as usize)]);
+            return Type::get_array_length(types).ok_or(TypedStreamError::InvalidArray);
         }
 
         Ok(types.iter().map(Type::from_byte).collect())
@@ -675,7 +681,31 @@ impl<'a> TypedStreamReader<'a> {
 }
 
 #[cfg(test)]
-mod tests {
+mod type_tests {
+    use crate::util::typedstream::Type;
+
+    #[test]
+    fn can_get_array_good() {
+        let items: Vec<u8> = vec![0x5b, 0x39, 0x30, 0x34, 0x63, 0x5d];
+
+        let expected = vec![Type::Array(904)];
+        let result = Type::get_array_length(&items).unwrap();
+
+        assert_eq!(result, expected)
+    }
+
+    #[test]
+    fn cant_get_array_bad() {
+        let items: Vec<u8> = vec![0x39, 0x30, 0x34, 0x63, 0x5d];
+
+        let result = Type::get_array_length(&items);
+
+        assert!(result.is_none())
+    }
+}
+
+#[cfg(test)]
+mod parser_tests {
     use std::env::current_dir;
     use std::fs::File;
     use std::io::Read;
@@ -1545,7 +1575,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_text_unit() {
+    fn test_parse_text_array() {
         let plist_path = current_dir()
             .unwrap()
             .as_path()
