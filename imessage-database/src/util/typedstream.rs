@@ -735,7 +735,7 @@ mod parser_tests {
         let plist_path = current_dir()
             .unwrap()
             .as_path()
-            .join("test_data/mentions/Mention");
+            .join("test_data/typedstream/Mention");
         let mut file = File::open(plist_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
