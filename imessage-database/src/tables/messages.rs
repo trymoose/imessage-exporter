@@ -22,7 +22,7 @@ use crate::{
         dates::{get_local_time, readable_diff},
         output::{done_processing, processing},
         query_context::QueryContext,
-        streamtyped,
+        streamtyped, typedstream,
     },
 };
 
@@ -381,10 +381,16 @@ impl Cacheable for Message {
 }
 
 impl Message {
-    /// Get the body text of a message, parsing it as [`streamtyped`] data if necessary.
+    /// Get the body text of a message, parsing it as [`typedstream`] (and falling back to [`streamtyped`]) data if necessary.
     pub fn gen_text<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
         if self.text.is_none() {
             let body = self.attributed_body(db).ok_or(MessageError::MissingData)?;
+            // TODO: Use this to generate the `text` as well as update the logic in `body()` when it is present
+            let mut s = typedstream::TypedStreamReader::new(&body);
+            let v = s.parse();
+            if v.is_err() {
+                eprintln!("Unable to parse {}", self.guid);
+            }
             self.text =
                 Some(streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?);
         }
@@ -681,7 +687,7 @@ impl Message {
             )).map_err(TableError::Messages)?))
     }
 
-    /// See [Reaction](crate::message_types::variants::Reaction) for details on this data.
+    /// See [`Reaction`] for details on this data.
     fn clean_associated_guid(&self) -> Option<(usize, &str)> {
         if let Some(guid) = &self.associated_message_guid {
             if guid.starts_with("p:") {
