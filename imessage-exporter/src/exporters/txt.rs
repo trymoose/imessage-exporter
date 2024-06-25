@@ -2,7 +2,6 @@ use std::{
     collections::HashMap,
     fs::File,
     io::{BufWriter, Write},
-    path::{Path, PathBuf},
 };
 
 use crate::{
