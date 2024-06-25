@@ -254,6 +254,23 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_text_unit() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/Array");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+        let parsed = parse(bytes).unwrap();
+        println!("{:?}", parsed);
+
+        let expected = "A single ChatGPT instance takes 5MW of power to run";
+
+        assert_eq!(parsed, expected);
+    }
+
+    #[test]
     fn test_can_drop_chars() {
         assert_eq!(
             drop_chars(1, String::from("Hello world")).unwrap(),
