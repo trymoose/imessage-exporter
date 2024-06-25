@@ -254,7 +254,7 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_text_unit() {
+    fn test_parse_text_array() {
         let plist_path = current_dir()
             .unwrap()
             .as_path()
