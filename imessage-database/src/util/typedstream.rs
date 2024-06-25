@@ -54,6 +54,8 @@ pub enum OutputData {
     Double(f64),
     /// Bytes whose type is not known
     Byte(u8),
+    /// Arbitrary collection of bytes in an array
+    Array(Vec<u8>),
     /// A found class, in order of inheritance
     Class(Class),
 }
@@ -98,6 +100,8 @@ pub enum Type {
     Double,
     /// Some text we can reuse later, i.e. a class name
     String(String),
+    /// An array containing some data of a given length
+    Array(usize),
     /// Data for which we do not know the type, likely for something this parser does not implement
     Unknown(u8),
 }
@@ -334,15 +338,35 @@ impl<'a> TypedStreamReader<'a> {
         self.get_byte(self.idx + 1)
     }
 
+    /// Read some bytes as an array
+    fn read_array(&mut self, size: usize) -> Result<Vec<u8>, TypedStreamError> {
+        Ok(self.read_exact_bytes(size)?.to_vec())
+    }
+
     /// Determine the current types
     fn read_type(&mut self) -> Result<Vec<Type>, TypedStreamError> {
         let length = self.read_unsigned_int()?;
         println!("type length: {length:?}");
-        Ok(self
-            .read_exact_bytes(length as usize)?
-            .iter()
-            .map(Type::from_byte)
-            .collect())
+
+        let types = self.read_exact_bytes(length as usize)?;
+
+        // Handle array size
+        // TODO: this needs to be a free function
+        if types.first() == Some(&0x5b) {
+            let len = types[1..]
+                .iter()
+                .take_while(|a| a.is_ascii_digit())
+                .fold(None, |acc, ch| {
+                    char::from_u32(*ch as u32)
+                        .unwrap()
+                        .to_digit(10)
+                        .map(|b| acc.unwrap_or(0) * 10 + b)
+                })
+                .unwrap();
+            return Ok(vec![Type::Array(len as usize)]);
+        }
+
+        Ok(types.iter().map(Type::from_byte).collect())
     }
 
     /// Read a reference pointer for a Type
@@ -539,6 +563,7 @@ impl<'a> TypedStreamReader<'a> {
                 Type::Double => out_v.push(OutputData::Double(self.read_double()?)),
                 Type::Unknown(byte) => out_v.push(OutputData::Byte(byte)),
                 Type::String(s) => out_v.push(OutputData::String(s)),
+                Type::Array(size) => out_v.push(OutputData::Array(self.read_array(size)?)),
             };
         }
 
@@ -1517,5 +1542,116 @@ mod tests {
         ];
 
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parse_text_unit() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/Array");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::new(&bytes);
+        println!("{parser:?}");
+        let result = parser.parse().unwrap();
+
+        println!("\n\nGot data!");
+        result.iter().for_each(|item| println!("\t{item:?}"));
+
+        // Ignore the large array in the test
+        let expected_1 = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSMutableString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "A single ChatGPT instance takes 5MW of power to run".to_string(),
+                )],
+            ),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(32),
+            ]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(1)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(0)],
+            ),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(2),
+                OutputData::UnsignedInteger(3),
+            ]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(2)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMDataDetectedAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSData".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(904)],
+            ),
+        ];
+
+        let expected_2 = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(0)],
+            ),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(16),
+            ]),
+        ];
+
+        assert_eq!(result[..9], expected_1);
+        assert_eq!(result[10..], expected_2);
     }
 }
