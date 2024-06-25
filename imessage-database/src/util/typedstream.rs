@@ -291,7 +291,7 @@ impl<'a> TypedStreamReader<'a> {
 
     /// Read a double-precision float from the byte stream
     fn read_double(&mut self) -> Result<f64, TypedStreamError> {
-        self.print_loc("dub");
+        // self.print_loc("dub");
         match self.get_current_byte()? {
             DECIMAL => {
                 let size = 8;
@@ -362,7 +362,7 @@ impl<'a> TypedStreamReader<'a> {
     /// Determine the current types
     fn read_type(&mut self) -> Result<Vec<Type>, TypedStreamError> {
         let length = self.read_unsigned_int()?;
-        println!("type length: {length:?}");
+        // println!("type length: {length:?}");
 
         let types = self.read_exact_bytes(length as usize)?;
 
@@ -377,7 +377,7 @@ impl<'a> TypedStreamReader<'a> {
 
     /// Read a reference pointer for a Type
     fn read_pointer(&mut self) -> Result<u32, TypedStreamError> {
-        self.print_loc("pointer");
+        // self.print_loc("pointer");
         let result = self.get_current_byte()? as u32 - REFERENCE_TAG as u32;
         self.idx += 1;
         Ok(result)
@@ -389,26 +389,26 @@ impl<'a> TypedStreamReader<'a> {
         match self.get_current_byte()? {
             START => {
                 // Skip some header bytes
-                self.print_loc("class 1");
+                // self.print_loc("class 1");
                 while self.get_current_byte()? == START {
                     self.idx += 1;
                 }
-                self.print_loc("class 2");
+                // self.print_loc("class 2");
                 let length = self.read_unsigned_int()?;
 
                 if length >= REFERENCE_TAG {
                     let index = length - REFERENCE_TAG;
-                    println!("Getting referenced class at {index}");
+                    // println!("Getting referenced class at {index}");
                     return Ok(ClassResult::Index(index as usize));
                 }
 
                 let mut class_name = String::with_capacity(length as usize);
-                println!("Class name created with capacity {}", class_name.capacity());
+                // println!("Class name created with capacity {}", class_name.capacity());
                 self.read_exact_as_string(length as usize, &mut class_name)?;
 
                 let version = self.read_unsigned_int()?;
-                println!("{class_name} v{version}");
-                println!("{}: {:?}", self.idx, self.get_current_byte());
+                // println!("{class_name} v{version}");
+                // println!("{}: {:?}", self.idx, self.get_current_byte());
 
                 self.types_table
                     .push(vec![Type::new_string(class_name.clone())]);
@@ -421,11 +421,11 @@ impl<'a> TypedStreamReader<'a> {
             }
             EMPTY => {
                 self.idx += 1;
-                println!("End of class chain!");
+                // println!("End of class chain!");
             }
             _ => {
                 let index = self.read_pointer()?;
-                println!("Getting referenced object at {index}");
+                // println!("Getting referenced object at {index}");
                 return Ok(ClassResult::Index(index as usize));
             }
         }
@@ -450,7 +450,7 @@ impl<'a> TypedStreamReader<'a> {
             }
             EMPTY => {
                 self.idx += 1;
-                println!("Got empty object!");
+                // println!("Got empty object!");
                 Ok(None)
             }
             _ => {
@@ -464,7 +464,7 @@ impl<'a> TypedStreamReader<'a> {
     fn read_string(&mut self) -> Result<String, TypedStreamError> {
         let length = self.read_unsigned_int()?;
         let mut string = String::with_capacity(length as usize);
-        println!("String created with capacity {}", string.capacity());
+        // println!("String created with capacity {}", string.capacity());
         self.read_exact_as_string(length as usize, &mut string)?;
 
         Ok(string)
@@ -534,10 +534,10 @@ impl<'a> TypedStreamReader<'a> {
                     is_obj = true;
                     let length = self.object_table.len();
                     self.placeholder = Some(length);
-                    println!("Adding placeholder at {:?}", self.placeholder);
+                    // println!("Adding placeholder at {:?}", self.placeholder);
                     self.object_table.push(Archivable::Placeholder);
-                    println!("Reading object...");
-                    self.print_loc("reading object at");
+                    // println!("Reading object...");
+                    // self.print_loc("reading object at");
                     if let Some(object) = self.read_object()? {
                         match object.clone() {
                             Archivable::Object(cls, data) => {
@@ -558,7 +558,7 @@ impl<'a> TypedStreamReader<'a> {
                             Archivable::Type(_) => {} // This case should do nothing
                         }
                     } else {
-                        println!("NO OBJECT?");
+                        // println!("NO OBJECT?");
                     }
                 }
                 Type::SignedInt => out_v.push(OutputData::SignedInteger(self.read_signed_int()?)),
@@ -576,29 +576,29 @@ impl<'a> TypedStreamReader<'a> {
         // If we had reserved a place for an object, fill that spot
         if let Some(spot) = self.placeholder {
             if !out_v.is_empty() {
-                println!("Inserting {out_v:?} to object table at {spot}");
+                // println!("Inserting {out_v:?} to object table at {spot}");
                 // We got a class, but do not have its respective data yet
                 if let Some(OutputData::Class(class)) = out_v.last() {
-                    println!("Got output class {class:?}");
+                    // println!("Got output class {class:?}");
                     self.object_table[spot] = Archivable::Object(class.clone(), vec![]);
                 // The spot after the current placeholder contains the class at the top of the class heirarchy, i.e.
                 // if we get a placeholder and then find a new class heirarchy, the object table holds the class chain
                 // in descending order of inheritance
                 } else if let Some(Archivable::Class(class)) = self.object_table.get(spot + 1) {
-                    println!("Got archived class {class:?}");
+                    // println!("Got archived class {class:?}");
                     self.object_table[spot] = Archivable::Object(class.clone(), out_v.clone());
                     self.placeholder = None;
                     return Ok(self.object_table.get(spot).cloned());
                 // We got some data for a class that was already seen
                 } else if let Some(Archivable::Object(_, data)) = self.object_table.get_mut(spot) {
-                    println!("Got archived object");
+                    // println!("Got archived object");
                     data.extend(out_v.clone());
                     self.placeholder = None;
                     return Ok(self.object_table.get(spot).cloned());
                 // We got some data that is not part of a class, i.e. a field in the parent object for which we don't know the name
                 } else {
-                    println!("{:?}", self.object_table.last_mut());
-                    println!("Got archived data");
+                    // println!("{:?}", self.object_table.last_mut());
+                    // println!("Got archived data");
                     self.object_table[spot] = Archivable::Data(out_v.clone());
                     self.placeholder = None;
                     return Ok(self.object_table.get(spot).cloned());
@@ -652,30 +652,30 @@ impl<'a> TypedStreamReader<'a> {
 
         while self.idx < self.stream.len() {
             if self.get_current_byte()? == END {
-                println!("End of object!");
+                // println!("End of object!");
                 self.idx += 1;
                 continue;
             }
 
-            println!("Parsed data: {:?}\n", out_v);
+            // println!("Parsed data: {:?}\n", out_v);
 
             // First, get the current type
             if let Some(found_types) = self.get_type(false)? {
-                println!("Received types: {:?}", found_types);
+                // println!("Received types: {:?}", found_types);
 
                 let result = self.read_types(found_types);
-                println!("Resultant type: {result:?}");
-                self.emit_objects_table();
-                println!("Types table: {:?}", self.types_table);
+                // println!("Resultant type: {result:?}");
+                // self.emit_objects_table();
+                // println!("Types table: {:?}", self.types_table);
                 if let Ok(Some(res)) = result {
                     out_v.push(res);
                 }
             }
         }
 
-        self.emit_objects_table();
-        println!("Types table: {:?}", self.types_table);
-        println!("Parsed data: {:?}\n", out_v);
+        // self.emit_objects_table();
+        // println!("Types table: {:?}", self.types_table);
+        // println!("Parsed data: {:?}\n", out_v);
         Ok(out_v)
     }
 }
