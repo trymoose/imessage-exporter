@@ -6,7 +6,7 @@ use plist::{Dictionary, Value};
 
 use crate::error::plist::PlistParseError;
 
-/// Serialize a message's `payload_data` BLOB from the `NSKeyedArchiver` format to a [`Dictionary`](plist::dictionary::Dictionary)
+/// Serialize a message's `payload_data` BLOB from the `NSKeyedArchiver` format to a [`Dictionary`]
 /// that follows the references in the XML document's UID pointers. First, we find the root of the
 /// document, then walk the structure, promoting values to the places where their pointers are stored.
 ///
