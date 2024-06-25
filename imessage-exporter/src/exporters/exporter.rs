@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{fs::File, io::BufWriter, path::Path};
 
 use imessage_database::{
     error::{message::MessageError, plist::PlistParseError, table::TableError},
@@ -19,7 +19,7 @@ pub trait Exporter<'a> {
     /// Begin iterating over the messages table
     fn iter_messages(&mut self) -> Result<(), RuntimeError>;
     /// Get the file handle to write to, otherwise create a new one
-    fn get_or_create_file(&mut self, message: &Message) -> &Path;
+    fn get_or_create_file(&mut self, message: &Message) -> &mut BufWriter<File>;
 }
 
 /// Defines behavior for formatting message instances to the desired output format
@@ -53,7 +53,7 @@ pub(super) trait Writer<'a> {
     fn format_shared_location(&self, msg: &'a Message) -> &str;
     /// Format an edited message
     fn format_edited(&self, msg: &'a Message, indent: &str) -> Result<String, MessageError>;
-    fn write_to_file(file: &Path, text: &str);
+    fn write_to_file(file: &mut BufWriter<File>, text: &str) -> Result<(), RuntimeError>;
 }
 
 /// Defines behavior for formatting custom balloons to the desired output format

@@ -1,8 +1,7 @@
 use std::{
     collections::HashMap,
     fs::File,
-    io::Write,
-    path::{Path, PathBuf},
+    io::{BufWriter, Write},
 };
 
 use crate::{
@@ -47,9 +46,9 @@ pub struct HTML<'a> {
     pub config: &'a Config,
     /// Handles to files we want to write messages to
     /// Map of internal unique chatroom ID to a filename
-    pub files: HashMap<i32, PathBuf>,
+    pub files: HashMap<i32, BufWriter<File>>,
     /// Path to file for orphaned messages
-    pub orphaned: PathBuf,
+    pub orphaned: BufWriter<File>,
 }
 
 impl<'a> Exporter<'a> for HTML<'a> {
@@ -57,10 +56,15 @@ impl<'a> Exporter<'a> for HTML<'a> {
         let mut orphaned = config.options.export_path.clone();
         orphaned.push(ORPHANED);
         orphaned.set_extension("html");
+        let file = File::options()
+            .append(true)
+            .create(true)
+            .open(orphaned)
+            .unwrap();
         HTML {
             config,
             files: HashMap::new(),
-            orphaned,
+            orphaned: BufWriter::new(file),
         }
     }
 
@@ -72,7 +76,7 @@ impl<'a> Exporter<'a> for HTML<'a> {
         );
 
         // Write orphaned file headers
-        HTML::write_headers(&self.orphaned);
+        HTML::write_headers(&mut self.orphaned)?;
 
         // Keep track of current message ROWID
         let mut current_message_row = -1;
@@ -106,7 +110,7 @@ impl<'a> Exporter<'a> for HTML<'a> {
             // Render the announcement in-line
             if msg.is_announcement() {
                 let announcement = self.format_announcement(&msg);
-                HTML::write_to_file(self.get_or_create_file(&msg), &announcement);
+                HTML::write_to_file(self.get_or_create_file(&msg), &announcement)?;
             }
             // Message replies and reactions are rendered in context, so no need to render them separately
             else if !msg.is_reaction() {
@@ -114,7 +118,7 @@ impl<'a> Exporter<'a> for HTML<'a> {
                 let message = self
                     .format_message(&msg, 0)
                     .map_err(RuntimeError::DatabaseError)?;
-                HTML::write_to_file(self.get_or_create_file(&msg), &message);
+                HTML::write_to_file(self.get_or_create_file(&msg), &message)?;
             }
             current_message += 1;
             if current_message % 99 == 0 {
@@ -124,16 +128,16 @@ impl<'a> Exporter<'a> for HTML<'a> {
         pb.finish();
 
         eprintln!("Writing HTML footers...");
-        self.files
-            .iter()
-            .for_each(|(_, path)| HTML::write_to_file(path, FOOTER));
-        HTML::write_to_file(&self.orphaned, FOOTER);
+        for (_, buf) in self.files.iter_mut() {
+            HTML::write_to_file(buf, FOOTER)?;
+        }
+        HTML::write_to_file(&mut self.orphaned, FOOTER)?;
 
         Ok(())
     }
 
     /// Create a file for the given chat, caching it so we don't need to build it later
-    fn get_or_create_file(&mut self, message: &Message) -> &Path {
+    fn get_or_create_file(&mut self, message: &Message) -> &mut BufWriter<File> {
         match self.config.conversation(message) {
             Some((chatroom, id)) => self.files.entry(*id).or_insert_with(|| {
                 let mut path = self.config.options.export_path.clone();
@@ -142,14 +146,24 @@ impl<'a> Exporter<'a> for HTML<'a> {
 
                 // If the file already exists , don't write the headers again
                 // This can happen if multiple chats use the same group name
-                if !path.exists() {
+                let file_exists = path.exists();
+
+                let file = File::options()
+                    .append(true)
+                    .create(true)
+                    .open(path.clone())
+                    .unwrap();
+
+                let mut buf = BufWriter::new(file);
+
+                if !file_exists {
                     // Write headers if the file does not exist
-                    HTML::write_headers(&path);
+                    let _ = HTML::write_headers(&mut buf);
                 }
 
-                path
+                buf
             }),
-            None => &self.orphaned,
+            None => &mut self.orphaned,
         }
     }
 }
@@ -780,13 +794,9 @@ impl<'a> Writer<'a> for HTML<'a> {
         Err(MessageError::PlistParseError(PlistParseError::NoPayload))
     }
 
-    fn write_to_file(file: &Path, text: &str) {
-        match File::options().append(true).create(true).open(file) {
-            Ok(mut file) => {
-                let _ = file.write_all(text.as_bytes());
-            }
-            Err(why) => eprintln!("Unable to write to {file:?}: {why:?}"),
-        };
+    fn write_to_file(file: &mut BufWriter<File>, text: &str) -> Result<(), RuntimeError> {
+        file.write_all(text.as_bytes())
+            .map_err(RuntimeError::DiskError)
     }
 }
 
@@ -1280,15 +1290,16 @@ impl<'a> HTML<'a> {
         }
     }
 
-    fn write_headers(path: &Path) {
+    fn write_headers(file: &mut BufWriter<File>) -> Result<(), RuntimeError> {
         // Write file header
-        HTML::write_to_file(path, HEADER);
+        HTML::write_to_file(file, HEADER)?;
 
         // Write CSS
-        HTML::write_to_file(path, "<style>\n");
-        HTML::write_to_file(path, STYLE);
-        HTML::write_to_file(path, "\n</style>");
-        HTML::write_to_file(path, "\n</head>\n<body>\n");
+        HTML::write_to_file(file, "<style>\n")?;
+        HTML::write_to_file(file, STYLE)?;
+        HTML::write_to_file(file, "\n</style>")?;
+        HTML::write_to_file(file, "\n</head>\n<body>\n")?;
+        Ok(())
     }
 
     fn edited_to_html(&self, timestamp: &str, text: &str, last: bool) -> String {
