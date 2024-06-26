@@ -1,4 +1,4 @@
-use std::{fs::File, io::BufWriter, path::Path};
+use std::{fs::File, io::BufWriter};
 
 use imessage_database::{
     error::{message::MessageError, plist::PlistParseError, table::TableError},

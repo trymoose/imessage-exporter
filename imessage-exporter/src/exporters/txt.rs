@@ -38,9 +38,9 @@ pub struct TXT<'a> {
     /// Data that is setup from the application's runtime
     pub config: &'a Config,
     /// Handles to files we want to write messages to
-    /// Map of internal unique chatroom ID to a filename
+    /// Map of internal unique chatroom ID to a buffered writer
     pub files: HashMap<i32, BufWriter<File>>,
-    /// Path to file for orphaned messages
+    /// Writer instance for orphaned messages
     pub orphaned: BufWriter<File>,
 }
 
@@ -135,9 +135,7 @@ impl<'a> Exporter<'a> for TXT<'a> {
                     .open(path.clone())
                     .unwrap();
 
-                let buf = BufWriter::new(file);
-
-                buf
+                BufWriter::new(file)
             }),
             None => &mut self.orphaned,
         }
@@ -975,7 +973,7 @@ mod tests {
             attachment_manager: AttachmentManager::Disabled,
             diagnostic: false,
             export_type: None,
-            export_path: PathBuf::new(),
+            export_path: PathBuf::from("/tmp"),
             query_context: QueryContext::default(),
             no_lazy: false,
             custom_name: None,
@@ -1546,6 +1544,14 @@ mod tests {
             actual,
             "Outline Sticker from Me: imessage-database/test_data/stickers/outline.heic"
         );
+
+        // Remove the file created by the constructor for this test
+        let orphaned_path = current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("orphaned.txt");
+        std::fs::remove_file(orphaned_path).unwrap();
     }
 }
 

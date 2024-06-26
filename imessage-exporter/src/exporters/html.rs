@@ -45,9 +45,9 @@ pub struct HTML<'a> {
     /// Data that is setup from the application's runtime
     pub config: &'a Config,
     /// Handles to files we want to write messages to
-    /// Map of internal unique chatroom ID to a filename
+    /// Map of internal unique chatroom ID to a buffered writer
     pub files: HashMap<i32, BufWriter<File>>,
-    /// Path to file for orphaned messages
+    /// Writer instance for orphaned messages
     pub orphaned: BufWriter<File>,
 }
 
@@ -1466,7 +1466,7 @@ mod tests {
             attachment_manager: AttachmentManager::Disabled,
             diagnostic: false,
             export_type: None,
-            export_path: PathBuf::new(),
+            export_path: PathBuf::from("/tmp"),
             query_context: QueryContext::default(),
             no_lazy: false,
             custom_name: None,
@@ -2069,6 +2069,14 @@ mod tests {
         let actual = exporter.format_sticker(&mut attachment, &message);
 
         assert_eq!(actual, "<img src=\"imessage-database/test_data/stickers/outline.heic\" loading=\"lazy\">\n<div class=\"sticker_effect\">Sent with Outline effect</div>");
+
+        // Remove the file created by the constructor for this test
+        let orphaned_path = current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("orphaned.html");
+        std::fs::remove_file(orphaned_path).unwrap();
     }
 }
 
