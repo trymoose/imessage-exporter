@@ -38,8 +38,8 @@ pub struct TXT<'a> {
     /// Data that is setup from the application's runtime
     pub config: &'a Config,
     /// Handles to files we want to write messages to
-    /// Map of internal unique chatroom ID to a buffered writer
-    pub files: HashMap<i32, BufWriter<File>>,
+    /// Map of resolved chatroom file location to a buffered writer
+    pub files: HashMap<String, BufWriter<File>>,
     /// Writer instance for orphaned messages
     pub orphaned: BufWriter<File>,
 }
@@ -124,19 +124,22 @@ impl<'a> Exporter<'a> for TXT<'a> {
     /// Create a file for the given chat, caching it so we don't need to build it later
     fn get_or_create_file(&mut self, message: &Message) -> &mut BufWriter<File> {
         match self.config.conversation(message) {
-            Some((chatroom, id)) => self.files.entry(*id).or_insert_with(|| {
-                let mut path = self.config.options.export_path.clone();
-                path.push(self.config.filename(chatroom));
-                path.set_extension("txt");
+            Some((chatroom, _)) => {
+                let filename = self.config.filename(chatroom);
+                self.files.entry(filename.clone()).or_insert_with(|| {
+                    let mut path = self.config.options.export_path.clone();
+                    path.push(filename);
+                    path.set_extension("txt");
 
-                let file = File::options()
-                    .append(true)
-                    .create(true)
-                    .open(path.clone())
-                    .unwrap();
+                    let file = File::options()
+                        .append(true)
+                        .create(true)
+                        .open(path.clone())
+                        .unwrap();
 
-                BufWriter::new(file)
-            }),
+                    BufWriter::new(file)
+                })
+            }
             None => &mut self.orphaned,
         }
     }

@@ -45,8 +45,8 @@ pub struct HTML<'a> {
     /// Data that is setup from the application's runtime
     pub config: &'a Config,
     /// Handles to files we want to write messages to
-    /// Map of internal unique chatroom ID to a buffered writer
-    pub files: HashMap<i32, BufWriter<File>>,
+    /// Map of resolved chatroom file location to a buffered writer
+    pub files: HashMap<String, BufWriter<File>>,
     /// Writer instance for orphaned messages
     pub orphaned: BufWriter<File>,
 }
@@ -139,30 +139,33 @@ impl<'a> Exporter<'a> for HTML<'a> {
     /// Create a file for the given chat, caching it so we don't need to build it later
     fn get_or_create_file(&mut self, message: &Message) -> &mut BufWriter<File> {
         match self.config.conversation(message) {
-            Some((chatroom, id)) => self.files.entry(*id).or_insert_with(|| {
-                let mut path = self.config.options.export_path.clone();
-                path.push(self.config.filename(chatroom));
-                path.set_extension("html");
+            Some((chatroom, _)) => {
+                let filename = self.config.filename(chatroom);
+                self.files.entry(filename.clone()).or_insert_with(|| {
+                    let mut path = self.config.options.export_path.clone();
+                    path.push(filename);
+                    path.set_extension("html");
 
-                // If the file already exists , don't write the headers again
-                // This can happen if multiple chats use the same group name
-                let file_exists = path.exists();
+                    // If the file already exists, don't write the headers again
+                    // This can happen if multiple chats use the same group name
+                    let file_exists = path.exists();
 
-                let file = File::options()
-                    .append(true)
-                    .create(true)
-                    .open(path.clone())
-                    .unwrap();
+                    let file = File::options()
+                        .append(true)
+                        .create(true)
+                        .open(path.clone())
+                        .unwrap();
 
-                let mut buf = BufWriter::new(file);
+                    let mut buf = BufWriter::new(file);
 
-                if !file_exists {
                     // Write headers if the file does not exist
-                    let _ = HTML::write_headers(&mut buf);
-                }
+                    if !file_exists {
+                        let _ = HTML::write_headers(&mut buf);
+                    }
 
-                buf
-            }),
+                    buf
+                })
+            }
             None => &mut self.orphaned,
         }
     }
