@@ -541,7 +541,7 @@ mod arg_tests {
     #[test]
     fn can_build_option_export_html() {
         // Cleanup existing temp data
-        let _ =fs::remove_file("/tmp/orphaned.html");
+        let _ = fs::remove_file("/tmp/orphaned.html");
 
         // Get matches from sample args
         let cli_args: Vec<&str> = vec!["imessage-exporter", "-f", "html", "-o", "/tmp"];
@@ -574,7 +574,7 @@ mod arg_tests {
     #[test]
     fn can_build_option_export_txt_no_lazy() {
         // Cleanup existing temp data
-        let _ =fs::remove_file("/tmp/orphaned.txt");
+        let _ = fs::remove_file("/tmp/orphaned.txt");
 
         // Get matches from sample args
         let cli_args: Vec<&str> = vec!["imessage-exporter", "-f", "txt", "-l"];
@@ -794,7 +794,7 @@ mod path_tests {
     #[test]
     fn can_validate_empty() {
         // Cleanup existing temp data
-        let _ =fs::remove_file("/tmp/orphaned.txt");
+        let _ = fs::remove_file("/tmp/orphaned.txt");
 
         let tmp = String::from("/tmp");
         let export_path = Some(&tmp);
@@ -808,7 +808,7 @@ mod path_tests {
     #[test]
     fn can_validate_different_type() {
         // Cleanup existing temp data
-        let _ =fs::remove_file("/tmp/orphaned.txt");
+        let _ = fs::remove_file("/tmp/orphaned.txt");
 
         let tmp = String::from("/tmp");
         let export_path: Option<&String> = Some(&tmp);
@@ -828,7 +828,7 @@ mod path_tests {
     #[test]
     fn can_validate_same_type() {
         // Cleanup existing temp data
-        let _ =fs::remove_file("/tmp/orphaned.txt");
+        let _ = fs::remove_file("/tmp/orphaned.txt");
 
         let tmp = String::from("/tmp");
         let export_path = Some(&tmp);
