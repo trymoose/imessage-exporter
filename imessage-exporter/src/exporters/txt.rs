@@ -1,8 +1,7 @@
 use std::{
     collections::HashMap,
     fs::File,
-    io::Write,
-    path::{Path, PathBuf},
+    io::{BufWriter, Write},
 };
 
 use crate::{
@@ -39,10 +38,10 @@ pub struct TXT<'a> {
     /// Data that is setup from the application's runtime
     pub config: &'a Config,
     /// Handles to files we want to write messages to
-    /// Map of internal unique chatroom ID to a filename
-    pub files: HashMap<i32, PathBuf>,
-    /// Path to file for orphaned messages
-    pub orphaned: PathBuf,
+    /// Map of resolved chatroom file location to a buffered writer
+    pub files: HashMap<String, BufWriter<File>>,
+    /// Writer instance for orphaned messages
+    pub orphaned: BufWriter<File>,
 }
 
 impl<'a> Exporter<'a> for TXT<'a> {
@@ -50,10 +49,17 @@ impl<'a> Exporter<'a> for TXT<'a> {
         let mut orphaned = config.options.export_path.clone();
         orphaned.push(ORPHANED);
         orphaned.set_extension("txt");
+
+        let file = File::options()
+            .append(true)
+            .create(true)
+            .open(orphaned)
+            .unwrap();
+
         TXT {
             config,
             files: HashMap::new(),
-            orphaned,
+            orphaned: BufWriter::new(file),
         }
     }
 
@@ -96,7 +102,7 @@ impl<'a> Exporter<'a> for TXT<'a> {
             // Render the announcement in-line
             if msg.is_announcement() {
                 let announcement = self.format_announcement(&msg);
-                TXT::write_to_file(self.get_or_create_file(&msg), &announcement);
+                TXT::write_to_file(self.get_or_create_file(&msg), &announcement)?;
             }
             // Message replies and reactions are rendered in context, so no need to render them separately
             else if !msg.is_reaction() {
@@ -104,7 +110,7 @@ impl<'a> Exporter<'a> for TXT<'a> {
                 let message = self
                     .format_message(&msg, 0)
                     .map_err(RuntimeError::DatabaseError)?;
-                TXT::write_to_file(self.get_or_create_file(&msg), &message);
+                TXT::write_to_file(self.get_or_create_file(&msg), &message)?;
             }
             current_message += 1;
             if current_message % 99 == 0 {
@@ -116,15 +122,25 @@ impl<'a> Exporter<'a> for TXT<'a> {
     }
 
     /// Create a file for the given chat, caching it so we don't need to build it later
-    fn get_or_create_file(&mut self, message: &Message) -> &Path {
+    fn get_or_create_file(&mut self, message: &Message) -> &mut BufWriter<File> {
         match self.config.conversation(message) {
-            Some((chatroom, id)) => self.files.entry(*id).or_insert_with(|| {
-                let mut path = self.config.options.export_path.clone();
-                path.push(self.config.filename(chatroom));
-                path.set_extension("txt");
-                path
-            }),
-            None => &self.orphaned,
+            Some((chatroom, _)) => {
+                let filename = self.config.filename(chatroom);
+                self.files.entry(filename).or_insert_with(|| {
+                    let mut path = self.config.options.export_path.clone();
+                    path.push(self.config.filename(chatroom));
+                    path.set_extension("txt");
+
+                    let file = File::options()
+                        .append(true)
+                        .create(true)
+                        .open(path.clone())
+                        .unwrap();
+
+                    BufWriter::new(file)
+                })
+            }
+            None => &mut self.orphaned,
         }
     }
 }
@@ -569,13 +585,9 @@ impl<'a> Writer<'a> for TXT<'a> {
         Err(MessageError::PlistParseError(PlistParseError::NoPayload))
     }
 
-    fn write_to_file(file: &Path, text: &str) {
-        match File::options().append(true).create(true).open(file) {
-            Ok(mut file) => {
-                let _ = file.write_all(text.as_bytes());
-            }
-            Err(why) => eprintln!("Unable to write to {file:?}: {why:?}"),
-        };
+    fn write_to_file(file: &mut BufWriter<File>, text: &str) -> Result<(), RuntimeError> {
+        file.write_all(text.as_bytes())
+            .map_err(RuntimeError::DiskError)
     }
 }
 
@@ -964,7 +976,7 @@ mod tests {
             attachment_manager: AttachmentManager::Disabled,
             diagnostic: false,
             export_type: None,
-            export_path: PathBuf::new(),
+            export_path: PathBuf::from("/tmp"),
             query_context: QueryContext::default(),
             no_lazy: false,
             custom_name: None,
@@ -1535,6 +1547,14 @@ mod tests {
             actual,
             "Outline Sticker from Me: imessage-database/test_data/stickers/outline.heic"
         );
+
+        // Remove the file created by the constructor for this test
+        let orphaned_path = current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("orphaned.txt");
+        std::fs::remove_file(orphaned_path).unwrap();
     }
 }
 
