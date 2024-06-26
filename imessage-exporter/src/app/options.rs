@@ -811,7 +811,7 @@ mod path_tests {
         let _ = fs::remove_file("/tmp/orphaned.txt");
 
         let tmp = String::from("/tmp");
-        let export_path: Option<&String> = Some(&tmp);
+        let export_path = Some(&tmp);
         let export_type = Some(ExportType::Txt);
 
         let result = validate_path(export_path, &export_type.as_ref());
