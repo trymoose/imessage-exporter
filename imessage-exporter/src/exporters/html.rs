@@ -141,9 +141,9 @@ impl<'a> Exporter<'a> for HTML<'a> {
         match self.config.conversation(message) {
             Some((chatroom, _)) => {
                 let filename = self.config.filename(chatroom);
-                self.files.entry(filename.clone()).or_insert_with(|| {
+                self.files.entry(filename).or_insert_with(|| {
                     let mut path = self.config.options.export_path.clone();
-                    path.push(filename);
+                    path.push(self.config.filename(chatroom));
                     path.set_extension("html");
 
                     // If the file already exists, don't write the headers again
