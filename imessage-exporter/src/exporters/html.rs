@@ -1415,17 +1415,26 @@ impl<'a> HTML<'a> {
 #[cfg(test)]
 mod tests {
     use std::{
+        collections::HashMap,
         env::{current_dir, set_var},
         path::PathBuf,
     };
 
     use crate::{
-        app::attachment_manager::AttachmentManager, exporters::exporter::Writer, Config, Exporter,
-        Options, HTML,
+        app::{attachment_manager::AttachmentManager, converter::Converter},
+        exporters::exporter::Writer,
+        Config, Exporter, Options, HTML,
     };
     use imessage_database::{
-        tables::{attachment::Attachment, messages::Message},
-        util::{dirs::default_db_path, platform::Platform, query_context::QueryContext},
+        tables::{
+            attachment::Attachment,
+            messages::Message,
+            table::{get_connection, ME},
+        },
+        util::{
+            dates::get_offset, dirs::default_db_path, platform::Platform,
+            query_context::QueryContext,
+        },
     };
 
     pub fn blank() -> Message {
@@ -1479,6 +1488,22 @@ mod tests {
         }
     }
 
+    pub fn fake_config(options: Options) -> Config {
+        let db = get_connection(&options.get_db_path()).unwrap();
+        Config {
+            chatrooms: HashMap::new(),
+            real_chatrooms: HashMap::new(),
+            chatroom_participants: HashMap::new(),
+            participants: HashMap::new(),
+            real_participants: HashMap::new(),
+            reactions: HashMap::new(),
+            options,
+            offset: get_offset(),
+            db,
+            converter: Converter::determine(),
+        }
+    }
+
     pub fn fake_attachment() -> Attachment {
         Attachment {
             rowid: 0,
@@ -1496,7 +1521,7 @@ mod tests {
     #[test]
     fn can_create() {
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
         assert_eq!(exporter.files.len(), 0);
     }
@@ -1508,7 +1533,8 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
+        // let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         // Create fake message
@@ -1533,7 +1559,7 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         // Create fake message
@@ -1551,7 +1577,7 @@ mod tests {
     fn can_add_line_no_indent() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         // Create sample data
@@ -1565,7 +1591,7 @@ mod tests {
     fn can_add_line() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         // Create sample data
@@ -1579,7 +1605,7 @@ mod tests {
     fn can_add_line_pre_post() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         // Create sample data
@@ -1596,7 +1622,7 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let mut message = blank();
@@ -1619,7 +1645,7 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let mut message = blank();
@@ -1642,7 +1668,7 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let mut message = blank();
@@ -1665,7 +1691,7 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let mut message = blank();
@@ -1690,7 +1716,7 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let mut config = Config::new(options).unwrap();
+        let mut config = fake_config(options);
         config
             .participants
             .insert(999999, "Sample Contact".to_string());
@@ -1715,7 +1741,7 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let mut config = Config::new(options).unwrap();
+        let mut config = fake_config(options);
         config
             .participants
             .insert(999999, "Sample Contact".to_string());
@@ -1746,7 +1772,7 @@ mod tests {
         // Create exporter
         let mut options = fake_options();
         options.custom_name = Some("Name".to_string());
-        let mut config = Config::new(options).unwrap();
+        let mut config = fake_config(options);
         config
             .participants
             .insert(999999, "Sample Contact".to_string());
@@ -1776,7 +1802,9 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let mut config = fake_config(options);
+        config.participants.insert(0, ME.to_string());
+
         let exporter = HTML::new(&config);
 
         let mut message = blank();
@@ -1797,13 +1825,16 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let mut config = fake_config(options);
+        config.participants.insert(0, ME.to_string());
+
         let exporter = HTML::new(&config);
 
         let mut message = blank();
         // May 17, 2022  8:29:42 PM
         message.date = 674526582885055488;
         message.group_title = Some("Hello world".to_string());
+        message.is_from_me = true;
 
         let actual = exporter.format_announcement(&message);
         let expected = "\n<div class =\"announcement\"><p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span> You named the conversation <b>Hello world</b></p></div>\n";
@@ -1819,7 +1850,9 @@ mod tests {
         // Create exporter
         let mut options = fake_options();
         options.custom_name = Some("Name".to_string());
-        let config = Config::new(options).unwrap();
+        let mut config = fake_config(options);
+        config.participants.insert(0, ME.to_string());
+
         let exporter = HTML::new(&config);
 
         let mut message = blank();
@@ -1840,7 +1873,9 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let mut config = fake_config(options);
+        config.participants.insert(0, ME.to_string());
+
         let exporter = HTML::new(&config);
 
         let mut message = blank();
@@ -1862,7 +1897,7 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let mut config = Config::new(options).unwrap();
+        let mut config = fake_config(options);
         config
             .participants
             .insert(999999, "Sample Contact".to_string());
@@ -1888,7 +1923,7 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let mut message = blank();
@@ -1911,7 +1946,7 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let mut message = blank();
@@ -1934,7 +1969,7 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let mut message = blank();
@@ -1958,7 +1993,7 @@ mod tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let mut message = blank();
@@ -1979,7 +2014,7 @@ mod tests {
     fn can_format_html_attachment_macos() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let message = blank();
@@ -1997,7 +2032,7 @@ mod tests {
     fn can_format_html_attachment_macos_invalid() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let message = blank();
@@ -2014,7 +2049,7 @@ mod tests {
     fn can_format_html_attachment_ios() {
         // Create exporter
         let options = fake_options();
-        let mut config = Config::new(options).unwrap();
+        let mut config = fake_config(options);
         config.options.no_lazy = true;
         config.options.platform = Platform::iOS;
         let exporter = HTML::new(&config);
@@ -2033,7 +2068,7 @@ mod tests {
     fn can_format_html_attachment_ios_invalid() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let message = blank();
@@ -2052,7 +2087,7 @@ mod tests {
         let mut options = fake_options();
         options.export_path = current_dir().unwrap().parent().unwrap().to_path_buf();
 
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let mut message = blank();
@@ -2087,8 +2122,8 @@ mod tests {
 mod balloon_format_tests {
     use std::env::set_var;
 
-    use super::tests::{blank, fake_options};
-    use crate::{exporters::exporter::BalloonFormatter, Config, Exporter, HTML};
+    use super::tests::{blank, fake_config, fake_options};
+    use crate::{exporters::exporter::BalloonFormatter, Exporter, HTML};
     use imessage_database::message_types::{
         app::AppMessage,
         app_store::AppStoreMessage,
@@ -2102,7 +2137,7 @@ mod balloon_format_tests {
     fn can_format_html_url() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = URLMessage {
@@ -2128,7 +2163,7 @@ mod balloon_format_tests {
         // Create exporter
         let mut options = fake_options();
         options.no_lazy = true;
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = URLMessage {
@@ -2153,7 +2188,7 @@ mod balloon_format_tests {
     fn can_format_html_music() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = MusicMessage {
@@ -2174,7 +2209,7 @@ mod balloon_format_tests {
     fn can_format_html_collaboration() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = CollaborationMessage {
@@ -2196,7 +2231,7 @@ mod balloon_format_tests {
     fn can_format_html_apple_pay() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = AppMessage {
@@ -2222,7 +2257,7 @@ mod balloon_format_tests {
     fn can_format_html_fitness() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = AppMessage {
@@ -2248,7 +2283,7 @@ mod balloon_format_tests {
     fn can_format_html_slideshow() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = AppMessage {
@@ -2274,7 +2309,7 @@ mod balloon_format_tests {
     fn can_format_html_find_my() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = AppMessage {
@@ -2303,7 +2338,7 @@ mod balloon_format_tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = AppMessage {
@@ -2332,7 +2367,7 @@ mod balloon_format_tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = AppMessage {
@@ -2361,7 +2396,7 @@ mod balloon_format_tests {
 
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = AppMessage {
@@ -2387,7 +2422,7 @@ mod balloon_format_tests {
     fn can_format_html_app_store() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = AppStoreMessage {
@@ -2409,7 +2444,7 @@ mod balloon_format_tests {
     fn can_format_html_placemark() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = PlacemarkMessage {
@@ -2440,7 +2475,7 @@ mod balloon_format_tests {
     fn can_format_html_generic_app() {
         // Create exporter
         let options = fake_options();
-        let config = Config::new(options).unwrap();
+        let config = fake_config(options);
         let exporter = HTML::new(&config);
 
         let balloon = AppMessage {
