@@ -2,6 +2,17 @@
 
 This crate provides both a library to interact with iMessage data as well as a binary that can perform some useful read-only operations using that data.
 
+This software can:
+
+- Save, export, backup, and archive iMessage data to open, portable formats
+- Preserve multimedia content (images, videos, audio) from conversations
+- Facilitate easy migration of message history between devices and platforms
+- Run diagnostics on the iMessage database
+- Give you full ownership and control over your communication history
+- Support compliance with data retention policies or legal requirements
+
+## Example Export
+
 ![HTML Export Sample](/docs/hero.png)
 
 ## Binary
