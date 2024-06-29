@@ -78,7 +78,7 @@ pub enum Service<'a> {
 pub struct Message {
     pub rowid: i32,
     pub guid: String,
-    /// The text of the message, which may require calling [`gen_text()`](crate::tables::messages::Message::gen_text) to populate
+    /// The text of the message, which may require calling [`gen()`](crate::tables::messages::Message::gen) to populate
     pub text: Option<String>,
     /// The service the message was sent from
     pub service: Option<String>,
@@ -390,7 +390,7 @@ impl Cacheable for Message {
 
 impl Message {
     /// Get the body text of a message, parsing it as [`typedstream`] (and falling back to [`streamtyped`]) data if necessary.
-    pub fn gen_text<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
+    pub fn gen<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
         if self.text.is_none() {
             let body = self.attributed_body(db).ok_or(MessageError::MissingData)?;
             // TODO: Use this to generate the `text` as well as update the logic in `body()` when it is present

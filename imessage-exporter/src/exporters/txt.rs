@@ -106,7 +106,7 @@ impl<'a> Exporter<'a> for TXT<'a> {
             }
             // Message replies and reactions are rendered in context, so no need to render them separately
             else if !msg.is_reaction() {
-                let _ = msg.gen_text(&self.config.db);
+                let _ = msg.gen(&self.config.db);
                 let message = self
                     .format_message(&msg, 0)
                     .map_err(RuntimeError::DatabaseError)?;
@@ -304,7 +304,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                 replies
                     .iter_mut()
                     .try_for_each(|reply| -> Result<(), TableError> {
-                        let _ = reply.gen_text(&self.config.db);
+                        let _ = reply.gen(&self.config.db);
                         if !reply.is_reaction() {
                             self.add_line(
                                 &mut formatted_message,

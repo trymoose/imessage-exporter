@@ -39,7 +39,7 @@ fn iter_messages() -> Result<(), TableError> {
         let mut msg = Message::extract(message)?;
 
         /// Parse message body if it was sent from macOS 13.0 or newer
-        msg.gen_text(&db);
+        msg.gen(&db);
 
         /// Emit debug info for each message
         println!("{:?}", msg)
