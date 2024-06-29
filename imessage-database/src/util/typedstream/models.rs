@@ -1,5 +1,5 @@
 /*!
- Data structures used to parse `typedstream` data, focussing specifically on [NSAttributedString](https://developer.apple.com/documentation/foundation/nsattributedstring) data.
+ Data structures used to parse `typedstream` data.
 */
 
 /// Represents a class stored in the `typedstream`
@@ -52,13 +52,11 @@ pub enum Archivable {
     /// comes before the ones it inherits from. To preserve the order, we reserve the first slot to store the actual object's data
     /// and then later add it back to the right place.
     Placeholder,
+    /// A type that made it through the parsing process without getting replaced by an object
     Type(Vec<Type>),
 }
 
 /// Represents types of data that can be stored in a `typedstream`
-///
-/// Types are cached in [`TypedStreamReader::types_table`]; the first time one is seen they are present
-/// in the stream literally, but afterwards are only referenced by index in order of appearance.
 // TODO: Remove clone
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
@@ -87,9 +85,9 @@ pub enum Type {
 /// Represents data that results from attempting to parse a class from the `typedstream`
 #[derive(Debug)]
 pub(crate) enum ClassResult {
-    /// A reference to an already-seen class in the [`TypedStreamReader::object_table`]
+    /// A reference to an already-seen class in the [`TypedStreamReader::object_table`](crate::util::typedstream::parser::TypedStreamReader::object_table)
     Index(usize),
-    /// A new class heirarchy to be inserted into the [`TypedStreamReader::object_table`]
+    /// A new class heirarchy to be inserted into the [`TypedStreamReader::object_table`](crate::util::typedstream::parser::TypedStreamReader::object_table)
     ClassHierarchy(Vec<Archivable>),
 }
 

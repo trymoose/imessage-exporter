@@ -1,5 +1,5 @@
 /*!
- Contains logic to parse detailed data from `typedstream` data, focussing specifically on [NSAttributedString](https://developer.apple.com/documentation/foundation/nsattributedstring) data.
+ Contains logic to parse detailed data from a `typedstream`, focussing specifically on [NSAttributedString](https://developer.apple.com/documentation/foundation/nsattributedstring).
 
  Logic referenced from `typedstream` source located at:
    - [`typedstream.h`](https://opensource.apple.com/source/gcc/gcc-1493/libobjc/objc/typedstream.h.auto.html)
@@ -34,6 +34,9 @@ pub struct TypedStreamReader<'a> {
     /// The current index we are at in the stream
     idx: usize,
     /// As we parse the `typedstream`, build a table of seen [`Type`]s to reference in the future
+    ///
+    /// The first time a [`Type`] is seen, it is present in the stream literally,
+    /// but afterwards are only referenced by index in order of appearance.
     types_table: Vec<Vec<Type>>,
     /// As we parse the `typedstream`, build a table of seen archivable data to reference in the future
     object_table: Vec<Archivable>,
