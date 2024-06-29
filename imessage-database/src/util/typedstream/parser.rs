@@ -45,7 +45,7 @@ pub struct TypedStreamReader<'a> {
 }
 
 impl<'a> TypedStreamReader<'a> {
-    pub fn new(stream: &'a [u8]) -> Self {
+    pub fn from(stream: &'a [u8]) -> Self {
         Self {
             stream,
             idx: 0,
@@ -516,7 +516,7 @@ impl<'a> TypedStreamReader<'a> {
     /// Attempt to get the data from the `typedstream`
     ///
     /// Output looks like:
-    /// TODO: Make this better
+    // TODO: Make this better
     /// ```txt
     /// Object(Class { name: "NSMutableString", version: 1 }, [String("Example")]) // The message text
     /// Data([Integer(1), Integer(7)])  // The next object describes properties for the range of chars 1 through 7
@@ -605,7 +605,7 @@ mod parser_tests {
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
-        let mut parser = TypedStreamReader::new(&bytes);
+        let mut parser = TypedStreamReader::from(&bytes);
         println!("{parser:?}");
         let result = parser.validate_header();
 
@@ -622,7 +622,7 @@ mod parser_tests {
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
-        let mut parser = TypedStreamReader::new(&bytes);
+        let mut parser = TypedStreamReader::from(&bytes);
         println!("{parser:?}");
         let result = parser.parse().unwrap();
 
@@ -726,7 +726,7 @@ mod parser_tests {
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
-        let mut parser = TypedStreamReader::new(&bytes);
+        let mut parser = TypedStreamReader::from(&bytes);
         println!("{parser:?}");
         let result = parser.parse().unwrap();
 
@@ -783,7 +783,7 @@ mod parser_tests {
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
-        let mut parser = TypedStreamReader::new(&bytes);
+        let mut parser = TypedStreamReader::from(&bytes);
         println!("{parser:?}");
         let result = parser.parse().unwrap();
 
@@ -856,7 +856,7 @@ mod parser_tests {
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
-        let mut parser = TypedStreamReader::new(&bytes);
+        let mut parser = TypedStreamReader::from(&bytes);
         println!("{parser:?}");
         let result = parser.parse().unwrap();
 
@@ -906,7 +906,7 @@ mod parser_tests {
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
-        let mut parser = TypedStreamReader::new(&bytes);
+        let mut parser = TypedStreamReader::from(&bytes);
         println!("{parser:?}");
         let result = parser.parse().unwrap();
 
@@ -1153,7 +1153,7 @@ mod parser_tests {
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
-        let mut parser = TypedStreamReader::new(&bytes);
+        let mut parser = TypedStreamReader::from(&bytes);
         println!("{parser:?}");
         let result = parser.parse().unwrap();
 
@@ -1288,7 +1288,7 @@ mod parser_tests {
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
-        let mut parser = TypedStreamReader::new(&bytes);
+        let mut parser = TypedStreamReader::from(&bytes);
         println!("{parser:?}");
         let result = parser.parse().unwrap();
 
@@ -1466,7 +1466,7 @@ mod parser_tests {
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
-        let mut parser = TypedStreamReader::new(&bytes);
+        let mut parser = TypedStreamReader::from(&bytes);
         println!("{parser:?}");
         let result = parser.parse().unwrap();
 

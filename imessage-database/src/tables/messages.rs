@@ -22,7 +22,8 @@ use crate::{
         dates::{get_local_time, readable_diff},
         output::{done_processing, processing},
         query_context::QueryContext,
-        streamtyped, typedstream,
+        streamtyped,
+        typedstream::parser::TypedStreamReader,
     },
 };
 
@@ -390,7 +391,7 @@ impl Message {
         if self.text.is_none() {
             let body = self.attributed_body(db).ok_or(MessageError::MissingData)?;
             // TODO: Use this to generate the `text` as well as update the logic in `body()` when it is present
-            let mut s = typedstream::parser::TypedStreamReader::new(&body);
+            let mut s = TypedStreamReader::from(&body);
             let v = s.parse();
             if v.is_err() {
                 eprintln!("Unable to parse {}", self.guid);
