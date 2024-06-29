@@ -23,7 +23,7 @@ use crate::{
         output::{done_processing, processing},
         query_context::QueryContext,
         streamtyped,
-        typedstream::parser::TypedStreamReader,
+        typedstream::{models::Archivable, parser::TypedStreamReader},
     },
 };
 
@@ -131,6 +131,8 @@ pub struct Message {
     pub deleted_from: Option<i32>,
     /// The number of replies to the message
     pub num_replies: i32,
+    /// The components of the message body, parsed by [`TypedStreamReader`](crate::util::typedstream::parser::TypedStreamReader)
+    pub components: Option<Vec<Archivable>>,
 }
 
 impl Table for Message {
@@ -165,6 +167,7 @@ impl Table for Message {
             num_attachments: row.get("num_attachments")?,
             deleted_from: row.get("deleted_from").unwrap_or(None),
             num_replies: row.get("num_replies")?,
+            components: None,
         })
     }
 
@@ -429,6 +432,7 @@ impl Message {
             return out_v;
         }
 
+        // Naive logic for when `typedstream` parsing fails
         match &self.text {
             Some(text) => {
                 let mut start: usize = 0;
@@ -1050,6 +1054,7 @@ mod tests {
             num_attachments: 0,
             deleted_from: None,
             num_replies: 0,
+            components: None,
         }
     }
 

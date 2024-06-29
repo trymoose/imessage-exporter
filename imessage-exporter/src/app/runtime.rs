@@ -679,6 +679,7 @@ mod who_tests {
             num_attachments: 0,
             deleted_from: None,
             num_replies: 0,
+            components: None
         }
     }
 
