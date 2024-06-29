@@ -390,7 +390,7 @@ impl Message {
         if self.text.is_none() {
             let body = self.attributed_body(db).ok_or(MessageError::MissingData)?;
             // TODO: Use this to generate the `text` as well as update the logic in `body()` when it is present
-            let mut s = typedstream::TypedStreamReader::new(&body);
+            let mut s = typedstream::parser::TypedStreamReader::new(&body);
             let v = s.parse();
             if v.is_err() {
                 eprintln!("Unable to parse {}", self.guid);
