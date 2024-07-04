@@ -23,7 +23,10 @@ use crate::{
         output::{done_processing, processing},
         query_context::QueryContext,
         streamtyped,
-        typedstream::{models::Archivable, parser::TypedStreamReader},
+        typedstream::{
+            models::{Archivable, Class, OutputData},
+            parser::TypedStreamReader,
+        },
     },
 };
 
@@ -392,15 +395,28 @@ impl Message {
     /// Get the body text of a message, parsing it as [`typedstream`] (and falling back to [`streamtyped`]) data if necessary.
     pub fn gen<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
         if self.text.is_none() {
+            // TODO: this section
+            // Grab the body data from the table
             let body = self.attributed_body(db).ok_or(MessageError::MissingData)?;
-            // TODO: Use this to generate the `text` as well as update the logic in `body()` when it is present
-            let mut s = TypedStreamReader::from(&body);
-            let v = s.parse();
-            if v.is_err() {
-                eprintln!("Unable to parse {}", self.guid);
+
+            // Attempt to parse the typedstream data
+            let mut typedstream = TypedStreamReader::from(&body);
+            self.components = typedstream.parse().ok();
+
+            // If we parsed the typedstream, use that data
+            if let Some(items) = &self.components {
+                if let Some(Archivable::Object(Class { name, .. }, value)) = items.first() {
+                    if name == "NSString" || name == "NSMutableString" {
+                        if let Some(OutputData::String(text)) = value.first() {
+                            self.text = Some(text.to_string());
+                            println!("{:?}", self.text);
+                        }
+                    }
+                }
+            } else {
+                self.text =
+                    Some(streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?);
             }
-            self.text =
-                Some(streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?);
         }
 
         if let Some(t) = &self.text {
@@ -432,7 +448,11 @@ impl Message {
             return out_v;
         }
 
-        // Naive logic for when `typedstream` parsing fails
+        // TODO: Generate the body from the components if they were parsed correctly
+        if let Some(components) = &self.components {
+            println!("{:?}", components);
+        }
+        // Naive logic for when `typedstream` component parsing fails
         match &self.text {
             Some(text) => {
                 let mut start: usize = 0;
