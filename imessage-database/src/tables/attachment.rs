@@ -248,7 +248,7 @@ impl Attachment {
                     ));
                 }
                 if let Some(end) = context.end {
-                    if !statement.is_empty() {
+                    if context.start.is_some() {
                         statement.push_str(" AND ");
                     }
                     statement
