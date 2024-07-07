@@ -107,6 +107,7 @@ impl<'a> TypedStreamReader<'a> {
             _ => {
                 if self.get_current_byte()? > REFERENCE_TAG as u8 {
                     self.idx += 1;
+                    return self.read_signed_int();
                 }
                 let value = i8::from_le_bytes([self.get_current_byte()?]);
                 self.idx += 1;
@@ -823,7 +824,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-1)],
+                vec![OutputData::SignedInteger(-122)],
             ),
             Archivable::Object(
                 Class {
@@ -1279,7 +1280,7 @@ mod parser_tests {
     }
 
     #[test]
-    fn test_parse_text_attachment() {
+    fn test_parse_text_attachment_float() {
         let plist_path = current_dir()
             .unwrap()
             .as_path()
@@ -1359,7 +1360,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-1)],
+                vec![OutputData::SignedInteger(-122)],
             ),
             Archivable::Object(
                 Class {
@@ -1433,7 +1434,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-1)],
+                vec![OutputData::SignedInteger(-122)],
             ),
             Archivable::Object(
                 Class {
@@ -1454,6 +1455,262 @@ mod parser_tests {
         ];
 
         assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parse_text_attachment_i16() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/AttachmentI16");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        println!("{parser:?}");
+        let result = parser.parse().unwrap();
+
+        println!("\n\nGot data!");
+        result.iter().for_each(|item| println!("{item:?}"));
+        let expected = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSMutableString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String("\u{FFFC}".to_string())],
+            ),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(1),
+            ]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(6)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMFileTransferGUIDAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "at_0_BE588799-C4BC-47DF-A56D-7EE90C74911D".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMInlineMediaHeightAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(600)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMBaseWritingDirectionAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(-122)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(1)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String("__kIMFilenameAttributeName".to_string())],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "brilliant-kids-test-answers-32-93042.jpeg".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMInlineMediaWidthAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(660)],
+            ),
+        ];
+
+        assert_eq!(result, expected);
+    }
+
+    #[test]
+    fn test_parse_text_url_message() {
+        let plist_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/URLMessage");
+        let mut file = File::open(plist_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        println!("{parser:?}");
+        let result = parser.parse().unwrap();
+
+        println!("\n\nGot data!");
+        result.iter().for_each(|item| println!("{item:?}"));
+
+        let expected_1 = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSMutableString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "https://twitter.com/xxxxxxxxx/status/0000223300009216128".to_string(),
+                )],
+            ),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(56),
+            ]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(4)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String("__kIMLinkAttributeName".to_string())],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSURL".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(0)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "https://twitter.com/xxxxxxxxx/status/0000223300009216128".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(0)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMDataDetectedAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSMutableData".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(604)],
+            ),
+        ];
+
+        let expected_2 = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMBaseWritingDirectionAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(-122)],
+            ),
+        ];
+
+        assert_eq!(result[..10], expected_1);
+        assert_eq!(result[11..], expected_2);
     }
 
     #[test]

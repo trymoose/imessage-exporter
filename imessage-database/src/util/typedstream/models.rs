@@ -99,8 +99,8 @@ impl Type {
             0x2A => Self::EmbeddedData,
             0x66 => Self::Float,
             0x64 => Self::Double,
-            0x69 | 0x6c | 0x71 | 0x73 => Self::SignedInt,
-            0x49 | 0x4c | 0x51 | 0x53 => Self::UnsignedInt,
+            0x63 | 0x69 | 0x6c | 0x71 | 0x73 => Self::SignedInt,
+            0x43 | 0x49 | 0x4c | 0x51 | 0x53 => Self::UnsignedInt,
             other => Self::Unknown(*other),
         }
     }
