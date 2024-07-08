@@ -247,7 +247,6 @@ impl<'a> TypedStreamReader<'a> {
         let types = self.read_exact_bytes(length as usize)?;
 
         // Handle array size
-        // TODO: this needs to be a free function
         if types.first() == Some(&0x5b) {
             return Type::get_array_length(types).ok_or(TypedStreamError::InvalidArray);
         }
@@ -258,9 +257,12 @@ impl<'a> TypedStreamReader<'a> {
     /// Read a reference pointer for a Type
     fn read_pointer(&mut self) -> Result<u32, TypedStreamError> {
         // self.print_loc("pointer");
-        let result = self.get_current_byte()? as u32 - REFERENCE_TAG as u32;
+        let pointer = self.get_current_byte()?;
+        let result = (pointer as u32)
+            .checked_sub(REFERENCE_TAG as u32)
+            .ok_or(TypedStreamError::InvalidPointer(pointer));
         self.idx += 1;
-        Ok(result)
+        result
     }
 
     /// Read a class

@@ -15,6 +15,7 @@ pub enum TypedStreamError {
     SliceError(TryFromSliceError),
     StringParseError(Utf8Error),
     InvalidArray,
+    InvalidPointer(u8),
 }
 
 impl Display for TypedStreamError {
@@ -28,7 +29,8 @@ impl Display for TypedStreamError {
                 write!(fmt, "Unable to slice source stream: {why}")
             }
             TypedStreamError::StringParseError(why) => write!(fmt, "Failed to parse string: {why}"),
-            TypedStreamError::InvalidArray => todo!(),
+            TypedStreamError::InvalidArray => write!(fmt, "Failed to parse array data"),
+            TypedStreamError::InvalidPointer(why) => write!(fmt, "Failed to parse pointer: {why}"),
         }
     }
 }
