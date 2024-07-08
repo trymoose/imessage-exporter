@@ -434,13 +434,9 @@ impl<'a> TypedStreamReader<'a> {
                             }
                             Archivable::Class(cls) => out_v.push(OutputData::Class(cls)),
                             Archivable::Data(data) => out_v.extend(data),
-                            Archivable::Placeholder => {
-                                unreachable!() // This case should not hit
-                            }
-                            Archivable::Type(_) => {} // This case should do nothing
+                            // These cases are used internally in the objects table but should not be present in any output
+                            Archivable::Placeholder | Archivable::Type(_) => {}
                         }
-                    } else {
-                        // println!("NO OBJECT?");
                     }
                 }
                 Type::SignedInt => out_v.push(OutputData::SignedInteger(self.read_signed_int()?)),
