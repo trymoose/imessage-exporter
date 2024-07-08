@@ -45,6 +45,16 @@ pub struct TypedStreamReader<'a> {
 }
 
 impl<'a> TypedStreamReader<'a> {
+    /// Given a stream, construct a reader object to parse it
+    ///
+    /// # Example:
+    ///
+    /// ```
+    /// use imessage_database::util::typedstream::parser::TypedStreamReader;
+    ///
+    /// let bytes: Vec<u8> = vec![]; // Example stream
+    /// let mut reader = TypedStreamReader::from(&bytes);
+    /// ```
     pub fn from(stream: &'a [u8]) -> Self {
         Self {
             stream,
@@ -513,9 +523,21 @@ impl<'a> TypedStreamReader<'a> {
     }
 
     /// Attempt to get the data from the `typedstream`
+    /// 
+    /// Given a stream, construct a reader object to parse it
     ///
-    /// Output looks like:
+    /// # Example:
+    ///
+    /// ```
+    /// use imessage_database::util::typedstream::parser::TypedStreamReader;
+    /// 
+    /// let bytes: Vec<u8> = vec![]; // Example stream
+    /// let mut reader = TypedStreamReader::from(&bytes);
+    /// let result = reader.parse();
+    /// ```
+    ///
     // TODO: Make this better
+    /// # Sample output:
     /// ```txt
     /// Object(Class { name: "NSMutableString", version: 1 }, [String("Example")]) // The message text
     /// Data([Integer(1), Integer(7)])  // The next object describes properties for the range of chars 1 through 7
