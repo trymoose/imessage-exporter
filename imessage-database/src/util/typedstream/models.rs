@@ -82,15 +82,6 @@ pub enum Type {
     Unknown(u8),
 }
 
-/// Represents data that results from attempting to parse a class from the `typedstream`
-#[derive(Debug)]
-pub(crate) enum ClassResult {
-    /// A reference to an already-seen class in the [`TypedStreamReader::object_table`](crate::util::typedstream::parser::TypedStreamReader::object_table)
-    Index(usize),
-    /// A new class heirarchy to be inserted into the [`TypedStreamReader::object_table`](crate::util::typedstream::parser::TypedStreamReader::object_table)
-    ClassHierarchy(Vec<Archivable>),
-}
-
 impl Type {
     pub(crate) fn from_byte(byte: &u8) -> Self {
         match byte {
@@ -124,4 +115,13 @@ impl Type {
         }
         None
     }
+}
+
+/// Represents data that results from attempting to parse a class from the `typedstream`
+#[derive(Debug)]
+pub(crate) enum ClassResult {
+    /// A reference to an already-seen class in the [`TypedStreamReader::object_table`](crate::util::typedstream::parser::TypedStreamReader::object_table)
+    Index(usize),
+    /// A new class heirarchy to be inserted into the [`TypedStreamReader::object_table`](crate::util::typedstream::parser::TypedStreamReader::object_table)
+    ClassHierarchy(Vec<Archivable>),
 }
