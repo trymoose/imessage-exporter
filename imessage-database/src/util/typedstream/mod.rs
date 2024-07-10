@@ -19,3 +19,4 @@
 
 pub mod models;
 pub mod parser;
+mod tests;
