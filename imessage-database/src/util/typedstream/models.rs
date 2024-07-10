@@ -1,5 +1,5 @@
 /*!
- Data structures used to parse `typedstream` data.
+ Data structures and models used by the `typedstream` parser.
 */
 
 /// Represents a class stored in the `typedstream`
@@ -41,9 +41,10 @@ pub enum OutputData {
 /// Types of data that can be archived into the `typedstream`
 #[derive(Debug, Clone, PartialEq)]
 pub enum Archivable {
-    /// An instance of a class that may contain some embedded data
+    /// An instance of a class that may contain some embedded data. `typedstream` data doesn't include property
+    /// names, so data is stored in order of appearance.
     Object(Class, Vec<OutputData>),
-    /// Some data that is likely a field on the object described by the `typedstream` but not part of a class
+    /// Some data that is likely a property on the object described by the `typedstream` but not part of a class
     Data(Vec<OutputData>),
     /// A class referenced in the `typedstream`, usually part of an inheritance heirarchy that does not contain any data itself
     Class(Class),
@@ -56,29 +57,48 @@ pub enum Archivable {
     Type(Vec<Type>),
 }
 
-/// Represents types of data that can be stored in a `typedstream`
+/// Represents primitive types of data that can be stored in a `typedstream`
 // TODO: Remove clone
 #[derive(Debug, Clone, PartialEq)]
 pub enum Type {
-    /// Encoded string data, usually embedded in an object
+    /// Encoded string data, usually embedded in an object. Denoted by:
+    /// - Hex: `0x2B`, UTF-8: [`+`](https://www.compart.com/en/unicode/U+002B)
     Utf8String,
-    /// Encoded bytes that can be parsed again as data
+    /// Encoded bytes that can be parsed again as data. Denoted by:
+    /// - Hex: `0x2A`, UTF-8: [`*`](https://www.compart.com/en/unicode/U+002A)
     EmbeddedData,
-    /// An instance of a class, usually with data
+    /// An instance of a class, usually with data. Denoted by:
+    /// - Hex: `0x40`, UTF-8: [`@`](https://www.compart.com/en/unicode/U+0040)
     Object,
-    /// An [`i8`], [`i16`], or [`i32`]
+    /// An [`i8`], [`i16`], or [`i32`]. Denoted by:
+    /// - Hex: `0x63`, UTF-8: [`c`](https://www.compart.com/en/unicode/U+0063)
+    /// - Hex: `0x69`, UTF-8: [`i`](https://www.compart.com/en/unicode/U+0069)
+    /// - Hex: `0x6c`, UTF-8: [`l`](https://www.compart.com/en/unicode/U+006c)
+    /// - Hex: `0x71`, UTF-8: [`q`](https://www.compart.com/en/unicode/U+0071)
+    /// - Hex: `0x73`, UTF-8: [`s`](https://www.compart.com/en/unicode/U+0073)
+    /// 
+    /// The width is determined by the prefix: [`i8`] has none, [`i16`] has `0x81`, and [`i32`] has `0x82`.
     SignedInt,
-    /// A [`u8`], [`u16`], or [`u32`]
+    /// A [`u8`], [`u16`], or [`u32`]. Denoted by:
+    /// - Hex: `0x43`, UTF-8: [`C`](https://www.compart.com/en/unicode/U+0043)
+    /// - Hex: `0x49`, UTF-8: [`I`](https://www.compart.com/en/unicode/U+0049)
+    /// - Hex: `0x4c`, UTF-8: [`L`](https://www.compart.com/en/unicode/U+004c)
+    /// - Hex: `0x51`, UTF-8: [`Q`](https://www.compart.com/en/unicode/U+0051)
+    /// - Hex: `0x53`, UTF-8: [`S`](https://www.compart.com/en/unicode/U+0053)
+    /// 
+    /// The width is determined by the prefix: [`i8`] has none, [`i16`] has `0x81`, and [`i32`] has `0x82`.
     UnsignedInt,
-    /// An [`f32`]
+    /// An [`f32`]. Denoted by:
+    /// - Hex: `0x66`, UTF-8: [`f`](https://www.compart.com/en/unicode/U+0066)
     Float,
-    /// An [`f64`]
+    /// An [`f64`]. Denoted by:
+    /// - Hex: `0x64`, UTF-8: [`d`](https://www.compart.com/en/unicode/U+0064)
     Double,
-    /// Some text we can reuse later, i.e. a class name
+    /// Some text we can reuse later, i.e. a class name.
     String(String),
-    /// An array containing some data of a given length
+    /// An array containing some data of a given length. Denoted by braced digits: `[123]`.
     Array(usize),
-    /// Data for which we do not know the type, likely for something this parser does not implement
+    /// Data for which we do not know the type, likely for something this parser does not implement.
     Unknown(u8),
 }
 

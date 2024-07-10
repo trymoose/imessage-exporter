@@ -1,7 +1,7 @@
 /*!
- Contains logic to parse detailed data from a `typedstream`, focussing specifically on [NSAttributedString](https://developer.apple.com/documentation/foundation/nsattributedstring).
+ Logic used to deserialize data from a `typedstream`, focussing specifically on [NSAttributedString](https://developer.apple.com/documentation/foundation/nsattributedstring).
 
- Logic referenced from `typedstream` source located at:
+ Logic reverse engineered from `typedstream` source located at:
    - [`typedstream.h`](https://opensource.apple.com/source/gcc/gcc-1493/libobjc/objc/typedstream.h.auto.html)
    - [`archive.c`](https://opensource.apple.com/source/gcc/gcc-5484/libobjc/archive.c.auto.html)
    - [`objc/typedstream.m`](https://archive.org/details/darwin_0.1)
@@ -26,7 +26,14 @@ const END: u8 = 0x86;
 /// Bytes equal or greater in value than the reference tag indicate an index in the table of already-seen types
 const REFERENCE_TAG: u64 = 0x92;
 
-/// Contains logic and data used to parse data from a `typedstream`
+/// Contains logic and data used to deserialize data from a `typedstream`.
+///
+/// A `typedstream` is a binary serialization format developed by NeXT and later adopted by Apple.
+/// It's designed to serialize and deserialize complex object graphs and data structures in C and Objective-C.
+///
+/// A `typedstream` begins with a header that includes format version and architecture information,
+/// followed by a stream of typed data elements. Each element is prefixed with type information,
+/// allowing the [`TypedStreamReader`] to understand the original data structures.
 #[derive(Debug)]
 pub struct TypedStreamReader<'a> {
     /// The `typedstream` we want to parse
@@ -45,7 +52,7 @@ pub struct TypedStreamReader<'a> {
 }
 
 impl<'a> TypedStreamReader<'a> {
-    /// Given a stream, construct a reader object to parse it
+    /// Given a stream, construct a reader object to parse it.
     ///
     /// # Example:
     ///
@@ -522,15 +529,16 @@ impl<'a> TypedStreamReader<'a> {
         Ok(())
     }
 
-    /// Attempt to get the data from the `typedstream`
-    /// 
-    /// Given a stream, construct a reader object to parse it
+    /// Attempt to get the data from the `typedstream`.
+    ///
+    /// Given a stream, construct a reader object to parse it. `typedstream` data doesn't include property
+    /// names, so data is stored on [`Object`s](crate::util::typedstream::models::Archivable::Object) in order of appearance.
     ///
     /// # Example:
     ///
     /// ```
     /// use imessage_database::util::typedstream::parser::TypedStreamReader;
-    /// 
+    ///
     /// let bytes: Vec<u8> = vec![]; // Example stream
     /// let mut reader = TypedStreamReader::from(&bytes);
     /// let result = reader.parse();
