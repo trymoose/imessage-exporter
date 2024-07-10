@@ -28,7 +28,7 @@ const REFERENCE_TAG: u64 = 0x92;
 
 /// Contains logic and data used to deserialize data from a `typedstream`.
 ///
-/// A `typedstream` is a binary serialization format developed by NeXT and later adopted by Apple.
+/// `typedstream` is a binary serialization format developed by NeXT and later adopted by Apple.
 /// It's designed to serialize and deserialize complex object graphs and data structures in C and Objective-C.
 ///
 /// A `typedstream` begins with a header that includes format version and architecture information,
@@ -52,7 +52,7 @@ pub struct TypedStreamReader<'a> {
 }
 
 impl<'a> TypedStreamReader<'a> {
-    /// Given a stream, construct a reader object to parse it.
+    /// Given a stream, construct a reader instance to parse it.
     ///
     /// # Example:
     ///
@@ -532,7 +532,7 @@ impl<'a> TypedStreamReader<'a> {
     /// Attempt to get the data from the `typedstream`.
     ///
     /// Given a stream, construct a reader object to parse it. `typedstream` data doesn't include property
-    /// names, so data is stored on [`Object`s](crate::util::typedstream::models::Archivable::Object) in order of appearance.
+    /// names, so data is stored on [`Object`](crate::util::typedstream::models::Archivable::Object)s in order of appearance.
     ///
     /// # Example:
     ///

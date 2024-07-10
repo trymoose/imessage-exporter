@@ -10,7 +10,7 @@ use crate::error::plist::PlistParseError;
 /// that follows the references in the XML document's UID pointers. First, we find the root of the
 /// document, then walk the structure, promoting values to the places where their pointers are stored.
 ///
-/// For example, a document with a root pointing to some XML like
+/// For example, a document with a root pointing to some `XML` like
 ///
 /// ```xml
 /// <array>
