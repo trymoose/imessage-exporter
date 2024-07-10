@@ -81,7 +81,7 @@ pub enum Service<'a> {
 pub struct Message {
     pub rowid: i32,
     pub guid: String,
-    /// The text of the message, which may require calling [`gen()`](crate::tables::messages::Message::gen) to populate
+    /// The text of the message, which may require calling [`Self::generate_text()`] to populate
     pub text: Option<String>,
     /// The service the message was sent from
     pub service: Option<String>,
@@ -134,7 +134,7 @@ pub struct Message {
     pub deleted_from: Option<i32>,
     /// The number of replies to the message
     pub num_replies: i32,
-    /// The components of the message body, parsed by [`TypedStreamReader`](crate::util::typedstream::parser::TypedStreamReader)
+    /// The components of the message body, parsed by [`TypedStreamReader`]
     pub components: Option<Vec<Archivable>>,
 }
 
@@ -392,8 +392,8 @@ impl Cacheable for Message {
 }
 
 impl Message {
-    /// Get the body text of a message, parsing it as [`typedstream`] (and falling back to [`streamtyped`]) data if necessary.
-    pub fn gen<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
+    /// Generate the text of a message, deserializing it as [`typedstream`](crate::util::typedstream) (and falling back to [`streamtyped`]) data if necessary.
+    pub fn generate_text<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
         if self.text.is_none() {
             // TODO: this section
             // Grab the body data from the table
@@ -426,7 +426,7 @@ impl Message {
         }
     }
 
-    /// Get a vector of a message's components
+    /// Get a vector of a message's components. If the text has not been captured with [`Self::generate_text()`], the vector will be empty.
     ///
     /// If the message has attachments, there will be one [`U+FFFC`](https://www.compart.com/en/unicode/U+FFFC) character
     /// for each attachment and one [`U+FFFD`](https://www.compart.com/en/unicode/U+FFFD) for app messages that we need
