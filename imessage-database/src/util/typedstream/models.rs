@@ -86,7 +86,7 @@ pub enum Type {
     /// - Hex: `0x51`, UTF-8: [`Q`](https://www.compart.com/en/unicode/U+0051)
     /// - Hex: `0x53`, UTF-8: [`S`](https://www.compart.com/en/unicode/U+0053)
     /// 
-    /// The width is determined by the prefix: [`i8`] has none, [`i16`] has `0x81`, and [`i32`] has `0x82`.
+    /// The width is determined by the prefix: [`u8`] has none, [`u16`] has `0x81`, and [`u32`] has `0x82`.
     UnsignedInt,
     /// An [`f32`]. Denoted by:
     /// - Hex: `0x66`, UTF-8: [`f`](https://www.compart.com/en/unicode/U+0066)
