@@ -10,6 +10,7 @@ This software can:
 - Run diagnostics on the iMessage database
 - Give you full ownership and control over your communication history
 - Support compliance with data retention policies or legal requirements
+- Run on macOS, Linux, and Windows
 
 ## Example Export
 
