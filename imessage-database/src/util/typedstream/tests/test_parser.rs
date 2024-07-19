@@ -238,7 +238,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-122)],
+                vec![OutputData::SignedInteger(-1)],
             ),
             Archivable::Object(
                 Class {
@@ -774,7 +774,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-122)],
+                vec![OutputData::SignedInteger(-1)],
             ),
             Archivable::Object(
                 Class {
@@ -848,7 +848,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-122)],
+                vec![OutputData::SignedInteger(-1)],
             ),
             Archivable::Object(
                 Class {
@@ -954,7 +954,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-122)],
+                vec![OutputData::SignedInteger(-1)],
             ),
             Archivable::Object(
                 Class {
@@ -1119,7 +1119,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-122)],
+                vec![OutputData::SignedInteger(-1)],
             ),
         ];
 

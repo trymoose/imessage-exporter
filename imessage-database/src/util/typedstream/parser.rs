@@ -122,7 +122,7 @@ impl<'a> TypedStreamReader<'a> {
                 Ok(value as i64)
             }
             _ => {
-                if self.get_current_byte()? > REFERENCE_TAG as u8 {
+                if self.get_current_byte()? > REFERENCE_TAG as u8 && self.get_next_byte()? != END {
                     self.idx += 1;
                     return self.read_signed_int();
                 }
@@ -516,15 +516,12 @@ impl<'a> TypedStreamReader<'a> {
         let typedstream_version = self.read_unsigned_int()?;
         // Encoding signature
         let signature = self.read_string()?;
-        self.idx += 1;
         // System version
-        let system_version = self.read_unsigned_int()?;
+        let system_version = self.read_signed_int()?;
 
-        if typedstream_version != 4 || signature != "streamtyped" || system_version != 232 {
+        if typedstream_version != 4 || signature != "streamtyped" || system_version != 1000 {
             return Err(TypedStreamError::InvalidHeader);
         }
-
-        self.idx += 1;
 
         Ok(())
     }
