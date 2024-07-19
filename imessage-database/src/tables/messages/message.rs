@@ -16,7 +16,7 @@ use crate::{
     },
     tables::{
         messages::{
-            body::parse_body_legacy,
+            body::{parse_body_legacy, parse_body_typedstream},
             models::{BubbleType, Service},
         },
         table::{
@@ -35,6 +35,7 @@ use crate::{
         },
     },
 };
+
 /// The required columns, interpolated into the most recent schema due to performance considerations
 const COLS: &str = "rowid, guid, text, service, handle_id, destination_caller_id, subject, date, date_read, date_delivered, is_from_me, is_read, item_type, other_handle, share_status, share_direction, group_title, group_action_type, associated_message_guid, associated_message_type, balloon_bundle_id, expressive_send_style_id, thread_originator_guid, thread_originator_part, date_edited, chat_id";
 
@@ -404,18 +405,14 @@ impl Message {
     ///
     /// `[BubbleType::Attachment, BubbleType::Text("Check out this photo!")]`
     pub fn body(&self) -> Vec<BubbleType> {
-        let mut out_v = vec![];
-
         // If the message is an app, it will be rendered differently, so just escape there
         if self.balloon_bundle_id.is_some() {
-            out_v.push(BubbleType::App);
-            return out_v;
+            return vec![BubbleType::App];
         }
 
-        // TODO: Generate the body from the components if they were parsed correctly
-        // if let Some(components) = &self.components {
-        //     println!("{:?}", components);
-        // }
+        if let Some(body) = parse_body_typedstream(self) {
+            return body;
+        }
 
         // Naive logic for when `typedstream` component parsing fails
         parse_body_legacy(self)
@@ -972,10 +969,9 @@ mod tests {
     use crate::{
         message_types::{
             expressives,
-            text_effects::TextEffect,
             variants::{CustomBalloon, Variant},
         },
-        tables::messages::{models::BubbleType, Message},
+        tables::messages::Message,
         util::dates::get_offset,
     };
 
