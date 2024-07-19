@@ -409,7 +409,6 @@ impl Message {
                     if name == "NSString" || name == "NSMutableString" {
                         if let Some(OutputData::String(text)) = value.first() {
                             self.text = Some(text.to_string());
-                            println!("{:?}", self.text);
                         }
                     }
                 }
@@ -448,10 +447,6 @@ impl Message {
             return out_v;
         }
 
-        // TODO: Generate the body from the components if they were parsed correctly
-        if let Some(components) = &self.components {
-            println!("{:?}", components);
-        }
         // Naive logic for when `typedstream` component parsing fails
         match &self.text {
             Some(text) => {
