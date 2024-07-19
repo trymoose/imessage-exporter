@@ -409,6 +409,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                         "</div>",
                     ),
                 },
+                _ => {},
             };
 
             // Write the part div end

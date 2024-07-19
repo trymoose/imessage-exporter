@@ -12,6 +12,7 @@ use crate::{
     error::{message::MessageError, table::TableError},
     message_types::{
         expressives::{BubbleEffect, Expressive, ScreenEffect},
+        text_effects::{Animation, Style},
         variants::{Announcement, CustomBalloon, Reaction, Variant},
     },
     tables::table::{
@@ -55,6 +56,12 @@ pub enum MessageType<'a> {
 pub enum BubbleType<'a> {
     /// A normal text message
     Text(&'a str),
+    /// A [mentioned](https://support.apple.com/guide/messages/mention-a-person-icht306ee34b/mac) contact in the conversation
+    Mention(&'a str),
+    /// Text formatted with any number of traditional styles
+    Styles(&'a str, Vec<Style>),
+    /// Animated text
+    Animation(&'a str, Animation),
     /// An attachment
     Attachment,
     /// An app integration
@@ -395,15 +402,14 @@ impl Message {
     /// Generate the text of a message, deserializing it as [`typedstream`](crate::util::typedstream) (and falling back to [`streamtyped`]) data if necessary.
     pub fn generate_text<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
         if self.text.is_none() {
-            // TODO: this section
             // Grab the body data from the table
             let body = self.attributed_body(db).ok_or(MessageError::MissingData)?;
 
-            // Attempt to parse the typedstream data
+            // Attempt to deserialize the typedstream data
             let mut typedstream = TypedStreamReader::from(&body);
             self.components = typedstream.parse().ok();
 
-            // If we parsed the typedstream, use that data
+            // If we deserialize the typedstream, use that data
             if let Some(items) = &self.components {
                 if let Some(Archivable::Object(Class { name, .. }, value)) = items.first() {
                     if name == "NSString" || name == "NSMutableString" {
@@ -412,7 +418,10 @@ impl Message {
                         }
                     }
                 }
-            } else {
+            }
+
+            // If the above parsing failed, fall back to the legacy parser instead
+            if self.text.is_none() {
                 self.text =
                     Some(streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?);
             }
@@ -446,6 +455,11 @@ impl Message {
             out_v.push(BubbleType::App);
             return out_v;
         }
+
+        // TODO: Generate the body from the components if they were parsed correctly
+        // if let Some(components) = &self.components {
+        //     println!("{:?}", components);
+        // }
 
         // Naive logic for when `typedstream` component parsing fails
         match &self.text {

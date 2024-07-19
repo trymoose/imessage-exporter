@@ -263,6 +263,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                         &indent,
                     ),
                 },
+                _ => {}
             };
 
             // Handle expressives
