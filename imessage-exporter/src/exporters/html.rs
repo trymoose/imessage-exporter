@@ -1437,7 +1437,7 @@ mod tests {
         },
     };
 
-    pub fn blank() -> Message {
+    pub(super) fn blank() -> Message {
         Message {
             rowid: i32::default(),
             guid: String::default(),
@@ -1472,7 +1472,7 @@ mod tests {
         }
     }
 
-    pub fn fake_options() -> Options {
+    pub(super) fn fake_options() -> Options {
         Options {
             db_path: default_db_path(),
             attachment_root: None,
@@ -1489,7 +1489,7 @@ mod tests {
         }
     }
 
-    pub fn fake_config(options: Options) -> Config {
+    pub(super) fn fake_config(options: Options) -> Config {
         let db = get_connection(&options.get_db_path()).unwrap();
         Config {
             chatrooms: HashMap::new(),
@@ -1505,7 +1505,7 @@ mod tests {
         }
     }
 
-    pub fn fake_attachment() -> Attachment {
+    pub(super) fn fake_attachment() -> Attachment {
         Attachment {
             rowid: 0,
             filename: Some("a/b/c/d.jpg".to_string()),
