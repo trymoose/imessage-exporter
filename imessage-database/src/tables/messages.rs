@@ -22,7 +22,11 @@ use crate::{
         dates::{get_local_time, readable_diff},
         output::{done_processing, processing},
         query_context::QueryContext,
-        streamtyped, typedstream,
+        streamtyped,
+        typedstream::{
+            models::{Archivable, Class, OutputData},
+            parser::TypedStreamReader,
+        },
     },
 };
 
@@ -77,7 +81,7 @@ pub enum Service<'a> {
 pub struct Message {
     pub rowid: i32,
     pub guid: String,
-    /// The text of the message, which may require calling [`gen_text()`](crate::tables::messages::Message::gen_text) to populate
+    /// The text of the message, which may require calling [`Self::generate_text()`] to populate
     pub text: Option<String>,
     /// The service the message was sent from
     pub service: Option<String>,
@@ -130,6 +134,8 @@ pub struct Message {
     pub deleted_from: Option<i32>,
     /// The number of replies to the message
     pub num_replies: i32,
+    /// The components of the message body, parsed by [`TypedStreamReader`]
+    pub components: Option<Vec<Archivable>>,
 }
 
 impl Table for Message {
@@ -164,6 +170,7 @@ impl Table for Message {
             num_attachments: row.get("num_attachments")?,
             deleted_from: row.get("deleted_from").unwrap_or(None),
             num_replies: row.get("num_replies")?,
+            components: None,
         })
     }
 
@@ -385,18 +392,30 @@ impl Cacheable for Message {
 }
 
 impl Message {
-    /// Get the body text of a message, parsing it as [`typedstream`] (and falling back to [`streamtyped`]) data if necessary.
-    pub fn gen_text<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
+    /// Generate the text of a message, deserializing it as [`typedstream`](crate::util::typedstream) (and falling back to [`streamtyped`]) data if necessary.
+    pub fn generate_text<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
         if self.text.is_none() {
+            // TODO: this section
+            // Grab the body data from the table
             let body = self.attributed_body(db).ok_or(MessageError::MissingData)?;
-            // TODO: Use this to generate the `text` as well as update the logic in `body()` when it is present
-            let mut s = typedstream::TypedStreamReader::new(&body);
-            let v = s.parse();
-            if v.is_err() {
-                eprintln!("Unable to parse {}", self.guid);
+
+            // Attempt to parse the typedstream data
+            let mut typedstream = TypedStreamReader::from(&body);
+            self.components = typedstream.parse().ok();
+
+            // If we parsed the typedstream, use that data
+            if let Some(items) = &self.components {
+                if let Some(Archivable::Object(Class { name, .. }, value)) = items.first() {
+                    if name == "NSString" || name == "NSMutableString" {
+                        if let Some(OutputData::String(text)) = value.first() {
+                            self.text = Some(text.to_string());
+                        }
+                    }
+                }
+            } else {
+                self.text =
+                    Some(streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?);
             }
-            self.text =
-                Some(streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?);
         }
 
         if let Some(t) = &self.text {
@@ -406,7 +425,7 @@ impl Message {
         }
     }
 
-    /// Get a vector of a message's components
+    /// Get a vector of a message's components. If the text has not been captured with [`Self::generate_text()`], the vector will be empty.
     ///
     /// If the message has attachments, there will be one [`U+FFFC`](https://www.compart.com/en/unicode/U+FFFC) character
     /// for each attachment and one [`U+FFFD`](https://www.compart.com/en/unicode/U+FFFD) for app messages that we need
@@ -428,6 +447,7 @@ impl Message {
             return out_v;
         }
 
+        // Naive logic for when `typedstream` component parsing fails
         match &self.text {
             Some(text) => {
                 let mut start: usize = 0;
@@ -1049,6 +1069,7 @@ mod tests {
             num_attachments: 0,
             deleted_from: None,
             num_replies: 0,
+            components: None,
         }
     }
 

@@ -6,9 +6,27 @@ Ensure your terminal emulator has [full disk access](https://kb.synology.com/en-
 
 ***
 
+#### Are emojis, reactions, and other special message features preserved in the export?
+
+Yes, all iMessage features are supported. See [here](features.md) for more detail.
+
+***
+
+#### Can it export messages from third-party apps that integrate with iMessage?
+
+Yes. See [here](features.md) for more detail on supported features.
+
+***
+
 #### Does `imessage-exporter` export message conversations that are on a user's iPhone/iPad but not on the user's Mac?
 
-No, `imessage-exporter` only reads data present on the host system.
+`imessage-exporter` only reads data present in the provided source, which can be either macOS's `chat.db` or an unencrypted iOS backup file.
+
+***
+
+#### Can it export group conversations as well as individual chats?
+
+Yes.
 
 ***
 
@@ -35,6 +53,14 @@ No, this software just builds exports. I use [`ripgrep`](https://github.com/Burn
 #### Will it run on Windows/Linux?
 
 I don't pre-build binaries for Windows or Linux, but it should compile to those [targets](https://doc.rust-lang.org/nightly/rustc/platform-support.html). As long as you can point it at an iMessage database, it should work.
+
+***
+
+#### Can it export messages between a specific date range?
+
+Yes, the `--start-date` and `--end-date` arguments specify date ranges for exports.
+
+See [here](../imessage-exporter/README.md#how-to-use) for details on `imessage-exporter` arguments.
 
 ***
 

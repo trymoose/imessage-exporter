@@ -45,6 +45,7 @@ This tool targets the current latest public release for macOS and iMessage. It m
   - Attachments are displayed as
     - File paths in TXT exports
     - Embeds in HTML exports (including `<img>`, `<video>`, and `<audio>`)
+  - Attachment date metadata is set to the date and time of message receipt
 - Expressives
   - Detects both bubble and screen effects
   - Messages sent with expressives are annotated
