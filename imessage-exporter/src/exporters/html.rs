@@ -28,7 +28,7 @@ use imessage_database::{
     },
     tables::{
         attachment::{Attachment, MediaType},
-        messages::{BubbleType, Message},
+        messages::{models::BubbleType, Message},
         table::{Table, FITNESS_RECEIVER, ME, ORPHANED, YOU},
     },
     util::{
