@@ -12,16 +12,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_header() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/AttributedBodyTextOnly");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.validate_header();
 
         assert!(result.is_ok());
@@ -29,16 +28,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_mention() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/Mention");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -133,16 +131,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_basic() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/AttributedBodyTextOnly");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -190,16 +187,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_basic_2() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/AttributedBodyTextOnly2");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -263,16 +259,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_long() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/LongMessage");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -313,16 +308,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_multi_part() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/Multipart");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -560,16 +554,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_multi_part_deleted() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/MultiPartWithDeleted");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -695,16 +688,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_attachment_float() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/Attachment");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -873,16 +865,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_attachment_i16() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/AttachmentI16");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -1011,16 +1002,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_url_message() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/URLMessage");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -1129,16 +1119,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_array() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/Array");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -1236,5 +1225,22 @@ mod parser_tests {
 
         assert_eq!(result[..9], expected_1);
         assert_eq!(result[10..], expected_2);
+    }
+
+    #[test]
+    fn test_parse_() {
+        let typedstream_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/Formatted");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        let result = parser.parse().unwrap();
+
+        println!("\n\nGot data!");
+        result.iter().for_each(|item| println!("\t{item:?}"));
     }
 }
