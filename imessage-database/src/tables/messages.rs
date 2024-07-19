@@ -12,7 +12,7 @@ use crate::{
     error::{message::MessageError, table::TableError},
     message_types::{
         expressives::{BubbleEffect, Expressive, ScreenEffect},
-        text_effects::{Animation, Style},
+        text_effects::TextEffect,
         variants::{Announcement, CustomBalloon, Reaction, Variant},
     },
     tables::table::{
@@ -54,14 +54,8 @@ pub enum MessageType<'a> {
 /// Defines the parts of a message bubble, i.e. the content that can exist in a single message.
 #[derive(Debug, PartialEq, Eq)]
 pub enum BubbleType<'a> {
-    /// A normal text message
-    Text(&'a str),
-    /// A [mentioned](https://support.apple.com/guide/messages/mention-a-person-icht306ee34b/mac) contact in the conversation
-    Mention(&'a str),
-    /// Text formatted with any number of traditional styles
-    Styles(&'a str, Vec<Style>),
-    /// Animated text
-    Animation(&'a str, Animation),
+    /// A text message with associated formatting
+    Text(&'a str, TextEffect),
     /// An attachment
     Attachment,
     /// An app integration
@@ -470,7 +464,10 @@ impl Message {
                 for (idx, char) in text.char_indices() {
                     if REPLACEMENT_CHARS.contains(&char) {
                         if start < end {
-                            out_v.push(BubbleType::Text(text[start..idx].trim()));
+                            out_v.push(BubbleType::Text(
+                                text[start..idx].trim(),
+                                TextEffect::Default,
+                            ));
                         }
                         start = idx + 1;
                         end = idx;
@@ -487,7 +484,7 @@ impl Message {
                     }
                 }
                 if start <= end && start < text.len() {
-                    out_v.push(BubbleType::Text(text[start..].trim()));
+                    out_v.push(BubbleType::Text(text[start..].trim(), TextEffect::Default));
                 }
                 out_v
             }
@@ -1046,6 +1043,7 @@ mod tests {
     use crate::{
         message_types::{
             expressives,
+            text_effects::TextEffect,
             variants::{CustomBalloon, Variant},
         },
         tables::messages::{BubbleType, Message},
@@ -1096,21 +1094,27 @@ mod tests {
     fn can_get_message_body_single_emoji() {
         let mut m = blank();
         m.text = Some("🙈".to_string());
-        assert_eq!(m.body(), vec![BubbleType::Text("🙈")]);
+        assert_eq!(m.body(), vec![BubbleType::Text("🙈", TextEffect::Default)]);
     }
 
     #[test]
     fn can_get_message_body_multiple_emoji() {
         let mut m = blank();
         m.text = Some("🙈🙈🙈".to_string());
-        assert_eq!(m.body(), vec![BubbleType::Text("🙈🙈🙈")]);
+        assert_eq!(
+            m.body(),
+            vec![BubbleType::Text("🙈🙈🙈", TextEffect::Default)]
+        );
     }
 
     #[test]
     fn can_get_message_body_text_only() {
         let mut m = blank();
         m.text = Some("Hello world".to_string());
-        assert_eq!(m.body(), vec![BubbleType::Text("Hello world")]);
+        assert_eq!(
+            m.body(),
+            vec![BubbleType::Text("Hello world", TextEffect::Default)]
+        );
     }
 
     #[test]
@@ -1119,7 +1123,10 @@ mod tests {
         m.text = Some("\u{FFFC}Hello world".to_string());
         assert_eq!(
             m.body(),
-            vec![BubbleType::Attachment, BubbleType::Text("Hello world")]
+            vec![
+                BubbleType::Attachment,
+                BubbleType::Text("Hello world", TextEffect::Default)
+            ]
         );
     }
 
@@ -1129,7 +1136,10 @@ mod tests {
         m.text = Some("\u{FFFD}Hello world".to_string());
         assert_eq!(
             m.body(),
-            vec![BubbleType::App, BubbleType::Text("Hello world")]
+            vec![
+                BubbleType::App,
+                BubbleType::Text("Hello world", TextEffect::Default)
+            ]
         );
     }
 
@@ -1140,14 +1150,14 @@ mod tests {
         assert_eq!(
             m.body(),
             vec![
-                BubbleType::Text("One"),
+                BubbleType::Text("One", TextEffect::Default),
                 BubbleType::App,
                 BubbleType::Attachment,
-                BubbleType::Text("Two"),
+                BubbleType::Text("Two", TextEffect::Default),
                 BubbleType::Attachment,
-                BubbleType::Text("Three"),
+                BubbleType::Text("Three", TextEffect::Default),
                 BubbleType::Attachment,
-                BubbleType::Text("four")
+                BubbleType::Text("four", TextEffect::Default)
             ]
         );
     }
@@ -1161,9 +1171,9 @@ mod tests {
             vec![
                 BubbleType::App,
                 BubbleType::Attachment,
-                BubbleType::Text("Two"),
+                BubbleType::Text("Two", TextEffect::Default),
                 BubbleType::Attachment,
-                BubbleType::Text("Three"),
+                BubbleType::Text("Three", TextEffect::Default),
                 BubbleType::Attachment
             ]
         );

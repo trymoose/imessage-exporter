@@ -223,7 +223,7 @@ impl<'a> Writer<'a> for TXT<'a> {
             }
             match message_part {
                 // Fitness messages have a prefix that we need to replace with the opposite if who sent the message
-                BubbleType::Text(text) => {
+                BubbleType::Text(text, _) => {
                     if text.starts_with(FITNESS_RECEIVER) {
                         self.add_line(
                             &mut formatted_message,
@@ -263,7 +263,6 @@ impl<'a> Writer<'a> for TXT<'a> {
                         &indent,
                     ),
                 },
-                _ => {}
             };
 
             // Handle expressives

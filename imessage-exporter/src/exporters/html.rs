@@ -332,7 +332,7 @@ impl<'a> Writer<'a> for HTML<'a> {
             }
 
             match message_part {
-                BubbleType::Text(text) => {
+                BubbleType::Text(text, _) => {
                     // Render the message body if the message was not edited
                     // If it was edited, it was rendered already
                     if !message.is_edited() {
@@ -409,7 +409,6 @@ impl<'a> Writer<'a> for HTML<'a> {
                         "</div>",
                     ),
                 },
-                _ => {},
             };
 
             // Write the part div end
