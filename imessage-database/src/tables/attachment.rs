@@ -125,13 +125,14 @@ impl Attachment {
     pub fn mime_type(&'_ self) -> MediaType<'_> {
         match &self.mime_type {
             Some(mime) => {
-                if let Some(mime_str) = mime.split('/').next() {
+                let mut mime_parts = mime.split('/');
+                if let (Some(mime_str), Some(subtype)) = (mime_parts.next(), mime_parts.next()) {
                     match mime_str {
-                        "image" => MediaType::Image(mime),
-                        "video" => MediaType::Video(mime),
-                        "audio" => MediaType::Audio(mime),
-                        "text" => MediaType::Text(mime),
-                        "application" => MediaType::Application(mime),
+                        "image" => MediaType::Image(subtype),
+                        "video" => MediaType::Video(subtype),
+                        "audio" => MediaType::Audio(subtype),
+                        "text" => MediaType::Text(subtype),
+                        "application" => MediaType::Application(subtype),
                         _ => MediaType::Other(mime),
                     }
                 } else {
@@ -434,7 +435,7 @@ mod tests {
             rowid: 1,
             filename: Some("a/b/c.png".to_string()),
             uti: Some("public.png".to_string()),
-            mime_type: Some("image".to_string()),
+            mime_type: Some("image/png".to_string()),
             transfer_name: Some("c.png".to_string()),
             total_bytes: 100,
             is_sticker: false,
@@ -470,16 +471,23 @@ mod tests {
     }
 
     #[test]
-    fn can_get_mime_type() {
+    fn can_get_mime_type_png() {
         let attachment = sample_attachment();
-        assert_eq!(attachment.mime_type(), MediaType::Image("image"));
+        assert_eq!(attachment.mime_type(), MediaType::Image("png"));
+    }
+
+    #[test]
+    fn can_get_mime_type_heic() {
+        let mut attachment = sample_attachment();
+        attachment.mime_type = Some("image/heic".to_string());
+        assert_eq!(attachment.mime_type(), MediaType::Image("heic"));
     }
 
     #[test]
     fn can_get_mime_type_fake() {
         let mut attachment = sample_attachment();
-        attachment.mime_type = Some("bloop".to_string());
-        assert_eq!(attachment.mime_type(), MediaType::Other("bloop"));
+        attachment.mime_type = Some("fake/bloop".to_string());
+        assert_eq!(attachment.mime_type(), MediaType::Other("fake/bloop"));
     }
 
     #[test]
