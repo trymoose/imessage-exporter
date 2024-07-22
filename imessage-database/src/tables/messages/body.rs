@@ -1,5 +1,3 @@
-use core::num;
-
 use crate::{
     message_types::text_effects::{Animation, Style, TextEffect},
     tables::messages::{models::BubbleType, Message},
@@ -39,25 +37,27 @@ pub(crate) fn parse_body_typedstream(message: &Message) -> Option<Vec<BubbleType
         let mut current_end = 0;
 
         while idx < components.len() {
-            if let Some((item, length)) = get_range(components.get(idx)?) {
-                println!("got length {:?}", length);
-                if *item > 1 {
-                    current_start = current_end;
-                }
+            if let Some((_, length)) = get_range(components.get(idx)?) {
+                println!("got length {:?} -> {current_start}, {current_end}", length);
+                current_start = current_end;
                 current_end += *length as usize;
             }
-
             println!("range: {current_start}..{current_end}");
 
             // The range is followed by a dictionary of attributes that map to that range
             idx += 1;
-            let num_attrs = get_attribute_dict_length(components.get(idx)?)?;
+            let num_attrs = get_attribute_dict_length(components.get(idx));
             println!("Dict length: {num_attrs:?}");
 
             // The next set of values alternate between key and value pairs for the dictionary
             idx += 1;
 
-            let slice = &components[idx..idx + num_attrs];
+            let slice: &[Archivable] = if idx >= components.len() {
+                &[]
+            } else {
+                &components[idx..idx + num_attrs]
+            };
+
             let bubble = get_bubble_type(
                 slice,
                 message,
@@ -96,19 +96,19 @@ fn get_range(component: &Archivable) -> Option<(&i64, &u64)> {
 fn get_substring<'a>(text: &'a str, start: usize, end: usize, char_indices: &[usize]) -> &'a str {
     let start_byte = char_indices.get(start).map_or(text.len(), |i| *i);
     let end_byte = char_indices.get(end).map_or(text.len(), |i| *i);
-    text[start_byte..end_byte].trim()
+    &text[start_byte..end_byte]
 }
 
 /// Get the number of key/value pairs in a NSDictionary
-fn get_attribute_dict_length(component: &Archivable) -> Option<usize> {
-    if let Archivable::Object(class, data) = component {
+fn get_attribute_dict_length(component: Option<&Archivable>) -> usize {
+    if let Some(Archivable::Object(class, data)) = component {
         if class.name == "NSDictionary" {
             if let Some(OutputData::SignedInteger(length)) = data.first() {
-                return Some((length * 2) as usize);
+                return (length * 2) as usize;
             }
         }
     }
-    None
+    0
 }
 
 /// Determine the type of bubble the current range represents
@@ -129,7 +129,9 @@ fn get_bubble_type<'a>(
             if class.name == "NSString" {
                 if let Some(OutputData::String(key_name)) = data.first().as_ref() {
                     match key_name.as_str() {
-                        "__kIMFileTransferGUIDAttributeName" => return Some(BubbleType::Attachment),
+                        "__kIMFileTransferGUIDAttributeName" => {
+                            return Some(BubbleType::Attachment)
+                        }
                         "__kIMMentionConfirmedMention" => {
                             return Some(BubbleType::Text(
                                 get_substring(message.text.as_ref()?, start, end, char_indices),
@@ -277,9 +279,35 @@ mod typedstream_tests {
                 BubbleType::Attachment,
                 BubbleType::Text("test 1", TextEffect::Default),
                 BubbleType::Attachment,
-                BubbleType::Text("test 2", TextEffect::Default),
+                BubbleType::Text("test 2 ", TextEffect::Default),
                 BubbleType::Attachment,
                 BubbleType::Text("test 3", TextEffect::Default)
+            ]
+        );
+    }
+
+    #[test]
+    fn can_get_message_body_mention() {
+        let mut m = blank();
+        m.text = Some("Test Dad ".to_string());
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/Mention");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        m.components = parser.parse().ok();
+
+        assert_eq!(
+            parse_body_typedstream(&m).unwrap(),
+            vec![
+                BubbleType::Text("Test ", TextEffect::Default),
+                BubbleType::Text("Dad", TextEffect::Mention),
+                BubbleType::Text(" ", TextEffect::Default),
             ]
         );
     }
