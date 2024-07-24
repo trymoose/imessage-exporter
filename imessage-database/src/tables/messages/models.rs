@@ -29,11 +29,31 @@ pub enum Service<'a> {
     Unknown,
 }
 
+/// Defines ranges and attributes parsed from [`typedstream`](crate::util::typedstream) `attributedBody` data.
+/// 
+/// For a given message, there will be ranges that specify the attributes associated with those ranges. For example:
+/// 
+/// Given message text with a [`Mention`](TextEffect::Mention) like:
+/// 
+/// `What's up, Christopher?`
+/// 
+/// There will be 3 ranges:
+/// 
+/// ```
+/// use imessage_database::message_types::text_effects::TextEffect;
+/// use imessage_database::tables::messages::models::{TextAttributes, BubbleType};
+///  
+/// let result = vec![BubbleType::Text(vec![
+///     TextAttributes::new(0, 11, TextEffect::Default),  // `What's up, `
+///     TextAttributes::new(11, 22, TextEffect::Mention), // `Christopher`
+///     TextAttributes::new(22, 23, TextEffect::Default)  // `?`
+/// ])];
+/// ```
 #[derive(Debug, PartialEq, Eq)]
 pub struct TextAttributes<'a> {
-    /// The start index of the affected range
+    /// The start index of the affected range of message text
     pub start: usize,
-    /// The end index of the affected range
+    /// The end index of the affected range of message text
     pub end: usize,
     /// The effects applied to the specified range
     pub effect: TextEffect<'a>,

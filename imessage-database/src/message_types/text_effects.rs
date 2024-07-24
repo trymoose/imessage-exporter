@@ -1,3 +1,7 @@
+/*!
+ Effects that can alter the appearance of message text.
+*/
+
 /// Text effect container
 ///
 /// Message text may contain any number of traditional styles or one animation.
