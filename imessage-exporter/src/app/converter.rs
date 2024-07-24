@@ -49,6 +49,7 @@ impl Converter {
 }
 
 /// Determine if a shell program exists on the system
+#[cfg(target_os = "macos")]
 fn exists(name: &str) -> bool {
     if let Ok(process) = Command::new("type")
         .args(&vec![name])
@@ -62,6 +63,15 @@ fn exists(name: &str) -> bool {
         }
     };
     false
+}
+
+#[cfg(target_family = "windows")]
+fn exists(name: &str) -> bool {
+    Command::new("where")
+        .arg(name)
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
 }
 
 /// Convert a HEIC image file to the provided format
