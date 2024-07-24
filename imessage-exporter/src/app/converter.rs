@@ -64,6 +64,15 @@ fn exists(name: &str) -> bool {
     false
 }
 
+#[cfg(target_family = "windows")]
+fn exists(name: &str) -> bool {
+    Command::new("where")
+        .arg(name)
+        .output()
+        .map(|output| output.status.success())
+        .unwrap_or(false)
+}
+
 /// Convert a HEIC image file to the provided format
 ///
 /// This uses the macOS builtin `sips` program
