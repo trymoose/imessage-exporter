@@ -126,8 +126,8 @@ impl Attachment {
         match &self.mime_type {
             Some(mime) => {
                 let mut mime_parts = mime.split('/');
-                if let (Some(mime_str), Some(subtype)) = (mime_parts.next(), mime_parts.next()) {
-                    match mime_str {
+                if let (Some(category), Some(subtype)) = (mime_parts.next(), mime_parts.next()) {
+                    match category {
                         "image" => MediaType::Image(subtype),
                         "video" => MediaType::Video(subtype),
                         "audio" => MediaType::Audio(subtype),
