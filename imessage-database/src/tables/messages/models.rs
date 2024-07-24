@@ -8,11 +8,27 @@ use crate::message_types::text_effects::TextEffect;
 #[derive(Debug, PartialEq, Eq)]
 pub enum BubbleType<'a> {
     /// A text message with associated formatting
-    Text(&'a str, TextEffect),
+    Text(Vec<TextAttributes<'a>>),
     /// An attachment
     Attachment,
     /// An app integration
     App,
+}
+
+#[derive(Debug, PartialEq, Eq)]
+pub struct TextAttributes<'a> {
+    /// The start index of the affected range
+    pub start: usize,
+    /// The end index of the affected range
+    pub end: usize,
+    /// The effects applied to the specified range
+    pub effect: TextEffect<'a>,
+}
+
+impl<'a> TextAttributes<'a> {
+    pub fn new(start: usize, end: usize, effect: TextEffect<'a>) -> Self {
+        Self { start, end, effect }
+    }
 }
 
 /// Defines different types of services we can receive messages from.
