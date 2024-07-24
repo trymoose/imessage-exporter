@@ -329,7 +329,9 @@ mod parser_tests {
                     name: "NSMutableString".to_string(),
                     version: 1,
                 },
-                vec![OutputData::String("￼test 1￼test 2 ￼test 3".to_string())],
+                vec![OutputData::String(
+                    "\u{FFFC}test 1\u{FFFC}test 2 \u{FFFC}test 3".to_string(),
+                )],
             ),
             Archivable::Data(vec![
                 OutputData::SignedInteger(1),
@@ -1014,7 +1016,10 @@ mod parser_tests {
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("{item:?}"));
+        result
+            .iter()
+            .enumerate()
+            .for_each(|(idx, item)| println!("\t{idx}: {item:?}"));
 
         let expected_1 = vec![
             Archivable::Object(
@@ -1225,5 +1230,95 @@ mod parser_tests {
 
         assert_eq!(result[..9], expected_1);
         assert_eq!(result[10..], expected_2);
+    }
+
+    #[test]
+    fn test_parse_text_app() {
+        let typedstream_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/AppMessage");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        let result = parser.parse().unwrap();
+
+        println!("\n\nGot data!");
+        result.iter().for_each(|item| println!("{item:?}"));
+
+        let expected = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String("\u{FFFC}".to_string())],
+            ),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(1),
+            ]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(3)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMFileTransferGUIDAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "F0B18A15-E9A5-4B18-A38F-685B7B3FF037".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMBaseWritingDirectionAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(-1)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(0)],
+            ),
+        ];
+
+        assert_eq!(result, expected);
     }
 }
