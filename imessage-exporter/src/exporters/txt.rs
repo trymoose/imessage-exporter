@@ -20,6 +20,7 @@ use imessage_database::{
         handwriting::HandwrittenMessage,
         music::MusicMessage,
         placemark::PlacemarkMessage,
+        text_effects::TextEffect,
         url::URLMessage,
         variants::{Announcement, BalloonProvider, CustomBalloon, URLOverride, Variant},
     },
@@ -223,15 +224,34 @@ impl<'a> Writer<'a> for TXT<'a> {
             }
             match message_part {
                 // Fitness messages have a prefix that we need to replace with the opposite if who sent the message
-                BubbleType::Text(text, _) => {
-                    if text.starts_with(FITNESS_RECEIVER) {
-                        self.add_line(
-                            &mut formatted_message,
-                            &text.replace(FITNESS_RECEIVER, YOU),
-                            &indent,
-                        );
-                    } else {
-                        self.add_line(&mut formatted_message, text, &indent);
+                BubbleType::Text(text_attrs) => {
+                    if let Some(text) = &message.text {
+                        let mut formatted_text = String::with_capacity(text.len());
+                        for text_attr in text_attrs {
+                            if let Some(message_content) = text.get(text_attr.start..text_attr.end)
+                            {
+                                // TODO: Convert text effect
+                                match &text_attr.effect {
+                                    TextEffect::Default => {}
+                                    TextEffect::Mention => {}
+                                    TextEffect::Link(_) => {}
+                                    TextEffect::OTP => {}
+                                    TextEffect::Styles(_) => {}
+                                    TextEffect::Animated(_) => {}
+                                    TextEffect::Conversion(_) => {}
+                                }
+                                formatted_text.push_str(message_content)
+                            }
+                        }
+                        if formatted_text.starts_with(FITNESS_RECEIVER) {
+                            self.add_line(
+                                &mut formatted_message,
+                                &formatted_text.replace(FITNESS_RECEIVER, YOU),
+                                &indent,
+                            );
+                        } else {
+                            self.add_line(&mut formatted_message, &formatted_text, &indent);
+                        }
                     }
                 }
                 BubbleType::Attachment => match attachments.get_mut(attachment_index) {

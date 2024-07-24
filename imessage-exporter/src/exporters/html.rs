@@ -23,6 +23,7 @@ use imessage_database::{
         handwriting::HandwrittenMessage,
         music::MusicMessage,
         placemark::PlacemarkMessage,
+        text_effects::TextEffect,
         url::URLMessage,
         variants::{Announcement, BalloonProvider, CustomBalloon, URLOverride, Variant},
     },
@@ -210,6 +211,14 @@ impl<'a> Writer<'a> for HTML<'a> {
             "</span>",
         );
 
+        // TODO: Remove
+        self.add_line(
+            &mut formatted_message,
+            &message.guid,
+            "<p><span class=\"timestamp\">",
+            "</span>",
+        );
+
         // Add reply anchor if necessary
         if message.is_reply() {
             if indent_size > 0 {
@@ -332,24 +341,43 @@ impl<'a> Writer<'a> for HTML<'a> {
             }
 
             match message_part {
-                BubbleType::Text(text, _) => {
-                    // Render the message body if the message was not edited
-                    // If it was edited, it was rendered already
-                    if !message.is_edited() {
-                        if text.starts_with(FITNESS_RECEIVER) {
-                            self.add_line(
-                                &mut formatted_message,
-                                &text.replace(FITNESS_RECEIVER, YOU),
-                                "<span class=\"bubble\">",
-                                "</span>",
-                            );
-                        } else {
-                            self.add_line(
-                                &mut formatted_message,
-                                &sanitize_html(text),
-                                "<span class=\"bubble\">",
-                                "</span>",
-                            );
+                BubbleType::Text(text_attrs) => {
+                    if let Some(text) = &message.text {
+                        let mut formatted_text = String::with_capacity(text.len());
+                        for text_attr in text_attrs {
+                            if let Some(message_content) = text.get(text_attr.start..text_attr.end)
+                            {
+                                // TODO: Convert text effect
+                                match &text_attr.effect {
+                                    TextEffect::Default => {}
+                                    TextEffect::Mention => {}
+                                    TextEffect::Link(_) => {}
+                                    TextEffect::OTP => {}
+                                    TextEffect::Styles(_) => {}
+                                    TextEffect::Animated(_) => {}
+                                    TextEffect::Conversion(_) => {}
+                                }
+                                formatted_text.push_str(message_content)
+                            }
+                        }
+                        // Render the message body if the message was not edited
+                        // If it was edited, it was rendered already
+                        if !message.is_edited() {
+                            if formatted_text.starts_with(FITNESS_RECEIVER) {
+                                self.add_line(
+                                    &mut formatted_message,
+                                    &formatted_text.replace(FITNESS_RECEIVER, YOU),
+                                    "<span class=\"bubble\">",
+                                    "</span>",
+                                );
+                            } else {
+                                self.add_line(
+                                    &mut formatted_message,
+                                    &sanitize_html(&formatted_text),
+                                    "<span class=\"bubble\">",
+                                    "</span>",
+                                );
+                            }
                         }
                     }
                 }
