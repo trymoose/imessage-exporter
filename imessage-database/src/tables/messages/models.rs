@@ -29,13 +29,13 @@ pub enum Service<'a> {
     Unknown,
 }
 
-/// Defines ranges and attributes parsed from [`typedstream`](crate::util::typedstream) `attributedBody` data.
+/// Defines ranges of text and associated attributes parsed from [`typedstream`](crate::util::typedstream) `attributedBody` data.
 /// 
-/// For a given message, there will be ranges that specify the attributes associated with those ranges. For example:
+/// Ranges specify locations attributes applied to specific portions of a [`Message`](crate::tables::messages::Message)'s [`text`](crate::tables::messages::Message::text). For example, given message text with a [`Mention`](TextEffect::Mention) like:
 /// 
-/// Given message text with a [`Mention`](TextEffect::Mention) like:
-/// 
-/// `What's up, Christopher?`
+/// ```
+/// let message_text = "What's up, Christopher?";
+/// ```
 /// 
 /// There will be 3 ranges:
 /// 

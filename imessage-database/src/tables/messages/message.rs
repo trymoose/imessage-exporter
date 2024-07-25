@@ -392,18 +392,37 @@ impl Message {
     }
 
     /// Get a vector of a message's components. If the text has not been captured with [`Self::generate_text()`], the vector will be empty.
-    ///
-    /// If the message has attachments, there will be one [`U+FFFC`](https://www.compart.com/en/unicode/U+FFFC) character
-    /// for each attachment and one [`U+FFFD`](https://www.compart.com/en/unicode/U+FFFD) for app messages that we need
-    /// to format.
+    /// 
+    /// # Default parsing
+    /// 
+    /// Message body text can be formatted with a [`Vec`] of [`TextAttributes`](crate::tables::messages::models::TextAttributes). 
     ///
     /// An iMessage that contains body text like:
     ///
-    /// `\u{FFFC}Check out this photo!`
+    /// ```
+    /// let message_text = "\u{FFFC}Check out this photo!";
+    /// ```
     ///
     /// Will have a `body()` of:
     ///
-    /// `[BubbleType::Attachment, BubbleType::Text("Check out this photo!")]`
+    /// ```
+    /// use imessage_database::message_types::text_effects::TextEffect;
+    /// use imessage_database::tables::messages::models::{TextAttributes, BubbleType};
+    ///  
+    /// let result = vec![
+    ///     BubbleType::Attachment,
+    ///     BubbleType::Text(vec![TextAttributes::new(3, 24, TextEffect::Default)]), // `Check out this photo!`
+    /// ];
+    /// ```
+    /// 
+    /// # Legacy parsing
+    /// 
+    /// If the `typedstream` data cannot be deserialized, this method falls back to a legacy string parsing algorithm that 
+    /// only supports unstyled text.
+    /// 
+    /// If the message has attachments, there will be one [`U+FFFC`](https://www.compart.com/en/unicode/U+FFFC) character
+    /// for each attachment and one [`U+FFFD`](https://www.compart.com/en/unicode/U+FFFD) for app messages that we need
+    /// to format.
     pub fn body(&self) -> Vec<BubbleType> {
         // If the message is an app, it will be rendered differently, so just escape there
         if self.balloon_bundle_id.is_some() {
