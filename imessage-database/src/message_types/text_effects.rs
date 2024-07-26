@@ -13,7 +13,7 @@ pub enum TextEffect<'a> {
     Default,
     /// A [mentioned](https://support.apple.com/guide/messages/mention-a-person-icht306ee34b/mac) contact in the conversation
     Mention,
-    /// A clickable link, i.e. `https://`, `tel:`, `mailto:`, and others.
+    /// A clickable link, i.e. `https://`, `tel:`, `mailto:`, and others
     Link(&'a str),
     /// A one-time code, i.e. from a 2FA message
     OTP,
@@ -47,7 +47,7 @@ pub enum Style {
     Bold,
     /// *Italic* styled text
     Italic,
-    /// ~~Strikethrough~~ formatted text
+    /// ~~Strikethrough~~ styled text
     Strikethrough,
     /// <u>Underline</u> styled text
     Underline,
