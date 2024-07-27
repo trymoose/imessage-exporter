@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     fs::File,
     io::{BufWriter, Write},
@@ -20,12 +21,13 @@ use imessage_database::{
         handwriting::HandwrittenMessage,
         music::MusicMessage,
         placemark::PlacemarkMessage,
+        text_effects::TextEffect,
         url::URLMessage,
         variants::{Announcement, BalloonProvider, CustomBalloon, URLOverride, Variant},
     },
     tables::{
         attachment::Attachment,
-        messages::{BubbleType, Message},
+        messages::{models::BubbleType, Message},
         table::{Table, FITNESS_RECEIVER, ME, ORPHANED, YOU},
     },
     util::{
@@ -223,15 +225,33 @@ impl<'a> Writer<'a> for TXT<'a> {
             }
             match message_part {
                 // Fitness messages have a prefix that we need to replace with the opposite if who sent the message
-                BubbleType::Text(text) => {
-                    if text.starts_with(FITNESS_RECEIVER) {
-                        self.add_line(
-                            &mut formatted_message,
-                            &text.replace(FITNESS_RECEIVER, YOU),
-                            &indent,
-                        );
-                    } else {
-                        self.add_line(&mut formatted_message, text, &indent);
+                BubbleType::Text(text_attrs) => {
+                    if let Some(text) = &message.text {
+                        let mut formatted_text = String::with_capacity(text.len());
+
+                        for text_attr in text_attrs {
+                            if let Some(message_content) = text.get(text_attr.start..text_attr.end)
+                            {
+                                formatted_text.push_str(
+                                    &self.format_attributed(message_content, &text_attr.effect),
+                                )
+                            }
+                        }
+
+                        // If we failed to parse any text above, use the original text
+                        if formatted_text.is_empty() {
+                            formatted_text.push_str(text);
+                        }
+
+                        if formatted_text.starts_with(FITNESS_RECEIVER) {
+                            self.add_line(
+                                &mut formatted_message,
+                                &formatted_text.replace(FITNESS_RECEIVER, YOU),
+                                &indent,
+                            );
+                        } else {
+                            self.add_line(&mut formatted_message, &formatted_text, &indent);
+                        }
                     }
                 }
                 BubbleType::Attachment => match attachments.get_mut(attachment_index) {
@@ -585,6 +605,11 @@ impl<'a> Writer<'a> for TXT<'a> {
         Err(MessageError::PlistParseError(PlistParseError::NoPayload))
     }
 
+    fn format_attributed(&'a self, msg: &'a str, _: &'a TextEffect) -> Cow<str> {
+        // There isn't really a way to represent formatted text in a plain text export
+        Cow::Borrowed(msg)
+    }
+
     fn write_to_file(file: &mut BufWriter<File>, text: &str) -> Result<(), RuntimeError> {
         file.write_all(text.as_bytes())
             .map_err(RuntimeError::DiskError)
@@ -928,9 +953,8 @@ mod tests {
     };
 
     use crate::{
-        app::{attachment_manager::AttachmentManager, converter::Converter},
-        exporters::exporter::Writer,
-        Config, Exporter, Options, TXT,
+        app::attachment_manager::AttachmentManager, exporters::exporter::Writer, Config, Exporter,
+        Options, TXT,
     };
     use imessage_database::{
         tables::{
@@ -944,7 +968,7 @@ mod tests {
         },
     };
 
-    fn blank() -> Message {
+    pub(super) fn blank() -> Message {
         Message {
             rowid: i32::default(),
             guid: String::default(),
@@ -979,7 +1003,7 @@ mod tests {
         }
     }
 
-    pub fn fake_options() -> Options {
+    pub(super) fn fake_options() -> Options {
         Options {
             db_path: default_db_path(),
             attachment_root: None,
@@ -996,7 +1020,7 @@ mod tests {
         }
     }
 
-    pub fn fake_config(options: Options) -> Config {
+    pub(super) fn fake_config(options: Options) -> Config {
         let db = get_connection(&options.get_db_path()).unwrap();
         Config {
             chatrooms: HashMap::new(),
@@ -1008,11 +1032,11 @@ mod tests {
             options,
             offset: get_offset(),
             db,
-            converter: Converter::determine(),
+            converter: None,
         }
     }
 
-    pub fn fake_attachment() -> Attachment {
+    pub(super) fn fake_attachment() -> Attachment {
         Attachment {
             rowid: 0,
             filename: Some("a/b/c/d.jpg".to_string()),

@@ -122,7 +122,7 @@ impl<'a> TypedStreamReader<'a> {
                 Ok(value as i64)
             }
             _ => {
-                if self.get_current_byte()? > REFERENCE_TAG as u8 {
+                if self.get_current_byte()? > REFERENCE_TAG as u8 && self.get_next_byte()? != END {
                     self.idx += 1;
                     return self.read_signed_int();
                 }
@@ -516,15 +516,12 @@ impl<'a> TypedStreamReader<'a> {
         let typedstream_version = self.read_unsigned_int()?;
         // Encoding signature
         let signature = self.read_string()?;
-        self.idx += 1;
         // System version
-        let system_version = self.read_unsigned_int()?;
+        let system_version = self.read_signed_int()?;
 
-        if typedstream_version != 4 || signature != "streamtyped" || system_version != 232 {
+        if typedstream_version != 4 || signature != "streamtyped" || system_version != 1000 {
             return Err(TypedStreamError::InvalidHeader);
         }
-
-        self.idx += 1;
 
         Ok(())
     }
@@ -585,29 +582,5 @@ impl<'a> TypedStreamReader<'a> {
         // println!("Types table: {:?}", self.types_table);
         // println!("Parsed data: {:?}\n", out_v);
         Ok(out_v)
-    }
-}
-
-#[cfg(test)]
-mod type_tests {
-    use crate::util::typedstream::models::Type;
-
-    #[test]
-    fn can_get_array_good() {
-        let items: Vec<u8> = vec![0x5b, 0x39, 0x30, 0x34, 0x63, 0x5d];
-
-        let expected = vec![Type::Array(904)];
-        let result = Type::get_array_length(&items).unwrap();
-
-        assert_eq!(result, expected)
-    }
-
-    #[test]
-    fn cant_get_array_bad() {
-        let items: Vec<u8> = vec![0x39, 0x30, 0x34, 0x63, 0x5d];
-
-        let result = Type::get_array_length(&items);
-
-        assert!(result.is_none())
     }
 }

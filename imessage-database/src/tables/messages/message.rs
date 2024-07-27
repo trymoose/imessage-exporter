@@ -14,9 +14,15 @@ use crate::{
         expressives::{BubbleEffect, Expressive, ScreenEffect},
         variants::{Announcement, CustomBalloon, Reaction, Variant},
     },
-    tables::table::{
-        Cacheable, Diagnostic, Table, ATTRIBUTED_BODY, CHAT_MESSAGE_JOIN, MESSAGE,
-        MESSAGE_ATTACHMENT_JOIN, MESSAGE_PAYLOAD, MESSAGE_SUMMARY_INFO, RECENTLY_DELETED,
+    tables::{
+        messages::{
+            body::{parse_body_legacy, parse_body_typedstream},
+            models::{BubbleType, Service},
+        },
+        table::{
+            Cacheable, Diagnostic, Table, ATTRIBUTED_BODY, CHAT_MESSAGE_JOIN, MESSAGE,
+            MESSAGE_ATTACHMENT_JOIN, MESSAGE_PAYLOAD, MESSAGE_SUMMARY_INFO, RECENTLY_DELETED,
+        },
     },
     util::{
         dates::{get_local_time, readable_diff},
@@ -30,50 +36,8 @@ use crate::{
     },
 };
 
-/// Character found in message body text that indicates attachment position
-const ATTACHMENT_CHAR: char = '\u{FFFC}';
-/// Character found in message body text that indicates app message position
-const APP_CHAR: char = '\u{FFFD}';
-/// A collection of characters that represent non-text content within body text
-const REPLACEMENT_CHARS: [char; 2] = [ATTACHMENT_CHAR, APP_CHAR];
 /// The required columns, interpolated into the most recent schema due to performance considerations
 const COLS: &str = "rowid, guid, text, service, handle_id, destination_caller_id, subject, date, date_read, date_delivered, is_from_me, is_read, item_type, other_handle, share_status, share_direction, group_title, group_action_type, associated_message_guid, associated_message_type, balloon_bundle_id, expressive_send_style_id, thread_originator_guid, thread_originator_part, date_edited, chat_id";
-
-/// Represents a broad category of messages: standalone, thread originators, and thread replies.
-#[derive(Debug)]
-pub enum MessageType<'a> {
-    /// A normal message not associated with any others
-    Normal(Variant<'a>, Expressive<'a>),
-    /// A message that has replies
-    Thread(Variant<'a>, Expressive<'a>),
-    /// A message that is a reply to another message
-    Reply(Variant<'a>, Expressive<'a>),
-}
-
-/// Defines the parts of a message bubble, i.e. the content that can exist in a single message.
-#[derive(Debug, PartialEq, Eq)]
-pub enum BubbleType<'a> {
-    /// A normal text message
-    Text(&'a str),
-    /// An attachment
-    Attachment,
-    /// An app integration
-    App,
-}
-
-/// Defines different types of services we can receive messages from.
-#[derive(Debug)]
-pub enum Service<'a> {
-    /// An iMessage
-    #[allow(non_camel_case_types)]
-    iMessage,
-    /// A message sent as SMS
-    SMS,
-    /// Any other type of message
-    Other(&'a str),
-    /// Used when service field is not set
-    Unknown,
-}
 
 /// Represents a single row in the `message` table.
 #[derive(Debug)]
@@ -395,15 +359,14 @@ impl Message {
     /// Generate the text of a message, deserializing it as [`typedstream`](crate::util::typedstream) (and falling back to [`streamtyped`]) data if necessary.
     pub fn generate_text<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
         if self.text.is_none() {
-            // TODO: this section
             // Grab the body data from the table
             let body = self.attributed_body(db).ok_or(MessageError::MissingData)?;
 
-            // Attempt to parse the typedstream data
+            // Attempt to deserialize the typedstream data
             let mut typedstream = TypedStreamReader::from(&body);
             self.components = typedstream.parse().ok();
 
-            // If we parsed the typedstream, use that data
+            // If we deserialize the typedstream, use that data
             if let Some(items) = &self.components {
                 if let Some(Archivable::Object(Class { name, .. }, value)) = items.first() {
                     if name == "NSString" || name == "NSMutableString" {
@@ -412,7 +375,10 @@ impl Message {
                         }
                     }
                 }
-            } else {
+            }
+
+            // If the above parsing failed, fall back to the legacy parser instead
+            if self.text.is_none() {
                 self.text =
                     Some(streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?);
             }
@@ -426,59 +392,49 @@ impl Message {
     }
 
     /// Get a vector of a message's components. If the text has not been captured with [`Self::generate_text()`], the vector will be empty.
-    ///
-    /// If the message has attachments, there will be one [`U+FFFC`](https://www.compart.com/en/unicode/U+FFFC) character
-    /// for each attachment and one [`U+FFFD`](https://www.compart.com/en/unicode/U+FFFD) for app messages that we need
-    /// to format.
+    /// 
+    /// # Default parsing
+    /// 
+    /// Message body text can be formatted with a [`Vec`] of [`TextAttributes`](crate::tables::messages::models::TextAttributes). 
     ///
     /// An iMessage that contains body text like:
     ///
-    /// `\u{FFFC}Check out this photo!`
+    /// ```
+    /// let message_text = "\u{FFFC}Check out this photo!";
+    /// ```
     ///
     /// Will have a `body()` of:
     ///
-    /// `[BubbleType::Attachment, BubbleType::Text("Check out this photo!")]`
+    /// ```
+    /// use imessage_database::message_types::text_effects::TextEffect;
+    /// use imessage_database::tables::messages::models::{TextAttributes, BubbleType};
+    ///  
+    /// let result = vec![
+    ///     BubbleType::Attachment,
+    ///     BubbleType::Text(vec![TextAttributes::new(3, 24, TextEffect::Default)]), // `Check out this photo!`
+    /// ];
+    /// ```
+    /// 
+    /// # Legacy parsing
+    /// 
+    /// If the `typedstream` data cannot be deserialized, this method falls back to a legacy string parsing algorithm that 
+    /// only supports unstyled text.
+    /// 
+    /// If the message has attachments, there will be one [`U+FFFC`](https://www.compart.com/en/unicode/U+FFFC) character
+    /// for each attachment and one [`U+FFFD`](https://www.compart.com/en/unicode/U+FFFD) for app messages that we need
+    /// to format.
     pub fn body(&self) -> Vec<BubbleType> {
-        let mut out_v = vec![];
-
         // If the message is an app, it will be rendered differently, so just escape there
         if self.balloon_bundle_id.is_some() {
-            out_v.push(BubbleType::App);
-            return out_v;
+            return vec![BubbleType::App];
+        }
+
+        if let Some(body) = parse_body_typedstream(self) {
+            return body;
         }
 
         // Naive logic for when `typedstream` component parsing fails
-        match &self.text {
-            Some(text) => {
-                let mut start: usize = 0;
-                let mut end: usize = 0;
-
-                for (idx, char) in text.char_indices() {
-                    if REPLACEMENT_CHARS.contains(&char) {
-                        if start < end {
-                            out_v.push(BubbleType::Text(text[start..idx].trim()));
-                        }
-                        start = idx + 1;
-                        end = idx;
-                        match char {
-                            ATTACHMENT_CHAR => out_v.push(BubbleType::Attachment),
-                            APP_CHAR => out_v.push(BubbleType::App),
-                            _ => {}
-                        };
-                    } else {
-                        if start > end {
-                            start = idx;
-                        }
-                        end = idx;
-                    }
-                }
-                if start <= end && start < text.len() {
-                    out_v.push(BubbleType::Text(text[start..].trim()));
-                }
-                out_v
-            }
-            None => out_v,
-        }
+        parse_body_legacy(self)
     }
 
     /// Calculates the date a message was written to the database.
@@ -1034,7 +990,7 @@ mod tests {
             expressives,
             variants::{CustomBalloon, Variant},
         },
-        tables::messages::{BubbleType, Message},
+        tables::messages::Message,
         util::dates::get_offset,
     };
 
@@ -1076,83 +1032,6 @@ mod tests {
     #[test]
     fn can_gen_message() {
         blank();
-    }
-
-    #[test]
-    fn can_get_message_body_single_emoji() {
-        let mut m = blank();
-        m.text = Some("🙈".to_string());
-        assert_eq!(m.body(), vec![BubbleType::Text("🙈")]);
-    }
-
-    #[test]
-    fn can_get_message_body_multiple_emoji() {
-        let mut m = blank();
-        m.text = Some("🙈🙈🙈".to_string());
-        assert_eq!(m.body(), vec![BubbleType::Text("🙈🙈🙈")]);
-    }
-
-    #[test]
-    fn can_get_message_body_text_only() {
-        let mut m = blank();
-        m.text = Some("Hello world".to_string());
-        assert_eq!(m.body(), vec![BubbleType::Text("Hello world")]);
-    }
-
-    #[test]
-    fn can_get_message_body_attachment_text() {
-        let mut m = blank();
-        m.text = Some("\u{FFFC}Hello world".to_string());
-        assert_eq!(
-            m.body(),
-            vec![BubbleType::Attachment, BubbleType::Text("Hello world")]
-        );
-    }
-
-    #[test]
-    fn can_get_message_body_app_text() {
-        let mut m = blank();
-        m.text = Some("\u{FFFD}Hello world".to_string());
-        assert_eq!(
-            m.body(),
-            vec![BubbleType::App, BubbleType::Text("Hello world")]
-        );
-    }
-
-    #[test]
-    fn can_get_message_body_app_attachment_text_mixed_start_text() {
-        let mut m = blank();
-        m.text = Some("One\u{FFFD}\u{FFFC}Two\u{FFFC}Three\u{FFFC}four".to_string());
-        assert_eq!(
-            m.body(),
-            vec![
-                BubbleType::Text("One"),
-                BubbleType::App,
-                BubbleType::Attachment,
-                BubbleType::Text("Two"),
-                BubbleType::Attachment,
-                BubbleType::Text("Three"),
-                BubbleType::Attachment,
-                BubbleType::Text("four")
-            ]
-        );
-    }
-
-    #[test]
-    fn can_get_message_body_app_attachment_text_mixed_start_app() {
-        let mut m = blank();
-        m.text = Some("\u{FFFD}\u{FFFC}Two\u{FFFC}Three\u{FFFC}".to_string());
-        assert_eq!(
-            m.body(),
-            vec![
-                BubbleType::App,
-                BubbleType::Attachment,
-                BubbleType::Text("Two"),
-                BubbleType::Attachment,
-                BubbleType::Text("Three"),
-                BubbleType::Attachment
-            ]
-        );
     }
 
     #[test]

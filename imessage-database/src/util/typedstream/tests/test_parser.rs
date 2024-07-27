@@ -12,16 +12,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_header() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/AttributedBodyTextOnly");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.validate_header();
 
         assert!(result.is_ok());
@@ -29,16 +28,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_mention() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/Mention");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -133,16 +131,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_basic() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/AttributedBodyTextOnly");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -190,16 +187,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_basic_2() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/AttributedBodyTextOnly2");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -238,7 +234,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-122)],
+                vec![OutputData::SignedInteger(-1)],
             ),
             Archivable::Object(
                 Class {
@@ -263,16 +259,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_long() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/LongMessage");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -313,16 +308,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_multi_part() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/Multipart");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -335,7 +329,9 @@ mod parser_tests {
                     name: "NSMutableString".to_string(),
                     version: 1,
                 },
-                vec![OutputData::String("￼test 1￼test 2 ￼test 3".to_string())],
+                vec![OutputData::String(
+                    "\u{FFFC}test 1\u{FFFC}test 2 \u{FFFC}test 3".to_string(),
+                )],
             ),
             Archivable::Data(vec![
                 OutputData::SignedInteger(1),
@@ -560,16 +556,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_multi_part_deleted() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/MultiPartWithDeleted");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -695,16 +690,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_attachment_float() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/Attachment");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -774,7 +768,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-122)],
+                vec![OutputData::SignedInteger(-1)],
             ),
             Archivable::Object(
                 Class {
@@ -848,7 +842,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-122)],
+                vec![OutputData::SignedInteger(-1)],
             ),
             Archivable::Object(
                 Class {
@@ -873,16 +867,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_attachment_i16() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/AttachmentI16");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -954,7 +947,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-122)],
+                vec![OutputData::SignedInteger(-1)],
             ),
             Archivable::Object(
                 Class {
@@ -1011,20 +1004,22 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_url_message() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/URLMessage");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
-        result.iter().for_each(|item| println!("{item:?}"));
+        result
+            .iter()
+            .enumerate()
+            .for_each(|(idx, item)| println!("\t{idx}: {item:?}"));
 
         let expected_1 = vec![
             Archivable::Object(
@@ -1119,7 +1114,7 @@ mod parser_tests {
                     name: "NSNumber".to_string(),
                     version: 0,
                 },
-                vec![OutputData::SignedInteger(-122)],
+                vec![OutputData::SignedInteger(-1)],
             ),
         ];
 
@@ -1129,16 +1124,15 @@ mod parser_tests {
 
     #[test]
     fn test_parse_text_array() {
-        let plist_path = current_dir()
+        let typedstream_path = current_dir()
             .unwrap()
             .as_path()
             .join("test_data/typedstream/Array");
-        let mut file = File::open(plist_path).unwrap();
+        let mut file = File::open(typedstream_path).unwrap();
         let mut bytes = vec![];
         file.read_to_end(&mut bytes).unwrap();
 
         let mut parser = TypedStreamReader::from(&bytes);
-        println!("{parser:?}");
         let result = parser.parse().unwrap();
 
         println!("\n\nGot data!");
@@ -1236,5 +1230,95 @@ mod parser_tests {
 
         assert_eq!(result[..9], expected_1);
         assert_eq!(result[10..], expected_2);
+    }
+
+    #[test]
+    fn test_parse_text_app() {
+        let typedstream_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/AppMessage");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        let result = parser.parse().unwrap();
+
+        println!("\n\nGot data!");
+        result.iter().for_each(|item| println!("{item:?}"));
+
+        let expected = vec![
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String("\u{FFFC}".to_string())],
+            ),
+            Archivable::Data(vec![
+                OutputData::SignedInteger(1),
+                OutputData::UnsignedInteger(1),
+            ]),
+            Archivable::Object(
+                Class {
+                    name: "NSDictionary".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(3)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMFileTransferGUIDAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "F0B18A15-E9A5-4B18-A38F-685B7B3FF037".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMBaseWritingDirectionAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(-1)],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSString".to_string(),
+                    version: 1,
+                },
+                vec![OutputData::String(
+                    "__kIMMessagePartAttributeName".to_string(),
+                )],
+            ),
+            Archivable::Object(
+                Class {
+                    name: "NSNumber".to_string(),
+                    version: 0,
+                },
+                vec![OutputData::SignedInteger(0)],
+            ),
+        ];
+
+        assert_eq!(result, expected);
     }
 }
