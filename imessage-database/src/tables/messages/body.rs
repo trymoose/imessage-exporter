@@ -129,7 +129,6 @@ fn get_n_dict_objects(components: &[Archivable], idx: usize, num_objects: usize)
     for (idx, component) in components.iter().enumerate().skip(idx) {
         // Break the loop if we encounter a new range, which indicates we should move on to the next part
         if get_range(component).is_some() {
-            // final_idx = idx;
             break;
         }
         final_idx = idx;
