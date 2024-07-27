@@ -154,7 +154,6 @@ fn get_bubble_type<'a>(
                     let start = get_char_idx(message.text.as_ref()?, start, char_indices);
                     let end = get_char_idx(message.text.as_ref()?, end, char_indices);
                     match key_name.as_str() {
-                        // If the dict contains key "__kIMFileTransferGUIDAttributeName" it is an attachment
                         "__kIMFileTransferGUIDAttributeName" => {
                             return Some(BubbleResult::New(BubbleType::Attachment))
                         }
