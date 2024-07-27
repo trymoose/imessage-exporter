@@ -1,5 +1,5 @@
 use crate::{
-    message_types::text_effects::{Animation, Style, TextEffect, Unit},
+    message_types::text_effects::{TextEffect, Unit},
     tables::messages::{
         models::{BubbleType, TextAttributes},
         Message,
