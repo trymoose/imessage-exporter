@@ -1,4 +1,5 @@
 use std::{
+    borrow::Cow,
     collections::HashMap,
     fs::File,
     io::{BufWriter, Write},
@@ -227,22 +228,21 @@ impl<'a> Writer<'a> for TXT<'a> {
                 BubbleType::Text(text_attrs) => {
                     if let Some(text) = &message.text {
                         let mut formatted_text = String::with_capacity(text.len());
+
                         for text_attr in text_attrs {
                             if let Some(message_content) = text.get(text_attr.start..text_attr.end)
                             {
-                                // TODO: Convert text effect
-                                match &text_attr.effect {
-                                    TextEffect::Default => {}
-                                    TextEffect::Mention => {}
-                                    TextEffect::Link(_) => {}
-                                    TextEffect::OTP => {}
-                                    TextEffect::Styles(_) => {}
-                                    TextEffect::Animated(_) => {}
-                                    TextEffect::Conversion(_) => {}
-                                }
-                                formatted_text.push_str(message_content)
+                                formatted_text.push_str(
+                                    &self.format_attributed(message_content, &text_attr.effect),
+                                )
                             }
                         }
+
+                        // If we failed to parse any text above, use the original text
+                        if formatted_text.is_empty() {
+                            formatted_text.push_str(text);
+                        }
+
                         if formatted_text.starts_with(FITNESS_RECEIVER) {
                             self.add_line(
                                 &mut formatted_message,
@@ -605,6 +605,11 @@ impl<'a> Writer<'a> for TXT<'a> {
         Err(MessageError::PlistParseError(PlistParseError::NoPayload))
     }
 
+    fn format_attributed(&'a self, msg: &'a str, _: &'a TextEffect) -> Cow<str> {
+        // There isn't really a way to represent formatted text in a plain text export
+        Cow::Borrowed(msg)
+    }
+
     fn write_to_file(file: &mut BufWriter<File>, text: &str) -> Result<(), RuntimeError> {
         file.write_all(text.as_bytes())
             .map_err(RuntimeError::DiskError)
@@ -948,9 +953,8 @@ mod tests {
     };
 
     use crate::{
-        app::{attachment_manager::AttachmentManager, converter::Converter},
-        exporters::exporter::Writer,
-        Config, Exporter, Options, TXT,
+        app::attachment_manager::AttachmentManager, exporters::exporter::Writer, Config, Exporter,
+        Options, TXT,
     };
     use imessage_database::{
         tables::{
@@ -1028,7 +1032,7 @@ mod tests {
             options,
             offset: get_offset(),
             db,
-            converter: Converter::determine(),
+            converter: None,
         }
     }
 
