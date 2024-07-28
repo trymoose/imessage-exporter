@@ -15,6 +15,13 @@ This tool targets the current latest public release for macOS and iMessage. It m
   - Parses `typedstream` message body data
   - Detects the service a message was sent from
     - In HTML exports, balloons are colored correctly for the service they were sent with
+- Formatted Text
+  - Parses formatted text ranges from `typedstream` message body data
+  - Supports all iMessage text format ranges:
+    - Mentions
+    - Hyperlinks
+    - OTP/2FA
+    - Unit Conversions
 - Edited and Unsent messages
   - Detects if messages were edited or unsent
     - Edited messages
@@ -25,7 +32,7 @@ This tool targets the current latest public release for macOS and iMessage. It m
     - Unsent messages
       - No content, but are noted in context
 - Multi-part messages
-  - iMessages can have multiple parts, separated by some special characters
+  - iMessages can have multiple parts, denoted by ranges in `typedstream` message body data
   - Parts are displayed as
     - New lines in TXT exports
     - Separate balloons in HTML exports

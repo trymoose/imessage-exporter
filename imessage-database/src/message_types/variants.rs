@@ -35,7 +35,7 @@ use crate::{
 ///   - but that like message will get dropped when the unlike message arrives
 ///   - When messages drop the ROWIDs become non-sequential: the ID of the dropped message row is not reused
 ///   - This means unliking an old message will make it look like the reaction was applied/removed at the
-///   time of latest change; the history of reaction statuses is not kept
+///     time of latest change; the history of reaction statuses is not kept
 #[derive(Debug)]
 pub enum Reaction {
     /// Heart
