@@ -49,9 +49,10 @@ impl Converter {
 }
 
 /// Determine if a shell program exists on the system
+#[cfg(not(target_family = "windows"))]
 fn exists(name: &str) -> bool {
     if let Ok(process) = Command::new("type")
-        .args(&vec![name])
+        .args(vec![name])
         .stdout(Stdio::null())
         .stderr(Stdio::null())
         .stdin(Stdio::null())
@@ -64,6 +65,7 @@ fn exists(name: &str) -> bool {
     false
 }
 
+/// Determine if a shell program exists on the system
 #[cfg(target_family = "windows")]
 fn exists(name: &str) -> bool {
     Command::new("where")
