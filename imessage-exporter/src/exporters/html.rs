@@ -2656,7 +2656,7 @@ mod text_effect_tests {
         let config = fake_config(options);
         let exporter = HTML::new(&config);
 
-        let expected = exporter.format_styles("Bold", &vec![Style::Bold]);
+        let expected = exporter.format_styles("Bold", &[Style::Bold]);
         let actual = "<b>Bold</b>";
 
         assert_eq!(expected, actual);
@@ -2669,7 +2669,7 @@ mod text_effect_tests {
         let config = fake_config(options);
         let exporter = HTML::new(&config);
 
-        let expected = exporter.format_styles("Bold", &vec![Style::Bold, Style::Strikethrough]);
+        let expected = exporter.format_styles("Bold", &[Style::Bold, Style::Strikethrough]);
         let actual = "<s><b>Bold</b></s>";
 
         assert_eq!(expected, actual);
