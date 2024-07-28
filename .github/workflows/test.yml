@@ -27,3 +27,7 @@ jobs:
         uses: actions-rs/cargo@v1
         with:
           command: build
+      - name: Test
+        uses: actions-rs/cargo@v1
+        with:
+          command: test test
