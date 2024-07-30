@@ -44,17 +44,56 @@ pub enum Archivable {
     /// An instance of a class that may contain some embedded data. `typedstream` data doesn't include property
     /// names, so data is stored in order of appearance.
     Object(Class, Vec<OutputData>),
-    /// Some data that is likely a property on the object described by the `typedstream` but not part of a class
+    /// Some data that is likely a property on the object described by the `typedstream` but not part of a class.
     Data(Vec<OutputData>),
-    /// A class referenced in the `typedstream`, usually part of an inheritance heirarchy that does not contain any data itself
+    /// A class referenced in the `typedstream`, usually part of an inheritance heirarchy that does not contain any data itself.
     Class(Class),
     /// A placeholder, only used when reserving a spot in the objects table for a reference to be filled with read class information.
     /// In a `typedstream`, the classes are stored in order of inheritance, so the top-level class described by the `typedstream`
     /// comes before the ones it inherits from. To preserve the order, we reserve the first slot to store the actual object's data
     /// and then later add it back to the right place.
     Placeholder,
-    /// A type that made it through the parsing process without getting replaced by an object
+    /// A type that made it through the parsing process without getting replaced by an object.``
     Type(Vec<Type>),
+}
+
+impl Archivable {
+    /// If `self` is an [`Object`](Archivable::Object) that contains a [`Class`] named `NSString` or `NSMutableString`,
+    /// extract a Rust string slice from the associated [`Data`](Archivable::Data).
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use imessage_database::util::typedstream::models::{Archivable, Class, OutputData};
+    ///
+    /// let nsstring = Archivable::Object(
+    ///     Class {
+    ///         name: "NSString".to_string(),
+    ///         version: 1
+    ///     },
+    ///     vec![OutputData::String("Hello world".to_string())]
+    /// );
+    /// println!("{:?}", nsstring.deserialize_as_nsstring()); // Some("Hello world")
+    /// 
+    /// let not_nsstring = Archivable::Object(
+    ///     Class {
+    ///         name: "NSNumber".to_string(),
+    ///         version: 1
+    ///     },
+    ///     vec![OutputData::SignedInteger(100)]
+    /// );
+    /// println!("{:?}", not_nsstring.deserialize_as_nsstring()); // None
+    /// ```
+    pub fn deserialize_as_nsstring(&self) -> Option<&str> {
+        if let Archivable::Object(Class { name, .. }, value) = self {
+            if name == "NSString" || name == "NSMutableString" {
+                if let Some(OutputData::String(text)) = value.first() {
+                    return Some(text);
+                }
+            }
+        }
+        None
+    }
 }
 
 /// Represents primitive types of data that can be stored in a `typedstream`
@@ -76,7 +115,7 @@ pub enum Type {
     /// - Hex: `0x6c`, UTF-8: [`l`](https://www.compart.com/en/unicode/U+006c)
     /// - Hex: `0x71`, UTF-8: [`q`](https://www.compart.com/en/unicode/U+0071)
     /// - Hex: `0x73`, UTF-8: [`s`](https://www.compart.com/en/unicode/U+0073)
-    /// 
+    ///
     /// The width is determined by the prefix: [`i8`] has none, [`i16`] has `0x81`, and [`i32`] has `0x82`.
     SignedInt,
     /// A [`u8`], [`u16`], or [`u32`]. Denoted by:
@@ -85,7 +124,7 @@ pub enum Type {
     /// - Hex: `0x4c`, UTF-8: [`L`](https://www.compart.com/en/unicode/U+004c)
     /// - Hex: `0x51`, UTF-8: [`Q`](https://www.compart.com/en/unicode/U+0051)
     /// - Hex: `0x53`, UTF-8: [`S`](https://www.compart.com/en/unicode/U+0053)
-    /// 
+    ///
     /// The width is determined by the prefix: [`u8`] has none, [`u16`] has `0x81`, and [`u32`] has `0x82`.
     UnsignedInt,
     /// An [`f32`]. Denoted by:
