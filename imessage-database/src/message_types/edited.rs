@@ -1,5 +1,7 @@
 /*!
  Logic and containers for the `message_summary_info` of an edited or unsent iMessage.
+
+ The main data type used to represent these types of messages is [`EditedMessage`].
 */
 
 use plist::Value;
@@ -15,13 +17,18 @@ use crate::{
     },
 };
 
+/// The type of edit performed to a message body part
 #[derive(Debug, PartialEq, Eq)]
 pub enum EditStatus {
+    /// The content of the message body part was altered
     Edited,
+    /// The content of the message body part was unsent
     Unsent,
+    /// The content of the message body part was not changed
     Original,
 }
 
+/// Represents a single edit event for a message part
 #[derive(Debug, PartialEq, Eq)]
 pub struct EditedEvent<'a> {
     /// The date the message part was edited
@@ -38,9 +45,12 @@ impl<'a> EditedEvent<'a> {
     }
 }
 
+/// Tracks the edit status and history for a specific part of a message
 #[derive(Debug, PartialEq, Eq)]
 pub struct EditedMessagePart<'a> {
+    /// The type of edit made to the given message part
     pub status: EditStatus,
+    /// Contains edits made to the given message part, if any
     pub edit_history: Vec<EditedEvent<'a>>,
 }
 
@@ -53,26 +63,38 @@ impl<'a> Default for EditedMessagePart<'a> {
     }
 }
 
+/// Main edited message container
+///
+/// # Background
+///
 /// iMessage permits editing sent messages up to five times
 /// within 15 minutes of sending the first message and unsending
 /// sent messages within 2 minutes.
+///
+/// # Internal Representation
 ///
 /// Edited or unsent messages are stored with a `NULL` `text` field.
 /// Edited messages include `message_summary_info` that contains an array of
 /// [`typedstream`](crate::util::typedstream) data where each array item contains the edited
 /// message. The order in the array represents the order the messages
-/// were edited in, i.e. item 0 was the original and the last item is
+/// were edited in, i.e. item `0` was the original and the last item is
 /// the current message.
 ///
-/// For each dictionary item in this array, The `d` key represents the
-/// time the message was edited and the `t` key represents the message's
-/// `attributedBody` text in the [`typedstream`](crate::util::typedstream) format.
+/// ## Message Body Parts
 ///
-/// There is no data in the array if the message was unsent.
+/// - The `otr` key contains a dictionary of message body part indexes with some associated metadata.
+/// - The `rp` key contains a list of unsent message parts
+/// - The `ec` key contains a dictionary of edited message part indexes mapping to the history of edits
+///   - For each dictionary item in this array, The `d` key represents the
+///     time the message was edited and the `t` key represents the message's
+///     `attributedBody` text in the [`typedstream`](crate::util::typedstream) format.
+///
+/// # Documentation
 ///
 /// Apple describes editing and unsending messages [here](https://support.apple.com/guide/iphone/unsend-and-edit-messages-iphe67195653/ios).
 #[derive(Debug, PartialEq, Eq)]
 pub struct EditedMessage<'a> {
+    /// Contains data representing each part of an edited message
     pub parts: Vec<EditedMessagePart<'a>>,
 }
 

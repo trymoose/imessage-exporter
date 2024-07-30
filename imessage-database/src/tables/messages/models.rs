@@ -5,13 +5,19 @@
 use crate::message_types::text_effects::TextEffect;
 
 /// Defines the parts of a message bubble, i.e. the content that can exist in a single message.
+///
+/// # Component Types
+///
+/// A single iMessage contains data that may be represented across multiple bubbles.
+///
+/// iMessage bubbles can only contain data of one variant of this enum at a time.
 #[derive(Debug, PartialEq, Eq)]
 pub enum BubbleType<'a> {
-    /// A text message with associated formatting
+    /// A text message with associated formatting, generally representing ranges present in a `NSAttributedString`
     Text(Vec<TextAttributes<'a>>),
     /// An attachment
     Attachment,
-    /// An app integration
+    /// An [app integration](crate::message_types::app)
     App,
 }
 
@@ -30,22 +36,22 @@ pub enum Service<'a> {
 }
 
 /// Defines ranges of text and associated attributes parsed from [`typedstream`](crate::util::typedstream) `attributedBody` data.
-/// 
+///
 /// Ranges specify locations attributes applied to specific portions of a [`Message`](crate::tables::messages::Message)'s [`text`](crate::tables::messages::Message::text). For example, given message text with a [`Mention`](TextEffect::Mention) like:
-/// 
+///
 /// ```
 /// let message_text = "What's up, Christopher?";
 /// ```
-/// 
+///
 /// There will be 3 ranges:
-/// 
+///
 /// ```
 /// use imessage_database::message_types::text_effects::TextEffect;
 /// use imessage_database::tables::messages::models::{TextAttributes, BubbleType};
 ///  
 /// let result = vec![BubbleType::Text(vec![
 ///     TextAttributes::new(0, 11, TextEffect::Default),  // `What's up, `
-///     TextAttributes::new(11, 22, TextEffect::Mention), // `Christopher`
+///     TextAttributes::new(11, 22, TextEffect::Mention("+5558675309")), // `Christopher`
 ///     TextAttributes::new(22, 23, TextEffect::Default)  // `?`
 /// ])];
 /// ```

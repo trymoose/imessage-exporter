@@ -386,9 +386,13 @@ impl Message {
         }
     }
 
-    /// Get a vector of a message's components. If the text has not been captured with [`Self::generate_text()`], the vector will be empty.
-    ///
-    /// # Default parsing
+    /// Get a vector of a message body's components. If the text has not been captured with [`Self::generate_text()`], the vector will be empty.
+    /// 
+    /// # Parsing
+    /// 
+    /// There are two different ways to parse this data
+    /// 
+    /// ## Default parsing
     ///
     /// Message body text can be formatted with a [`Vec`] of [`TextAttributes`](crate::tables::messages::models::TextAttributes).
     ///
@@ -410,7 +414,7 @@ impl Message {
     /// ];
     /// ```
     ///
-    /// # Legacy parsing
+    /// ## Legacy parsing
     ///
     /// If the `typedstream` data cannot be deserialized, this method falls back to a legacy string parsing algorithm that
     /// only supports unstyled text.
