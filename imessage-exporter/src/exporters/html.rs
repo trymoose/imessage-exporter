@@ -30,7 +30,7 @@ use imessage_database::{
     },
     tables::{
         attachment::{Attachment, MediaType},
-        messages::{models::BubbleType, Message},
+        messages::{models::BubbleComponent, Message},
         table::{Table, FITNESS_RECEIVER, ME, ORPHANED, YOU},
     },
     util::{
@@ -349,7 +349,7 @@ impl<'a> Writer<'a> for HTML<'a> {
             }
 
             match message_part {
-                BubbleType::Text(text_attrs) => {
+                BubbleComponent::Text(text_attrs) => {
                     if let Some(text) = &message.text {
                         let mut formatted_text = String::with_capacity(text.len());
 
@@ -393,7 +393,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                         }
                     }
                 }
-                BubbleType::Attachment => {
+                BubbleComponent::Attachment => {
                     match attachments.get_mut(attachment_index) {
                         Some(attachment) => {
                             if attachment.is_sticker {
@@ -435,7 +435,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                         ),
                     }
                 }
-                BubbleType::App => match self.format_app(message, &mut attachments, "") {
+                BubbleComponent::App => match self.format_app(message, &mut attachments, "") {
                     Ok(ok_bubble) => self.add_line(
                         &mut formatted_message,
                         &ok_bubble,

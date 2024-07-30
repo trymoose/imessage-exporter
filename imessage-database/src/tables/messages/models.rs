@@ -12,7 +12,7 @@ use crate::message_types::text_effects::TextEffect;
 ///
 /// iMessage bubbles can only contain data of one variant of this enum at a time.
 #[derive(Debug, PartialEq, Eq)]
-pub enum BubbleType<'a> {
+pub enum BubbleComponent<'a> {
     /// A text message with associated formatting, generally representing ranges present in a `NSAttributedString`
     Text(Vec<TextAttributes<'a>>),
     /// An attachment

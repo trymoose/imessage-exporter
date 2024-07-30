@@ -27,7 +27,7 @@ use imessage_database::{
     },
     tables::{
         attachment::Attachment,
-        messages::{models::BubbleType, Message},
+        messages::{models::BubbleComponent, Message},
         table::{Table, FITNESS_RECEIVER, ME, ORPHANED, YOU},
     },
     util::{
@@ -241,7 +241,7 @@ impl<'a> Writer<'a> for TXT<'a> {
             }
             match message_part {
                 // Fitness messages have a prefix that we need to replace with the opposite if who sent the message
-                BubbleType::Text(text_attrs) => {
+                BubbleComponent::Text(text_attrs) => {
                     if let Some(text) = &message.text {
                         let mut formatted_text = String::with_capacity(text.len());
 
@@ -270,7 +270,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                         }
                     }
                 }
-                BubbleType::Attachment => match attachments.get_mut(attachment_index) {
+                BubbleComponent::Attachment => match attachments.get_mut(attachment_index) {
                     Some(attachment) => {
                         if attachment.is_sticker {
                             let result = self.format_sticker(attachment, message);
@@ -290,7 +290,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                     // Attachment does not exist in attachments table
                     None => self.add_line(&mut formatted_message, "Attachment missing!", &indent),
                 },
-                BubbleType::App => match self.format_app(message, &mut attachments, &indent) {
+                BubbleComponent::App => match self.format_app(message, &mut attachments, &indent) {
                     // We use an empty indent here because `format_app` handles building the entire message
                     Ok(ok_bubble) => self.add_line(&mut formatted_message, &ok_bubble, ""),
                     Err(why) => self.add_line(

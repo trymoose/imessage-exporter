@@ -17,7 +17,7 @@ use crate::{
     tables::{
         messages::{
             body::{parse_body_legacy, parse_body_typedstream},
-            models::{BubbleType, Service},
+            models::{BubbleComponent, Service},
         },
         table::{
             Cacheable, Diagnostic, Table, ATTRIBUTED_BODY, CHAT_MESSAGE_JOIN, MESSAGE,
@@ -422,10 +422,10 @@ impl Message {
     /// If the message has attachments, there will be one [`U+FFFC`](https://www.compart.com/en/unicode/U+FFFC) character
     /// for each attachment and one [`U+FFFD`](https://www.compart.com/en/unicode/U+FFFD) for app messages that we need
     /// to format.
-    pub fn body(&self) -> Vec<BubbleType> {
+    pub fn body(&self) -> Vec<BubbleComponent> {
         // If the message is an app, it will be rendered differently, so just escape there
         if self.balloon_bundle_id.is_some() {
-            return vec![BubbleType::App];
+            return vec![BubbleComponent::App];
         }
 
         if let Some(body) = parse_body_typedstream(self) {
