@@ -261,7 +261,11 @@ impl<'a> Writer<'a> for HTML<'a> {
         let mut replies = message.get_replies(&self.config.db)?;
 
         // Parse edited message data if it exists
-        let summary_info = message.message_summary_info(&self.config.db);
+        let summary_info = if message.is_edited() {
+            message.message_summary_info(&self.config.db)
+        } else {
+            None
+        };
         let edited_parts: Option<EditedMessage> = match &summary_info {
             Some(payload) => EditedMessage::from_map(payload).ok(),
             None => None,
