@@ -807,7 +807,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                 out_s.push_str("<table>");
 
                 for (idx, event) in edited_message.edit_history.iter().enumerate() {
-                    let last = idx == edited_message.edit_history.len();
+                    let last = idx == edited_message.edit_history.len() - 1;
                     let clean_text = sanitize_html(&event.text);
                     match previous_timestamp {
                         None => out_s.push_str(&self.edited_to_html("", &clean_text, last)),
