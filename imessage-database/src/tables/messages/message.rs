@@ -29,10 +29,7 @@ use crate::{
         output::{done_processing, processing},
         query_context::QueryContext,
         streamtyped,
-        typedstream::{
-            models::{Archivable, Class, OutputData},
-            parser::TypedStreamReader,
-        },
+        typedstream::{models::Archivable, parser::TypedStreamReader},
     },
 };
 
@@ -367,15 +364,13 @@ impl Message {
             self.components = typedstream.parse().ok();
 
             // If we deserialize the typedstream, use that data
-            if let Some(items) = &self.components {
-                if let Some(Archivable::Object(Class { name, .. }, value)) = items.first() {
-                    if name == "NSString" || name == "NSMutableString" {
-                        if let Some(OutputData::String(text)) = value.first() {
-                            self.text = Some(text.to_string());
-                        }
-                    }
-                }
-            }
+
+            self.text = self
+                .components
+                .as_ref()
+                .and_then(|items| items.first())
+                .and_then(|item| item.deserialize_as_nsstring())
+                .map(String::from);
 
             // If the above parsing failed, fall back to the legacy parser instead
             if self.text.is_none() {
@@ -392,10 +387,10 @@ impl Message {
     }
 
     /// Get a vector of a message's components. If the text has not been captured with [`Self::generate_text()`], the vector will be empty.
-    /// 
+    ///
     /// # Default parsing
-    /// 
-    /// Message body text can be formatted with a [`Vec`] of [`TextAttributes`](crate::tables::messages::models::TextAttributes). 
+    ///
+    /// Message body text can be formatted with a [`Vec`] of [`TextAttributes`](crate::tables::messages::models::TextAttributes).
     ///
     /// An iMessage that contains body text like:
     ///
@@ -414,12 +409,12 @@ impl Message {
     ///     BubbleType::Text(vec![TextAttributes::new(3, 24, TextEffect::Default)]), // `Check out this photo!`
     /// ];
     /// ```
-    /// 
+    ///
     /// # Legacy parsing
-    /// 
-    /// If the `typedstream` data cannot be deserialized, this method falls back to a legacy string parsing algorithm that 
+    ///
+    /// If the `typedstream` data cannot be deserialized, this method falls back to a legacy string parsing algorithm that
     /// only supports unstyled text.
-    /// 
+    ///
     /// If the message has attachments, there will be one [`U+FFFC`](https://www.compart.com/en/unicode/U+FFFC) character
     /// for each attachment and one [`U+FFFD`](https://www.compart.com/en/unicode/U+FFFD) for app messages that we need
     /// to format.
