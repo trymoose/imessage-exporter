@@ -6,6 +6,7 @@ use imessage_database::{
         app::AppMessage,
         app_store::AppStoreMessage,
         collaboration::CollaborationMessage,
+        edited::EditedMessage,
         handwriting::HandwrittenMessage,
         music::MusicMessage,
         placemark::PlacemarkMessage,
@@ -57,7 +58,13 @@ pub(super) trait Writer<'a> {
     /// Format a legacy Shared Location message
     fn format_shared_location(&self, msg: &'a Message) -> &str;
     /// Format an edited message
-    fn format_edited(&self, msg: &'a Message, indent: &str) -> Result<String, MessageError>;
+    fn format_edited(
+        &self,
+        msg: &'a Message,
+        edited_message: &'a EditedMessage,
+        message_part_idx: usize,
+        indent: &str,
+    ) -> Result<String, MessageError>;
     /// Format some attributed text
     fn format_attributed(&'a self, text: &'a str, attribute: &'a TextEffect) -> Cow<str>;
     fn write_to_file(file: &mut BufWriter<File>, text: &str) -> Result<(), RuntimeError>;

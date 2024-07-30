@@ -16,7 +16,7 @@ use imessage_database::{
         app::AppMessage,
         app_store::AppStoreMessage,
         collaboration::CollaborationMessage,
-        edited::EditedMessage,
+        edited::{EditStatus, EditedMessage},
         expressives::{BubbleEffect, Expressive, ScreenEffect},
         handwriting::HandwrittenMessage,
         music::MusicMessage,
@@ -181,6 +181,13 @@ impl<'a> Writer<'a> for TXT<'a> {
         let mut attachments = Attachment::from_message(&self.config.db, message)?;
         let mut replies = message.get_replies(&self.config.db)?;
 
+        // Parse edited message data if it exists
+        let summary_info = message.message_summary_info(&self.config.db);
+        let edited_parts: Option<EditedMessage> = match &summary_info {
+            Some(payload) => EditedMessage::from_map(payload).ok(),
+            None => None,
+        };
+
         // Index of where we are in the attachment Vector
         let mut attachment_index: usize = 0;
 
@@ -191,11 +198,14 @@ impl<'a> Writer<'a> for TXT<'a> {
 
         // If message was removed, display it
         if message_parts.is_empty() && message.is_edited() {
-            let edited = match self.format_edited(message, &indent) {
-                Ok(s) => s,
-                Err(why) => format!("{}, {}", message.guid, why),
-            };
-            self.add_line(&mut formatted_message, &edited, &indent);
+            // If this works, we want to format it as an announcement, so we early return for the Ok()
+            if let Some(edited_parts) = &edited_parts {
+                let edited = match self.format_edited(message, edited_parts, 0, "") {
+                    Ok(s) => return Ok(s),
+                    Err(why) => format!("{}, {}", message.guid, why),
+                };
+                self.add_line(&mut formatted_message, &edited, &indent);
+            }
         }
 
         // Handle SharePlay
@@ -216,11 +226,13 @@ impl<'a> Writer<'a> for TXT<'a> {
         for (idx, message_part) in message_parts.iter().enumerate() {
             // Render edited messages
             if message.is_edited() {
-                let edited = match self.format_edited(message, &indent) {
-                    Ok(s) => s,
-                    Err(why) => format!("{}, {}", message.guid, why),
-                };
-                self.add_line(&mut formatted_message, &edited, &indent);
+                if let Some(edited_parts) = &edited_parts {
+                    let edited = match self.format_edited(message, edited_parts, idx, "") {
+                        Ok(s) => s,
+                        Err(why) => format!("{}, {}", message.guid, why),
+                    };
+                    self.add_line(&mut formatted_message, &edited, &indent);
+                }
                 continue;
             }
             match message_part {
@@ -552,16 +564,18 @@ impl<'a> Writer<'a> for TXT<'a> {
         "Shared location!"
     }
 
-    fn format_edited(&self, msg: &'a Message, indent: &str) -> Result<String, MessageError> {
-        if let Some(payload) = msg.message_summary_info(&self.config.db) {
-            // Parse the edited message
-            let edited_message =
-                EditedMessage::from_map(&payload).map_err(MessageError::PlistParseError)?;
-
+    fn format_edited(
+        &self,
+        msg: &'a Message,
+        edited_message: &'a EditedMessage,
+        message_part_idx: usize,
+        indent: &str,
+    ) -> Result<String, MessageError> {
+        if let Some(edited_message) = edited_message.part(message_part_idx) {
             let mut out_s = String::new();
             let mut previous_timestamp: Option<&i64> = None;
 
-            if edited_message.is_deleted() {
+            if matches!(edited_message.status, EditStatus::Unsent) {
                 let who = if msg.is_from_me() {
                     self.config.options.custom_name.as_deref().unwrap_or(YOU)
                 } else {
@@ -570,7 +584,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                 out_s.push_str(who);
                 out_s.push_str(" deleted a message.");
             } else {
-                for event in &edited_message.events {
+                for event in &edited_message.edit_history {
                     match previous_timestamp {
                         // Original message get an absolute timestamp
                         None => {

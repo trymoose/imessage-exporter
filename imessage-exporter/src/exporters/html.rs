@@ -19,7 +19,7 @@ use imessage_database::{
         app::AppMessage,
         app_store::AppStoreMessage,
         collaboration::CollaborationMessage,
-        edited::EditedMessage,
+        edited::{EditStatus, EditedMessage},
         expressives::{BubbleEffect, Expressive, ScreenEffect},
         handwriting::HandwrittenMessage,
         music::MusicMessage,
@@ -260,6 +260,13 @@ impl<'a> Writer<'a> for HTML<'a> {
         let mut attachments = Attachment::from_message(&self.config.db, message)?;
         let mut replies = message.get_replies(&self.config.db)?;
 
+        // Parse edited message data if it exists
+        let summary_info = message.message_summary_info(&self.config.db);
+        let edited_parts: Option<EditedMessage> = match &summary_info {
+            Some(payload) => EditedMessage::from_map(payload).ok(),
+            None => None,
+        };
+
         // Index of where we are in the attachment Vector
         let mut attachment_index: usize = 0;
 
@@ -277,16 +284,18 @@ impl<'a> Writer<'a> for HTML<'a> {
         // If message was removed, display it
         if message_parts.is_empty() && message.is_edited() {
             // If this works, we want to format it as an announcement, so we early return for the Ok()
-            let edited = match self.format_edited(message, "") {
-                Ok(s) => return Ok(s),
-                Err(why) => format!("{}, {}", message.guid, why),
-            };
-            self.add_line(
-                &mut formatted_message,
-                &edited,
-                "<div class=\"edited\">",
-                "</div>",
-            );
+            if let Some(edited_parts) = &edited_parts {
+                let edited = match self.format_edited(message, edited_parts, 0, "") {
+                    Ok(s) => return Ok(s),
+                    Err(why) => format!("{}, {}", message.guid, why),
+                };
+                self.add_line(
+                    &mut formatted_message,
+                    &edited,
+                    "<div class=\"edited\">",
+                    "</div>",
+                );
+            }
         }
 
         // Handle SharePlay
@@ -321,16 +330,18 @@ impl<'a> Writer<'a> for HTML<'a> {
 
             // Render edited messages
             if message.is_edited() {
-                let edited = match self.format_edited(message, "") {
-                    Ok(s) => s,
-                    Err(why) => format!("{}, {}", message.guid, why),
-                };
-                self.add_line(
-                    &mut formatted_message,
-                    &edited,
-                    "<div class=\"edited\">",
-                    "</div>",
-                );
+                if let Some(edited_parts) = &edited_parts {
+                    let edited = match self.format_edited(message, edited_parts, idx, "") {
+                        Ok(s) => s,
+                        Err(why) => format!("{}, {}", message.guid, why),
+                    };
+                    self.add_line(
+                        &mut formatted_message,
+                        &edited,
+                        "<div class=\"edited\">",
+                        "</div>",
+                    );
+                }
             }
 
             match message_part {
@@ -767,15 +778,18 @@ impl<'a> Writer<'a> for HTML<'a> {
         "<hr>Shared location!"
     }
 
-    fn format_edited(&self, msg: &'a Message, _: &str) -> Result<String, MessageError> {
-        if let Some(payload) = msg.message_summary_info(&self.config.db) {
-            let edited_message =
-                EditedMessage::from_map(&payload).map_err(MessageError::PlistParseError)?;
-
+    fn format_edited(
+        &self,
+        msg: &'a Message,
+        edited_message: &'a EditedMessage,
+        message_part_idx: usize,
+        _: &str,
+    ) -> Result<String, MessageError> {
+        if let Some(edited_message) = edited_message.part(message_part_idx) {
             let mut out_s = String::new();
             let mut previous_timestamp: Option<&i64> = None;
 
-            if edited_message.is_deleted() {
+            if matches!(edited_message.status, EditStatus::Unsent) {
                 let who = if msg.is_from_me() {
                     self.config.options.custom_name.as_deref().unwrap_or(YOU)
                 } else {
@@ -789,8 +803,8 @@ impl<'a> Writer<'a> for HTML<'a> {
             } else {
                 out_s.push_str("<table>");
 
-                for (idx, event) in edited_message.events.iter().enumerate() {
-                    let last = idx == edited_message.items() - 1;
+                for (idx, event) in edited_message.edit_history.iter().enumerate() {
+                    let last = idx == edited_message.edit_history.len();
                     let clean_text = sanitize_html(&event.text);
                     match previous_timestamp {
                         None => out_s.push_str(&self.edited_to_html("", &clean_text, last)),
@@ -816,7 +830,9 @@ impl<'a> Writer<'a> for HTML<'a> {
 
             return Ok(out_s);
         }
-        Err(MessageError::PlistParseError(PlistParseError::NoPayload))
+        Err(MessageError::PlistParseError(
+            PlistParseError::NoValueAtIndex(message_part_idx),
+        ))
     }
 
     fn format_attributed(&'a self, text: &'a str, attribute: &'a TextEffect) -> Cow<str> {
