@@ -148,46 +148,42 @@ fn get_bubble_type<'a>(
 ) -> Option<BubbleResult<'a>> {
     for (idx, key) in components.iter().enumerate() {
         // In the future, we will detect TextEffects as well
-        if let Archivable::Object(class, data) = key {
-            if class.name == "NSString" {
-                if let Some(OutputData::String(key_name)) = data.first().as_ref() {
-                    let start = get_char_idx(message.text.as_ref()?, start, char_indices);
-                    let end = get_char_idx(message.text.as_ref()?, end, char_indices);
-                    match key_name.as_str() {
-                        "__kIMFileTransferGUIDAttributeName" => {
-                            return Some(BubbleResult::New(BubbleType::Attachment))
-                        }
-                        "__kIMMentionConfirmedMention" => {
-                            return Some(BubbleResult::Continuation(TextAttributes::new(
-                                start,
-                                end,
-                                TextEffect::Mention,
-                            )));
-                        }
-                        "__kIMLinkAttributeName" => {
-                            return Some(BubbleResult::Continuation(TextAttributes::new(
-                                start,
-                                end,
-                                TextEffect::Link(get_link(components.get(idx + 2)?)?),
-                            )));
-                        }
-                        "__kIMOneTimeCodeAttributeName" => {
-                            return Some(BubbleResult::Continuation(TextAttributes::new(
-                                start,
-                                end,
-                                TextEffect::OTP,
-                            )));
-                        }
-                        "__kIMCalendarEventAttributeName" => {
-                            return Some(BubbleResult::Continuation(TextAttributes::new(
-                                start,
-                                end,
-                                TextEffect::Conversion(Unit::Timezone),
-                            )));
-                        }
-                        _ => {}
-                    }
+        if let Some(key_name) = key.deserialize_as_nsstring() {
+            let start = get_char_idx(message.text.as_ref()?, start, char_indices);
+            let end = get_char_idx(message.text.as_ref()?, end, char_indices);
+            match key_name {
+                "__kIMFileTransferGUIDAttributeName" => {
+                    return Some(BubbleResult::New(BubbleType::Attachment))
                 }
+                "__kIMMentionConfirmedMention" => {
+                    return Some(BubbleResult::Continuation(TextAttributes::new(
+                        start,
+                        end,
+                        TextEffect::Mention,
+                    )));
+                }
+                "__kIMLinkAttributeName" => {
+                    return Some(BubbleResult::Continuation(TextAttributes::new(
+                        start,
+                        end,
+                        TextEffect::Link(components.get(idx + 2)?.deserialize_as_nsstring().unwrap_or("#")),
+                    )));
+                }
+                "__kIMOneTimeCodeAttributeName" => {
+                    return Some(BubbleResult::Continuation(TextAttributes::new(
+                        start,
+                        end,
+                        TextEffect::OTP,
+                    )));
+                }
+                "__kIMCalendarEventAttributeName" => {
+                    return Some(BubbleResult::Continuation(TextAttributes::new(
+                        start,
+                        end,
+                        TextEffect::Conversion(Unit::Timezone),
+                    )));
+                }
+                _ => {}
             }
         }
     }
@@ -196,17 +192,6 @@ fn get_bubble_type<'a>(
         get_char_idx(message.text.as_ref()?, end, char_indices),
         TextEffect::Default,
     )))
-}
-
-fn get_link(component: &Archivable) -> Option<&str> {
-    if let Archivable::Object(class, data) = component {
-        if class.name == "NSString" {
-            if let Some(OutputData::String(url)) = data.first().as_ref() {
-                return Some(url);
-            }
-        }
-    }
-    None
 }
 
 /// Fallback logic to parse the body from the message string content
