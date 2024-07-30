@@ -168,6 +168,14 @@ impl<'a> EditedMessage<'a> {
         self.parts.get(index)
     }
 
+    /// Gets the edited message data for the given message part index
+    pub fn is_unedited_at(&self, index: usize) -> bool {
+        match self.parts.get(index) {
+            Some(part) => matches!(part.status, EditStatus::Original),
+            None => false,
+        }
+    }
+
     /// Gets the number of parts that were edited
     pub fn items(&self) -> usize {
         self.parts.len()
