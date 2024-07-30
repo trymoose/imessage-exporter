@@ -541,7 +541,6 @@ impl<'a> TypedStreamReader<'a> {
     /// let result = reader.parse();
     /// ```
     ///
-    // TODO: Make this better
     /// # Sample output:
     /// ```txt
     /// Object(Class { name: "NSMutableString", version: 1 }, [String("Example")]) // The message text
