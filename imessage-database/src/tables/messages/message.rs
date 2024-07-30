@@ -406,11 +406,11 @@ impl Message {
     ///
     /// ```
     /// use imessage_database::message_types::text_effects::TextEffect;
-    /// use imessage_database::tables::messages::models::{TextAttributes, BubbleType};
+    /// use imessage_database::tables::messages::models::{TextAttributes, BubbleComponent};
     ///  
     /// let result = vec![
-    ///     BubbleType::Attachment,
-    ///     BubbleType::Text(vec![TextAttributes::new(3, 24, TextEffect::Default)]), // `Check out this photo!`
+    ///     BubbleComponent::Attachment,
+    ///     BubbleComponent::Text(vec![TextAttributes::new(3, 24, TextEffect::Default)]), // `Check out this photo!`
     /// ];
     /// ```
     ///

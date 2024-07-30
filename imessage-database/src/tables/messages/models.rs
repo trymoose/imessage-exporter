@@ -47,9 +47,9 @@ pub enum Service<'a> {
 ///
 /// ```
 /// use imessage_database::message_types::text_effects::TextEffect;
-/// use imessage_database::tables::messages::models::{TextAttributes, BubbleType};
+/// use imessage_database::tables::messages::models::{TextAttributes, BubbleComponent};
 ///  
-/// let result = vec![BubbleType::Text(vec![
+/// let result = vec![BubbleComponent::Text(vec![
 ///     TextAttributes::new(0, 11, TextEffect::Default),  // `What's up, `
 ///     TextAttributes::new(11, 22, TextEffect::Mention("+5558675309")), // `Christopher`
 ///     TextAttributes::new(22, 23, TextEffect::Default)  // `?`
