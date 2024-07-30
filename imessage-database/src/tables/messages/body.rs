@@ -159,14 +159,24 @@ fn get_bubble_type<'a>(
                     return Some(BubbleResult::Continuation(TextAttributes::new(
                         start,
                         end,
-                        TextEffect::Mention,
+                        TextEffect::Mention(
+                            components
+                                .get(idx + 1)?
+                                .deserialize_as_nsstring()
+                                .unwrap_or(""),
+                        ),
                     )));
                 }
                 "__kIMLinkAttributeName" => {
                     return Some(BubbleResult::Continuation(TextAttributes::new(
                         start,
                         end,
-                        TextEffect::Link(components.get(idx + 2)?.deserialize_as_nsstring().unwrap_or("#")),
+                        TextEffect::Link(
+                            components
+                                .get(idx + 2)?
+                                .deserialize_as_nsstring()
+                                .unwrap_or("#"),
+                        ),
                     )));
                 }
                 "__kIMOneTimeCodeAttributeName" => {
@@ -529,7 +539,7 @@ mod typedstream_tests {
             parse_body_typedstream(&m).unwrap(),
             vec![BubbleType::Text(vec![
                 TextAttributes::new(0, 5, TextEffect::Default),
-                TextAttributes::new(5, 8, TextEffect::Mention),
+                TextAttributes::new(5, 8, TextEffect::Mention("+15558675309")),
                 TextAttributes::new(8, 9, TextEffect::Default)
             ])]
         );

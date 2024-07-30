@@ -845,7 +845,7 @@ impl<'a> Writer<'a> for HTML<'a> {
     fn format_attributed(&'a self, text: &'a str, attribute: &'a TextEffect) -> Cow<str> {
         match attribute {
             TextEffect::Default => Cow::Borrowed(text),
-            TextEffect::Mention => Cow::Owned(self.format_mention(text)),
+            TextEffect::Mention(mentioned) => Cow::Owned(self.format_mention(text, mentioned)),
             TextEffect::Link(url) => Cow::Owned(self.format_link(text, url)),
             TextEffect::OTP => Cow::Owned(self.format_otp(text)),
             TextEffect::Styles(styles) => Cow::Owned(self.format_styles(text, styles)),
@@ -1325,8 +1325,8 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
 }
 
 impl<'a> TextEffectFormatter for HTML<'a> {
-    fn format_mention(&self, text: &str) -> String {
-        format!("<b>{text}</b>")
+    fn format_mention(&self, text: &str, mentioned: &str) -> String {
+        format!("<span title=\"{mentioned}\"><b>{text}</b></span>")
     }
 
     fn format_link(&self, text: &str, url: &str) -> String {
@@ -2640,8 +2640,8 @@ mod text_effect_tests {
         let config = fake_config(options);
         let exporter = HTML::new(&config);
 
-        let expected = exporter.format_mention("Chris");
-        let actual = "<b>Chris</b>";
+        let expected = exporter.format_mention("Chris", "+15558675309");
+        let actual = "<span title=\"+15558675309\"><b>Chris</b></span>";
 
         assert_eq!(expected, actual);
     }
@@ -2762,7 +2762,7 @@ mod text_effect_tests {
         message.components = parser.parse().ok();
 
         let actual = exporter.format_message(&message, 0).unwrap();
-        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">Test <b>Dad</b> </span>\n</div>\n</div>\n</div>\n";
+        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">Test <span title=\"+15558675309\"><b>Dad</b></span> </span>\n</div>\n</div>\n</div>\n";
 
         assert_eq!(actual, expected);
     }

@@ -106,7 +106,7 @@ pub(super) trait BalloonFormatter<T> {
 
 pub(super) trait TextEffectFormatter {
     /// Format message text containing a [`Mention`](imessage_database::message_types::text_effects::TextEffect::Mention)
-    fn format_mention(&self, text: &str) -> String;
+    fn format_mention(&self, text: &str, mentioned: &str) -> String;
     /// Format message text containing a [`Link`](imessage_database::message_types::text_effects::TextEffect::Link)
     fn format_link(&self, text: &str, url: &str) -> String;
     /// Format message text containing an [`OTP`](imessage_database::message_types::text_effects::TextEffect::OTP)
