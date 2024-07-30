@@ -365,9 +365,12 @@ impl<'a> Writer<'a> for HTML<'a> {
                             formatted_text.push_str(&sanitize_html(text));
                         }
 
-                        // Render the message body if the message was not edited
+                        // Render the message body if the message or message part was not edited
                         // If it was edited, it was rendered already
-                        if !message.is_edited() {
+                        if match &edited_parts {
+                            Some(edited_parts) => edited_parts.is_unedited_at(idx),
+                            None => !message.is_edited(),
+                        } {
                             if formatted_text.starts_with(FITNESS_RECEIVER) {
                                 self.add_line(
                                     &mut formatted_message,
