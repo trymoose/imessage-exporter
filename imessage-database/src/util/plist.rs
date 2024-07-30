@@ -160,7 +160,7 @@ pub fn extract_dictionary<'a>(
 }
 
 /// Extract an array from a specific key in a collection
-fn extract_array_key<'a>(
+pub fn extract_array_key<'a>(
     body: &'a Dictionary,
     key: &str,
 ) -> Result<&'a Vec<Value>, PlistParseError> {
