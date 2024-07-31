@@ -1,7 +1,7 @@
 use std::{borrow::Cow, fs::File, io::BufWriter};
 
 use imessage_database::{
-    error::{message::MessageError, plist::PlistParseError, table::TableError},
+    error::{plist::PlistParseError, table::TableError},
     message_types::{
         app::AppMessage,
         app_store::AppStoreMessage,
