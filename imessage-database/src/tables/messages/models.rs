@@ -19,6 +19,8 @@ pub enum BubbleComponent<'a> {
     Attachment,
     /// An [app integration](crate::message_types::app)
     App,
+    /// A component that was retracted, found by parsing the [`EditedMessage`](crate::message_types::edited::EditedMessage)
+    Retracted,
 }
 
 /// Defines different types of services we can receive messages from.
