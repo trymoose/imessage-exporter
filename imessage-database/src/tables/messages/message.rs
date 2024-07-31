@@ -11,7 +11,7 @@ use rusqlite::{blob::Blob, Connection, Error, Result, Row, Statement};
 use crate::{
     error::{message::MessageError, table::TableError},
     message_types::{
-        edited::EditedMessage,
+        edited::{EditStatus, EditedMessage},
         expressives::{BubbleEffect, Expressive, ScreenEffect},
         variants::{Announcement, BalloonProvider, CustomBalloon, Reaction, Variant},
     },
@@ -539,6 +539,25 @@ impl Message {
         self.date_edited != 0
     }
 
+    /// `true` if the message was edited, else `false`
+    pub fn is_part_edited(&self, index: usize) -> bool {
+        if let Some(edited_parts) = &self.edited_parts {
+            if let Some(part) = edited_parts.part(index) {
+                return matches!(part.status, EditStatus::Edited);
+            }
+        }
+        false
+    }
+
+    /// `true` if all message components were unsent, else `false`
+    pub fn is_fully_unsent(&self) -> bool {
+        self.edited_parts.as_ref().map_or(false, |ep| {
+            ep.parts
+                .iter()
+                .all(|part| matches!(part.status, EditStatus::Unsent))
+        })
+    }
+
     /// `true` if the message has attachments, else `false`
     pub fn has_attachments(&self) -> bool {
         self.num_attachments > 0
@@ -887,6 +906,10 @@ impl Message {
             return Some(Announcement::NameChange(name));
         }
 
+        if self.is_fully_unsent() {
+            return Some(Announcement::FullyUnsent);
+        }
+
         return match &self.group_action_type {
             0 => None,
             1 => Some(Announcement::PhotoChange),
@@ -1002,6 +1025,7 @@ impl Message {
 mod tests {
     use crate::{
         message_types::{
+            edited::{EditStatus, EditedMessage, EditedMessagePart},
             expressives,
             variants::{CustomBalloon, Variant},
         },
@@ -1221,5 +1245,121 @@ mod tests {
         m.associated_message_guid = Some("bp:FAKE_GUID".to_string());
 
         assert_eq!(None, m.clean_associated_guid());
+    }
+
+    #[test]
+    fn can_get_fully_unsent_true_single() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![EditedMessagePart {
+                status: EditStatus::Unsent,
+                edit_history: vec![],
+            }],
+        });
+
+        assert!(m.is_fully_unsent());
+    }
+
+    #[test]
+    fn can_get_fully_unsent_true_multiple() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![
+                EditedMessagePart {
+                    status: EditStatus::Unsent,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Unsent,
+                    edit_history: vec![],
+                },
+            ],
+        });
+
+        assert!(m.is_fully_unsent());
+    }
+
+    #[test]
+    fn can_get_fully_unsent_false() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![EditedMessagePart {
+                status: EditStatus::Original,
+                edit_history: vec![],
+            }],
+        });
+
+        assert!(!m.is_fully_unsent());
+    }
+
+    #[test]
+    fn can_get_fully_unsent_false_multiple() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![
+                EditedMessagePart {
+                    status: EditStatus::Unsent,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+            ],
+        });
+
+        assert!(!m.is_fully_unsent());
+    }
+
+    #[test]
+    fn can_get_part_edited_true() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![
+                EditedMessagePart {
+                    status: EditStatus::Edited,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+            ],
+        });
+
+        assert!(m.is_part_edited(0));
+    }
+
+    #[test]
+    fn can_get_part_edited_false() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![
+                EditedMessagePart {
+                    status: EditStatus::Edited,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+            ],
+        });
+
+        assert!(!m.is_part_edited(1));
+    }
+
+    #[test]
+    fn can_get_part_edited_blank() {
+        let m = blank();
+
+        assert!(!m.is_part_edited(0));
+    }
+
+    #[test]
+    fn can_get_fully_unsent_none() {
+        let m = blank();
+
+        assert!(!m.is_fully_unsent());
     }
 }
