@@ -167,30 +167,10 @@ impl<'a> Writer<'a> for TXT<'a> {
             &indent,
         );
 
-        // If message was deleted, annotate it
-        if message.is_deleted() {
-            self.add_line(
-                &mut formatted_message,
-                "This message was deleted from the conversation!",
-                &indent,
-            );
-        }
-
         // Useful message metadata
         let message_parts = message.body();
         let mut attachments = Attachment::from_message(&self.config.db, message)?;
         let mut replies = message.get_replies(&self.config.db)?;
-
-        // Parse edited message data if it exists
-        let summary_info = if message.is_edited() {
-            message.message_summary_info(&self.config.db)
-        } else {
-            None
-        };
-        let edited_parts: Option<EditedMessage> = match &summary_info {
-            Some(payload) => EditedMessage::from_map(payload).ok(),
-            None => None,
-        };
 
         // Index of where we are in the attachment Vector
         let mut attachment_index: usize = 0;
@@ -198,18 +178,6 @@ impl<'a> Writer<'a> for TXT<'a> {
         // Render subject
         if let Some(subject) = &message.subject {
             self.add_line(&mut formatted_message, subject, &indent);
-        }
-
-        // If message was removed, display it
-        if message_parts.is_empty() && message.is_edited() {
-            // If this works, we want to format it as an announcement, so we early return for the Ok()
-            if let Some(edited_parts) = &edited_parts {
-                let edited = match self.format_edited(message, edited_parts, 0, "") {
-                    Ok(s) => return Ok(s),
-                    Err(why) => format!("{}, {}", message.guid, why),
-                };
-                self.add_line(&mut formatted_message, &edited, &indent);
-            }
         }
 
         // Handle SharePlay
@@ -228,16 +196,15 @@ impl<'a> Writer<'a> for TXT<'a> {
 
         // Generate the message body from it's components
         for (idx, message_part) in message_parts.iter().enumerate() {
+            // TODO: only execute this block if the current part was edited
             // Render edited messages
             if message.is_edited() {
-                if let Some(edited_parts) = &edited_parts {
-                    let edited = match self.format_edited(message, edited_parts, idx, "") {
-                        Ok(s) => s,
-                        Err(why) => format!("{}, {}", message.guid, why),
+                if let Some(edited_parts) = &message.edited_parts {
+                    if let Some(edited) = self.format_edited(message, edited_parts, idx, &indent) {
+                        self.add_line(&mut formatted_message, &edited, &indent);
+                        continue;
                     };
-                    self.add_line(&mut formatted_message, &edited, &indent);
                 }
-                continue;
             }
             match message_part {
                 // Fitness messages have a prefix that we need to replace with the opposite if who sent the message
@@ -292,13 +259,22 @@ impl<'a> Writer<'a> for TXT<'a> {
                 },
                 BubbleComponent::App => match self.format_app(message, &mut attachments, &indent) {
                     // We use an empty indent here because `format_app` handles building the entire message
-                    Ok(ok_bubble) => self.add_line(&mut formatted_message, &ok_bubble, ""),
+                    Ok(ok_bubble) => self.add_line(&mut formatted_message, &ok_bubble, &indent),
                     Err(why) => self.add_line(
                         &mut formatted_message,
                         &format!("Unable to format app message: {why}"),
                         &indent,
                     ),
                 },
+                BubbleComponent::Retracted => {
+                    if let Some(edited_parts) = &message.edited_parts {
+                        if let Some(edited) =
+                            self.format_edited(message, edited_parts, idx, &indent)
+                        {
+                            self.add_line(&mut formatted_message, &edited, &indent);
+                        };
+                    }
+                }
             };
 
             // Handle expressives
@@ -574,53 +550,59 @@ impl<'a> Writer<'a> for TXT<'a> {
         edited_message: &'a EditedMessage,
         message_part_idx: usize,
         indent: &str,
-    ) -> Result<String, MessageError> {
+    ) -> Option<String> {
         if let Some(edited_message) = edited_message.part(message_part_idx) {
             let mut out_s = String::new();
             let mut previous_timestamp: Option<&i64> = None;
 
-            if matches!(edited_message.status, EditStatus::Unsent) {
-                let who = if msg.is_from_me() {
-                    self.config.options.custom_name.as_deref().unwrap_or(YOU)
-                } else {
-                    "They"
-                };
-                out_s.push_str(who);
-                out_s.push_str(" deleted a message.");
-            } else {
-                for event in &edited_message.edit_history {
-                    match previous_timestamp {
-                        // Original message get an absolute timestamp
-                        None => {
-                            let parsed_timestamp =
-                                format(&get_local_time(&event.date, &self.config.offset));
-                            out_s.push_str(&parsed_timestamp);
-                            out_s.push(' ');
-                        }
-                        // Subsequent edits get a relative timestamp
-                        Some(prev_timestamp) => {
-                            let end = get_local_time(&event.date, &self.config.offset);
-                            let start = get_local_time(prev_timestamp, &self.config.offset);
-                            if let Some(diff) = readable_diff(start, end) {
-                                out_s.push_str(indent);
-                                out_s.push_str("Edited ");
-                                out_s.push_str(&diff);
-                                out_s.push_str(" later: ");
+            match edited_message.status {
+                EditStatus::Edited => {
+                    for event in &edited_message.edit_history {
+                        match previous_timestamp {
+                            // Original message get an absolute timestamp
+                            None => {
+                                let parsed_timestamp =
+                                    format(&get_local_time(&event.date, &self.config.offset));
+                                out_s.push_str(&parsed_timestamp);
+                                out_s.push(' ');
                             }
-                        }
+                            // Subsequent edits get a relative timestamp
+                            Some(prev_timestamp) => {
+                                let end = get_local_time(&event.date, &self.config.offset);
+                                let start = get_local_time(prev_timestamp, &self.config.offset);
+                                if let Some(diff) = readable_diff(start, end) {
+                                    out_s.push_str(indent);
+                                    out_s.push_str("Edited ");
+                                    out_s.push_str(&diff);
+                                    out_s.push_str(" later: ");
+                                }
+                            }
+                        };
+
+                        // Update the previous timestamp for the next loop
+                        previous_timestamp = Some(&event.date);
+
+                        // Render the message text
+                        self.add_line(&mut out_s, &event.text, indent);
+                    }
+                }
+                EditStatus::Unsent => {
+                    let who = if msg.is_from_me() {
+                        self.config.options.custom_name.as_deref().unwrap_or(YOU)
+                    } else {
+                        "They"
                     };
-
-                    // Update the previous timestamp for the next loop
-                    previous_timestamp = Some(&event.date);
-
-                    // Render the message text
-                    self.add_line(&mut out_s, &event.text, indent);
+                    out_s.push_str(who);
+                    out_s.push_str(" unsent a message.");
+                }
+                EditStatus::Original => {
+                    return None;
                 }
             }
 
-            return Ok(out_s);
+            return Some(out_s);
         }
-        Err(MessageError::PlistParseError(PlistParseError::NoPayload))
+        None
     }
 
     fn format_attributed(&'a self, msg: &'a str, _: &'a TextEffect) -> Cow<str> {
@@ -975,6 +957,7 @@ mod tests {
         Options, TXT,
     };
     use imessage_database::{
+        message_types::edited::{EditStatus, EditedMessage, EditedMessagePart},
         tables::{
             attachment::Attachment,
             messages::Message,
@@ -1018,6 +1001,7 @@ mod tests {
             deleted_from: None,
             num_replies: 0,
             components: None,
+            edited_parts: None,
         }
     }
 
@@ -1186,12 +1170,18 @@ mod tests {
         let mut message = blank();
         // May 17, 2022  8:29:42 PM
         message.date = 674526582885055488;
-        message.text = Some("Hello world".to_string());
+        message.date_edited = 674526582885055488;
         message.is_from_me = true;
         message.deleted_from = Some(0);
+        message.edited_parts = Some(EditedMessage {
+            parts: vec![EditedMessagePart {
+                status: EditStatus::Unsent,
+                edit_history: vec![],
+            }],
+        });
 
         let actual = exporter.format_message(&message, 0).unwrap();
-        let expected = "May 17, 2022  5:29:42 PM\nMe\nThis message was deleted from the conversation!\nHello world\n\n";
+        let expected = "May 17, 2022  5:29:42 PM\nMe\nYou unsent a message.\n\n";
 
         assert_eq!(actual, expected);
     }
