@@ -1,5 +1,8 @@
 use crate::{
-    message_types::text_effects::{TextEffect, Unit},
+    message_types::{
+        edited::EditStatus,
+        text_effects::{TextEffect, Unit},
+    },
     tables::messages::{
         models::{BubbleComponent, TextAttributes},
         Message,
@@ -21,18 +24,6 @@ pub enum BubbleResult<'a> {
 
 /// Logic to use deserialized typedstream data to parse the message body
 pub(crate) fn parse_body_typedstream(message: &Message) -> Option<Vec<BubbleComponent>> {
-    // If there is no parsed body text, escape early
-    message.text.as_ref()?;
-
-    // We want to index into the message text, so we need a table to align
-    // Apple's indexes with the actual chars, not the bytes
-    let char_index_table: Vec<usize> = message
-        .text
-        .as_ref()?
-        .char_indices()
-        .map(|(a, _)| a)
-        .collect();
-
     // Create the output data
     let mut out_v = vec![];
 
@@ -42,6 +33,15 @@ pub(crate) fn parse_body_typedstream(message: &Message) -> Option<Vec<BubbleComp
         let mut idx = 1;
         let mut current_start;
         let mut current_end = 0;
+
+        // We want to index into the message text, so we need a table to align
+        // Apple's indexes with the actual chars, not the bytes
+        let char_index_table: Vec<usize> = message
+            .text
+            .as_ref()?
+            .char_indices()
+            .map(|(a, _)| a)
+            .collect();
 
         while idx < components.len() {
             // The first part of the range sometimes indicates the part number, but not always
@@ -85,6 +85,15 @@ pub(crate) fn parse_body_typedstream(message: &Message) -> Option<Vec<BubbleComp
 
             // Advance the iterator by the number of attributes we just consumed
             idx += slice.len();
+        }
+    }
+
+    // Add retracted components into the body
+    if let Some(edited_message) = &message.edited_parts {
+        for (idx, edited_message_part) in edited_message.parts.iter().enumerate() {
+            if matches!(edited_message_part.status, EditStatus::Unsent) {
+                out_v.insert(idx, BubbleComponent::Retracted)
+            }
         }
     }
     (!out_v.is_empty()).then_some(out_v)
@@ -254,7 +263,10 @@ mod typedstream_tests {
     use std::{env::current_dir, fs::File, io::Read};
 
     use crate::{
-        message_types::text_effects::{TextEffect, Unit},
+        message_types::{
+            edited::{EditStatus, EditedEvent, EditedMessage, EditedMessagePart},
+            text_effects::{TextEffect, Unit},
+        },
         tables::messages::{
             body::parse_body_typedstream,
             models::{BubbleComponent, TextAttributes},
@@ -295,6 +307,7 @@ mod typedstream_tests {
             deleted_from: None,
             num_replies: 0,
             components: None,
+            edited_parts: None,
         }
     }
 
@@ -425,6 +438,63 @@ mod typedstream_tests {
                 BubbleComponent::Text(vec![TextAttributes::new(0, 28, TextEffect::Default)]),
                 BubbleComponent::Attachment,
                 BubbleComponent::Text(vec![TextAttributes::new(31, 63, TextEffect::Default)]),
+            ]
+        );
+    }
+
+    #[test]
+    fn can_get_message_body_multi_part_deleted_edited() {
+        let mut m = blank();
+        m.text = Some(
+            "From arbitrary byte stream:\r\u{FFFC}To native Rust data structures:\r".to_string(),
+        );
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/MultiPartWithDeleted");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        m.components = parser.parse().ok();
+
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Edited,
+                    edit_history: vec![
+                        EditedEvent::new(743907435000000000, "Second test".to_string(), None),
+                        EditedEvent::new(
+                            743907448000000000,
+                            "Second test was edited!".to_string(),
+                            None,
+                        ),
+                    ],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Unsent,
+                    edit_history: vec![],
+                },
+            ],
+        });
+
+        assert_eq!(
+            parse_body_typedstream(&m).unwrap(),
+            vec![
+                BubbleComponent::Text(vec![TextAttributes::new(0, 28, TextEffect::Default)]),
+                BubbleComponent::Attachment,
+                BubbleComponent::Text(vec![TextAttributes::new(31, 63, TextEffect::Default)]),
+                BubbleComponent::Retracted,
             ]
         );
     }
@@ -671,6 +741,22 @@ mod typedstream_tests {
                 TextAttributes::new(17, 25, TextEffect::Conversion(Unit::Timezone)),
                 TextAttributes::new(25, 26, TextEffect::Default),
             ])]
+        );
+    }
+
+    #[test]
+    fn can_get_message_body_deleted_only() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![EditedMessagePart {
+                status: EditStatus::Unsent,
+                edit_history: vec![],
+            }],
+        });
+
+        assert_eq!(
+            parse_body_typedstream(&m).unwrap(),
+            vec![BubbleComponent::Retracted,]
         );
     }
 }
