@@ -14,7 +14,7 @@ use crate::{
 };
 
 use imessage_database::{
-    error::{message::MessageError, plist::PlistParseError, table::TableError},
+    error::{plist::PlistParseError, table::TableError},
     message_types::{
         app::AppMessage,
         app_store::AppStoreMessage,
@@ -109,14 +109,16 @@ impl<'a> Exporter<'a> for HTML<'a> {
             }
             current_message_row = msg.rowid;
 
+            // Generate the text of the message
+            let _ = msg.generate_text(&self.config.db);
+
             // Render the announcement in-line
-            if msg.is_announcement() {
+            if msg.is_announcement() || msg.is_fully_unsent() {
                 let announcement = self.format_announcement(&msg);
                 HTML::write_to_file(self.get_or_create_file(&msg), &announcement)?;
             }
             // Message replies and reactions are rendered in context, so no need to render them separately
             else if !msg.is_reaction() {
-                let _ = msg.generate_text(&self.config.db);
                 let message = self
                     .format_message(&msg, 0)
                     .map_err(RuntimeError::DatabaseError)?;
@@ -245,6 +247,16 @@ impl<'a> Writer<'a> for HTML<'a> {
             "</span></p>",
         );
 
+        // If message was deleted (not unsent), annotate it
+        if message.is_deleted() {
+            self.add_line(
+                &mut formatted_message,
+                "This message was deleted from the conversation!",
+                "<span class=\"deleted\">",
+                "</span></p>",
+            );
+        }
+
         // Useful message metadata
         let message_parts = message.body();
         let mut attachments = Attachment::from_message(&self.config.db, message)?;
@@ -298,7 +310,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                 BubbleComponent::Text(text_attrs) => {
                     if let Some(text) = &message.text {
                         // Render edited message content, if applicable
-                        if message.is_edited() {
+                        if message.is_part_edited(idx) {
                             if let Some(edited_parts) = &message.edited_parts {
                                 if let Some(edited) =
                                     self.format_edited(message, edited_parts, idx, "")
@@ -309,51 +321,50 @@ impl<'a> Writer<'a> for HTML<'a> {
                                         "<div class=\"edited\">",
                                         "</div>",
                                     );
-                                    continue;
                                 };
                             }
-                        }
+                        } else {
+                            let mut formatted_text = String::with_capacity(text.len());
 
-                        let mut formatted_text = String::with_capacity(text.len());
+                            for text_attr in text_attrs {
+                                // We cannot sanitize the html beforehand because it may change the length of the text
+                                if let Some(message_content) =
+                                    text.get(text_attr.start..text_attr.end)
+                                {
+                                    formatted_text.push_str(&self.format_attributed(
+                                        &sanitize_html(message_content),
+                                        &text_attr.effect,
+                                    ))
+                                }
+                            }
 
-                        for text_attr in text_attrs {
-                            // We cannot sanitize the html beforehand because it may change the length of the text
-                            if let Some(message_content) = text.get(text_attr.start..text_attr.end)
-                            {
-                                formatted_text.push_str(&self.format_attributed(
-                                    &sanitize_html(message_content),
-                                    &text_attr.effect,
-                                ))
+                            // If we failed to parse any text above, make sure we sanitize if before using it
+                            if formatted_text.is_empty() {
+                                formatted_text.push_str(&sanitize_html(text));
+                            }
+
+                            // Render the message body if the message or message part was not edited
+                            // If it was edited, it was rendered already
+                            // if match &edited_parts {
+                            //     Some(edited_parts) => edited_parts.is_unedited_at(idx),
+                            //     None => !message.is_edited(),
+                            // } {
+                            if formatted_text.starts_with(FITNESS_RECEIVER) {
+                                self.add_line(
+                                    &mut formatted_message,
+                                    &formatted_text.replace(FITNESS_RECEIVER, YOU),
+                                    "<span class=\"bubble\">",
+                                    "</span>",
+                                );
+                            } else {
+                                self.add_line(
+                                    &mut formatted_message,
+                                    &formatted_text,
+                                    "<span class=\"bubble\">",
+                                    "</span>",
+                                );
                             }
                         }
-
-                        // If we failed to parse any text above, make sure we sanitize if before using it
-                        if formatted_text.is_empty() {
-                            formatted_text.push_str(&sanitize_html(text));
-                        }
-
-                        // Render the message body if the message or message part was not edited
-                        // If it was edited, it was rendered already
-                        // if match &edited_parts {
-                        //     Some(edited_parts) => edited_parts.is_unedited_at(idx),
-                        //     None => !message.is_edited(),
-                        // } {
-                        if formatted_text.starts_with(FITNESS_RECEIVER) {
-                            self.add_line(
-                                &mut formatted_message,
-                                &formatted_text.replace(FITNESS_RECEIVER, YOU),
-                                "<span class=\"bubble\">",
-                                "</span>",
-                            );
-                        } else {
-                            self.add_line(
-                                &mut formatted_message,
-                                &formatted_text,
-                                "<span class=\"bubble\">",
-                                "</span>",
-                            );
-                        }
-                        // }
                     }
                 }
                 BubbleComponent::Attachment => {
@@ -393,8 +404,8 @@ impl<'a> Writer<'a> for HTML<'a> {
                         None => self.add_line(
                             &mut formatted_message,
                             "Attachment does not exist!",
-                            "",
-                            "",
+                            "<span class=\"attachment_error\">",
+                            "</span>",
                         ),
                     }
                 }
@@ -418,10 +429,9 @@ impl<'a> Writer<'a> for HTML<'a> {
                             self.add_line(
                                 &mut formatted_message,
                                 &edited,
-                                "<div class=\"deleted\">",
-                                "</div>",
+                                "<span class=\"deleted\">",
+                                "</span>",
                             );
-                            continue;
                         };
                     }
                 }
@@ -740,6 +750,12 @@ impl<'a> Writer<'a> for HTML<'a> {
                         "\n<div class =\"announcement\"><p><span class=\"timestamp\">{timestamp}</span> {who} performed unknown action {num}</p></div>\n"
                     )
                 }
+                Announcement::FullyUnsent => {
+                    // TODO: If the retracted part is the only message part to render, then we should instead render it as an announcement and not a message
+                    format!(
+                        "<div class =\"announcement\"><p><span class=\"timestamp\">{timestamp}</span> {who} unsent a message.</p></div>"
+                    )
+                }
             },
             None => String::from(
                 "\n<div class =\"announcement\"><p>Unable to format announcement!</p></div>\n",
@@ -804,12 +820,13 @@ impl<'a> Writer<'a> for HTML<'a> {
                     let who = if msg.is_from_me() {
                         self.config.options.custom_name.as_deref().unwrap_or(YOU)
                     } else {
-                        "They"
+                        self.config
+                            .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id)
                     };
                     let timestamp = format(&msg.date(&self.config.offset));
 
                     out_s.push_str(&format!(
-                        "<span class=\"timestamp\">{timestamp}: </span><span class=\"deleted\">{who} unsent a message</span>"
+                        "<span class=\"timestamp\">{timestamp}: </span><span class=\"unsent\">{who} unsent a message</span>"
                     ))
                 }
                 EditStatus::Original => {
@@ -1509,7 +1526,6 @@ mod tests {
         Options, HTML,
     };
     use imessage_database::{
-        message_types::edited::{EditStatus, EditedMessage, EditedMessagePart},
         tables::{
             attachment::Attachment,
             messages::Message,
@@ -1759,16 +1775,10 @@ mod tests {
 
         let mut message = blank();
         // May 17, 2022  8:29:42 PM
+        message.text = Some("Hello world".to_string());
         message.date = 674526582885055488;
-        message.date_edited = 674526582885055488;
         message.is_from_me = true;
         message.deleted_from = Some(0);
-        message.edited_parts = Some(EditedMessage {
-            parts: vec![EditedMessagePart {
-                status: EditStatus::Unsent,
-                edit_history: vec![],
-            }],
-        });
 
         let actual = exporter.format_message(&message, 0).unwrap();
         let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<span class=\"deleted\">This message was deleted from the conversation!</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">Hello world</span>\n</div>\n</div>\n</div>\n";
@@ -2860,28 +2870,154 @@ mod text_effect_tests {
     }
 }
 
-// #[cfg(test)]
-// mod edited_tests {
-//     use std::{
-//         collections::HashMap,
-//         env::{current_dir, set_var},
-//         path::PathBuf,
-//     };
+#[cfg(test)]
+mod edited_tests {
+    use std::{
+        env::{current_dir, set_var},
+        fs::File,
+        io::Read,
+    };
 
-//     use crate::{
-//         app::attachment_manager::AttachmentManager, exporters::exporter::Writer, Config, Exporter,
-//         Options, HTML,
-//     };
-//     use imessage_database::{
-//         tables::{
-//             attachment::Attachment,
-//             messages::Message,
-//             table::{get_connection, ME},
-//         },
-//         util::{
-//             dates::get_offset, dirs::default_db_path, platform::Platform,
-//             query_context::QueryContext,
-//         },
-//     };
+    use super::tests::{blank, fake_config, fake_options};
 
-// }
+    use crate::{exporters::exporter::Writer, Exporter, HTML};
+    use imessage_database::{
+        message_types::edited::{EditStatus, EditedMessage, EditedMessagePart},
+        util::typedstream::parser::TypedStreamReader,
+    };
+
+    #[test]
+    fn can_format_html_conversion_final_unsent() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = fake_config(options);
+        let exporter = HTML::new(&config);
+
+        let mut message = blank();
+        // May 17, 2022  8:29:42 PM
+        message.date = 674526582885055488;
+        message.text = Some(
+            "From arbitrary byte stream:\r\u{FFFC}To native Rust data structures:\r".to_string(),
+        );
+        message.is_from_me = true;
+        message.chat_id = Some(0);
+        message.edited_parts = Some(EditedMessage {
+            parts: vec![
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Unsent,
+                    edit_history: vec![],
+                },
+            ],
+        });
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("imessage-database/test_data/typedstream/MultiPartWithDeleted");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        message.components = parser.parse().ok();
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">From arbitrary byte stream:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"attachment_error\">Attachment does not exist!</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">To native Rust data structures:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"deleted\"><span class=\"timestamp\">May 17, 2022  5:29:42 PM: </span><span class=\"unsent\">You unsent a message</span></span>\n</div>\n</div>\n</div>\n";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_html_conversion_no_edits() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = fake_config(options);
+        let exporter = HTML::new(&config);
+
+        let mut message = blank();
+        // May 17, 2022  8:29:42 PM
+        message.date = 674526582885055488;
+        message.text = Some(
+            "From arbitrary byte stream:\r\u{FFFC}To native Rust data structures:\r".to_string(),
+        );
+        message.is_from_me = true;
+        message.chat_id = Some(0);
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("imessage-database/test_data/typedstream/MultiPartWithDeleted");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        message.components = parser.parse().ok();
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">From arbitrary byte stream:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"attachment_error\">Attachment does not exist!</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">To native Rust data structures:\r</span>\n</div>\n</div>\n</div>\n";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_html_conversion_fully_unsent() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = fake_config(options);
+        let exporter = HTML::new(&config);
+
+        let mut message = blank();
+        // May 17, 2022  8:29:42 PM
+        message.date = 674526582885055488;
+        message.text = None;
+        message.is_from_me = true;
+        message.chat_id = Some(0);
+        message.edited_parts = Some(EditedMessage {
+            parts: vec![EditedMessagePart {
+                status: EditStatus::Unsent,
+                edit_history: vec![],
+            }],
+        });
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("imessage-database/test_data/typedstream/Blank");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        message.components = parser.parse().ok();
+
+        let actual = exporter.format_announcement(&message);
+        let expected = "<div class =\"announcement\"><p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span> You unsent a message.</p></div>";
+
+        assert_eq!(actual, expected);
+    }
+}

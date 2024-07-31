@@ -11,7 +11,7 @@ use crate::{
 };
 
 use imessage_database::{
-    error::{message::MessageError, plist::PlistParseError, table::TableError},
+    error::{plist::PlistParseError, table::TableError},
     message_types::{
         app::AppMessage,
         app_store::AppStoreMessage,
@@ -101,14 +101,16 @@ impl<'a> Exporter<'a> for TXT<'a> {
             }
             current_message_row = msg.rowid;
 
+            // Generate the text of the message
+            let _ = msg.generate_text(&self.config.db);
+
             // Render the announcement in-line
-            if msg.is_announcement() {
+            if msg.is_announcement() || msg.is_fully_unsent() {
                 let announcement = self.format_announcement(&msg);
                 TXT::write_to_file(self.get_or_create_file(&msg), &announcement)?;
             }
             // Message replies and reactions are rendered in context, so no need to render them separately
             else if !msg.is_reaction() {
-                let _ = msg.generate_text(&self.config.db);
                 let message = self
                     .format_message(&msg, 0)
                     .map_err(RuntimeError::DatabaseError)?;
@@ -167,6 +169,15 @@ impl<'a> Writer<'a> for TXT<'a> {
             &indent,
         );
 
+        // If message was deleted, annotate it
+        if message.is_deleted() {
+            self.add_line(
+                &mut formatted_message,
+                "This message was deleted from the conversation!",
+                &indent,
+            );
+        }
+
         // Useful message metadata
         let message_parts = message.body();
         let mut attachments = Attachment::from_message(&self.config.db, message)?;
@@ -207,34 +218,35 @@ impl<'a> Writer<'a> for TXT<'a> {
                                     self.format_edited(message, edited_parts, idx, &indent)
                                 {
                                     self.add_line(&mut formatted_message, &edited, &indent);
-                                    continue;
                                 };
                             }
-                        }
-                        let mut formatted_text = String::with_capacity(text.len());
-
-                        for text_attr in text_attrs {
-                            if let Some(message_content) = text.get(text_attr.start..text_attr.end)
-                            {
-                                formatted_text.push_str(
-                                    &self.format_attributed(message_content, &text_attr.effect),
-                                )
-                            }
-                        }
-
-                        // If we failed to parse any text above, use the original text
-                        if formatted_text.is_empty() {
-                            formatted_text.push_str(text);
-                        }
-
-                        if formatted_text.starts_with(FITNESS_RECEIVER) {
-                            self.add_line(
-                                &mut formatted_message,
-                                &formatted_text.replace(FITNESS_RECEIVER, YOU),
-                                &indent,
-                            );
                         } else {
-                            self.add_line(&mut formatted_message, &formatted_text, &indent);
+                            let mut formatted_text = String::with_capacity(text.len());
+
+                            for text_attr in text_attrs {
+                                if let Some(message_content) =
+                                    text.get(text_attr.start..text_attr.end)
+                                {
+                                    formatted_text.push_str(
+                                        &self.format_attributed(message_content, &text_attr.effect),
+                                    )
+                                }
+                            }
+
+                            // If we failed to parse any text above, use the original text
+                            if formatted_text.is_empty() {
+                                formatted_text.push_str(text);
+                            }
+
+                            if formatted_text.starts_with(FITNESS_RECEIVER) {
+                                self.add_line(
+                                    &mut formatted_message,
+                                    &formatted_text.replace(FITNESS_RECEIVER, YOU),
+                                    &indent,
+                                );
+                            } else {
+                                self.add_line(&mut formatted_message, &formatted_text, &indent);
+                            }
                         }
                     }
                 }
@@ -526,6 +538,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                 Announcement::Unknown(num) => {
                     format!("{timestamp} {who} performed unknown action {num}.\n\n")
                 }
+                Announcement::FullyUnsent => format!("{timestamp} {who} unsent a message!\n\n"),
             },
             None => String::from("Unable to format announcement!\n\n"),
         };
@@ -958,7 +971,6 @@ mod tests {
         Options, TXT,
     };
     use imessage_database::{
-        message_types::edited::{EditStatus, EditedMessage, EditedMessagePart},
         tables::{
             attachment::Attachment,
             messages::Message,
@@ -1170,19 +1182,14 @@ mod tests {
 
         let mut message = blank();
         // May 17, 2022  8:29:42 PM
+        message.text = Some("Hello world".to_string());
         message.date = 674526582885055488;
-        message.date_edited = 674526582885055488;
         message.is_from_me = true;
         message.deleted_from = Some(0);
-        message.edited_parts = Some(EditedMessage {
-            parts: vec![EditedMessagePart {
-                status: EditStatus::Unsent,
-                edit_history: vec![],
-            }],
-        });
 
         let actual = exporter.format_message(&message, 0).unwrap();
-        let expected = "May 17, 2022  5:29:42 PM\nMe\nYou unsent a message.\n\n";
+        let expected =
+            "May 17, 2022  5:29:42 PM\nMe\nThis message was deleted from the conversation!\nHello world\n\n";
 
         assert_eq!(actual, expected);
     }
@@ -1979,5 +1986,157 @@ mod balloon_format_tests {
         let actual = "app_name message:\ntitle\nsubtitle\ncaption\nsubcaption\ntrailing_caption\ntrailing_subcaption";
 
         assert_eq!(expected, actual);
+    }
+}
+
+#[cfg(test)]
+mod edited_tests {
+    use std::{
+        env::{current_dir, set_var},
+        fs::File,
+        io::Read,
+    };
+
+    use super::tests::{blank, fake_config, fake_options};
+
+    use crate::{exporters::exporter::Writer, Exporter, TXT};
+    use imessage_database::{
+        message_types::edited::{EditStatus, EditedMessage, EditedMessagePart},
+        util::typedstream::parser::TypedStreamReader,
+    };
+
+    #[test]
+    fn can_format_txt_conversion_final_unsent() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = fake_config(options);
+        let exporter = TXT::new(&config);
+
+        let mut message = blank();
+        // May 17, 2022  8:29:42 PM
+        message.date = 674526582885055488;
+        message.text = Some(
+            "From arbitrary byte stream:\r\u{FFFC}To native Rust data structures:\r".to_string(),
+        );
+        message.is_from_me = true;
+        message.chat_id = Some(0);
+        message.edited_parts = Some(EditedMessage {
+            parts: vec![
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Unsent,
+                    edit_history: vec![],
+                },
+            ],
+        });
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("imessage-database/test_data/typedstream/MultiPartWithDeleted");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        message.components = parser.parse().ok();
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "May 17, 2022  5:29:42 PM\nMe\nFrom arbitrary byte stream:\r\nAttachment missing!\nTo native Rust data structures:\r\nYou unsent a message.\n\n";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_txt_conversion_no_edits() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = fake_config(options);
+        let exporter = TXT::new(&config);
+
+        let mut message = blank();
+        // May 17, 2022  8:29:42 PM
+        message.date = 674526582885055488;
+        message.text = Some(
+            "From arbitrary byte stream:\r\u{FFFC}To native Rust data structures:\r".to_string(),
+        );
+        message.is_from_me = true;
+        message.chat_id = Some(0);
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("imessage-database/test_data/typedstream/MultiPartWithDeleted");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        message.components = parser.parse().ok();
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "May 17, 2022  5:29:42 PM\nMe\nFrom arbitrary byte stream:\r\nAttachment missing!\nTo native Rust data structures:\r\n\n";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_txt_conversion_fully_unsent() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = fake_config(options);
+        let exporter = TXT::new(&config);
+
+        let mut message = blank();
+        // May 17, 2022  8:29:42 PM
+        message.date = 674526582885055488;
+        message.text = None;
+        message.is_from_me = true;
+        message.chat_id = Some(0);
+        message.edited_parts = Some(EditedMessage {
+            parts: vec![EditedMessagePart {
+                status: EditStatus::Unsent,
+                edit_history: vec![],
+            }],
+        });
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("imessage-database/test_data/typedstream/Blank");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        message.components = parser.parse().ok();
+
+        let actual = exporter.format_announcement(&message);
+        let expected = "May 17, 2022  5:29:42 PM You unsent a message!\n\n";
+
+        assert_eq!(actual, expected);
     }
 }
