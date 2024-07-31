@@ -30,31 +30,31 @@ pub enum EditStatus {
 
 /// Represents a single edit event for a message part
 #[derive(Debug, PartialEq, Eq)]
-pub struct EditedEvent<'a> {
+pub struct EditedEvent {
     /// The date the message part was edited
     pub date: i64,
     /// The content of the edited message part in [`streamtyped`](crate::util::streamtyped) format
     pub text: String,
     /// A GUID reference to another message
-    pub guid: Option<&'a str>,
+    pub guid: Option<String>,
 }
 
-impl<'a> EditedEvent<'a> {
-    fn new(date: i64, text: String, guid: Option<&'a str>) -> Self {
+impl EditedEvent {
+    pub(crate) fn new(date: i64, text: String, guid: Option<String>) -> Self {
         Self { date, text, guid }
     }
 }
 
 /// Tracks the edit status and history for a specific part of a message
 #[derive(Debug, PartialEq, Eq)]
-pub struct EditedMessagePart<'a> {
+pub struct EditedMessagePart {
     /// The type of edit made to the given message part
     pub status: EditStatus,
     /// Contains edits made to the given message part, if any
-    pub edit_history: Vec<EditedEvent<'a>>,
+    pub edit_history: Vec<EditedEvent>,
 }
 
-impl<'a> Default for EditedMessagePart<'a> {
+impl Default for EditedMessagePart {
     fn default() -> Self {
         Self {
             status: EditStatus::Original,
@@ -93,12 +93,12 @@ impl<'a> Default for EditedMessagePart<'a> {
 ///
 /// Apple describes editing and unsending messages [here](https://support.apple.com/guide/iphone/unsend-and-edit-messages-iphe67195653/ios).
 #[derive(Debug, PartialEq, Eq)]
-pub struct EditedMessage<'a> {
+pub struct EditedMessage {
     /// Contains data representing each part of an edited message
-    pub parts: Vec<EditedMessagePart<'a>>,
+    pub parts: Vec<EditedMessagePart>,
 }
 
-impl<'a> BalloonProvider<'a> for EditedMessage<'a> {
+impl<'a> BalloonProvider<'a> for EditedMessage {
     fn from_map(payload: &'a Value) -> Result<Self, PlistParseError> {
         // Parse payload
         let plist_root = payload.as_dictionary().ok_or_else(|| {
@@ -150,7 +150,10 @@ impl<'a> BalloonProvider<'a> for EditedMessage<'a> {
                         }
                     };
 
-                    let guid = message_data.get("bcg").and_then(|item| item.as_string());
+                    let guid = message_data
+                        .get("bcg")
+                        .and_then(|item| item.as_string())
+                        .map(Into::into);
 
                     if let Some(item) = edited.parts.get_mut(parsed_key) {
                         item.status = EditStatus::Edited;
@@ -177,7 +180,7 @@ impl<'a> BalloonProvider<'a> for EditedMessage<'a> {
     }
 }
 
-impl<'a> EditedMessage<'a> {
+impl EditedMessage {
     /// A new message with a preallocated capacity
     fn with_capacity(capacity: usize) -> Self {
         EditedMessage {
@@ -263,7 +266,7 @@ mod tests {
                         EditedEvent::new(
                             690514772000000000,
                             "https://github.com/ReagentX/imessage-exporter/issues/10".to_string(),
-                            Some("292BF9C6-C9B8-4827-BE65-6EA1C9B5B384"),
+                            Some("292BF9C6-C9B8-4827-BE65-6EA1C9B5B384".to_string()),
                         ),
                     ],
                 },
@@ -296,12 +299,12 @@ mod tests {
                         690514819000000000,
                         "Edit to a url https://github.com/ReagentX/imessage-exporter/issues/10"
                             .to_string(),
-                        Some("0B9103FE-280C-4BD0-A66F-4EDEE3443247"),
+                        Some("0B9103FE-280C-4BD0-A66F-4EDEE3443247".to_string()),
                     ),
                     EditedEvent::new(
                         690514834000000000,
                         "And edit it back to a normal message...".to_string(),
-                        Some("0D93DF88-05BA-4418-9B20-79918ADD9923"),
+                        Some("0D93DF88-05BA-4418-9B20-79918ADD9923".to_string()),
                     ),
                 ],
             }],
