@@ -114,15 +114,14 @@ impl<'a> BalloonProvider<'a> for EditedMessage {
             .values()
             .for_each(|_| edited.parts.push(EditedMessagePart::default()));
 
-        let maybe_edited_message_events = extract_dictionary(plist_root, "ec").ok();
-        let maybe_unsent_message_indexes = extract_array_key(plist_root, "rp").ok();
-
-        if let Some(edited_message_events) = maybe_edited_message_events {
+        if let Ok(edited_message_events) = extract_dictionary(plist_root, "ec") {
             for (idx, (key, events)) in edited_message_events.iter().enumerate() {
                 let events = events
                     .as_array()
                     .ok_or_else(|| PlistParseError::InvalidTypeIndex(idx, "array".to_string()))?;
-                let parsed_key = key.parse::<usize>().unwrap();
+                let parsed_key = key.parse::<usize>().map_err(|_| {
+                    PlistParseError::InvalidType(key.to_string(), "string".to_string())
+                })?;
 
                 for event in events {
                     let message_data = event.as_dictionary().ok_or_else(|| {
@@ -164,7 +163,7 @@ impl<'a> BalloonProvider<'a> for EditedMessage {
             }
         }
 
-        if let Some(unsent_message_indexes) = maybe_unsent_message_indexes {
+        if let Ok(unsent_message_indexes) = extract_array_key(plist_root, "rp") {
             for (idx, unsent_message_idx) in unsent_message_indexes.iter().enumerate() {
                 let parsed_idx = unsent_message_idx
                     .as_signed_integer()
