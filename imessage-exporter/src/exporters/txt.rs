@@ -196,20 +196,21 @@ impl<'a> Writer<'a> for TXT<'a> {
 
         // Generate the message body from it's components
         for (idx, message_part) in message_parts.iter().enumerate() {
-            // TODO: only execute this block if the current part was edited
-            // Render edited messages
-            if message.is_edited() {
-                if let Some(edited_parts) = &message.edited_parts {
-                    if let Some(edited) = self.format_edited(message, edited_parts, idx, &indent) {
-                        self.add_line(&mut formatted_message, &edited, &indent);
-                        continue;
-                    };
-                }
-            }
             match message_part {
                 // Fitness messages have a prefix that we need to replace with the opposite if who sent the message
                 BubbleComponent::Text(text_attrs) => {
                     if let Some(text) = &message.text {
+                        // Render edited message content, if applicable
+                        if message.is_edited() {
+                            if let Some(edited_parts) = &message.edited_parts {
+                                if let Some(edited) =
+                                    self.format_edited(message, edited_parts, idx, &indent)
+                                {
+                                    self.add_line(&mut formatted_message, &edited, &indent);
+                                    continue;
+                                };
+                            }
+                        }
                         let mut formatted_text = String::with_capacity(text.len());
 
                         for text_attr in text_attrs {

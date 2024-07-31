@@ -294,24 +294,26 @@ impl<'a> Writer<'a> for HTML<'a> {
                 "",
             );
 
-            // Render edited messages
-            if message.is_edited() {
-                if let Some(edited_parts) = &message.edited_parts {
-                    if let Some(edited) = self.format_edited(message, edited_parts, idx, "") {
-                        self.add_line(
-                            &mut formatted_message,
-                            &edited,
-                            "<div class=\"edited\">",
-                            "</div>",
-                        );
-                        continue;
-                    };
-                }
-            }
-
             match message_part {
                 BubbleComponent::Text(text_attrs) => {
                     if let Some(text) = &message.text {
+                        // Render edited message content, if applicable
+                        if message.is_edited() {
+                            if let Some(edited_parts) = &message.edited_parts {
+                                if let Some(edited) =
+                                    self.format_edited(message, edited_parts, idx, "")
+                                {
+                                    self.add_line(
+                                        &mut formatted_message,
+                                        &edited,
+                                        "<div class=\"edited\">",
+                                        "</div>",
+                                    );
+                                    continue;
+                                };
+                            }
+                        }
+
                         let mut formatted_text = String::with_capacity(text.len());
 
                         for text_attr in text_attrs {
@@ -416,7 +418,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                             self.add_line(
                                 &mut formatted_message,
                                 &edited,
-                                "<div class=\"edited\">",
+                                "<div class=\"deleted\">",
                                 "</div>",
                             );
                             continue;
@@ -806,11 +808,8 @@ impl<'a> Writer<'a> for HTML<'a> {
                     };
                     let timestamp = format(&msg.date(&self.config.offset));
 
-                    // out_s.push_str(&format!(
-                    //     "<div class =\"announcement\"><p><span class=\"timestamp\">{timestamp}</span> {who} unsent a message.</p></div>"
-                    // ));
                     out_s.push_str(&format!(
-                        "<span class=\"timestamp\">{timestamp}</span>:  <span class=\"deleted\">{who} unsent a message</span>"
+                        "<span class=\"timestamp\">{timestamp}: </span><span class=\"deleted\">{who} unsent a message</span>"
                     ))
                 }
                 EditStatus::Original => {
