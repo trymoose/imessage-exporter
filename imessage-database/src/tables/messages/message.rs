@@ -11,8 +11,9 @@ use rusqlite::{blob::Blob, Connection, Error, Result, Row, Statement};
 use crate::{
     error::{message::MessageError, table::TableError},
     message_types::{
+        edited::EditedMessage,
         expressives::{BubbleEffect, Expressive, ScreenEffect},
-        variants::{Announcement, CustomBalloon, Reaction, Variant},
+        variants::{Announcement, BalloonProvider, CustomBalloon, Reaction, Variant},
     },
     tables::{
         messages::{
@@ -97,6 +98,8 @@ pub struct Message {
     pub num_replies: i32,
     /// The components of the message body, parsed by [`TypedStreamReader`]
     pub components: Option<Vec<Archivable>>,
+    /// The components of the message body, parsed by [`TypedStreamReader`]
+    pub edited_parts: Option<EditedMessage>,
 }
 
 impl Table for Message {
@@ -132,6 +135,7 @@ impl Table for Message {
             deleted_from: row.get("deleted_from").unwrap_or(None),
             num_replies: row.get("num_replies")?,
             components: None,
+            edited_parts: None,
         })
     }
 
@@ -357,27 +361,39 @@ impl Message {
     pub fn generate_text<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
         if self.text.is_none() {
             // Grab the body data from the table
-            let body = self.attributed_body(db).ok_or(MessageError::MissingData)?;
+            if let Some(body) = self.attributed_body(db) {
+                // Attempt to deserialize the typedstream data
+                let mut typedstream = TypedStreamReader::from(&body);
+                self.components = typedstream.parse().ok();
 
-            // Attempt to deserialize the typedstream data
-            let mut typedstream = TypedStreamReader::from(&body);
-            self.components = typedstream.parse().ok();
+                // If we deserialize the typedstream, use that data
+                self.text = self
+                    .components
+                    .as_ref()
+                    .and_then(|items| items.first())
+                    .and_then(|item| item.deserialize_as_nsstring())
+                    .map(String::from);
 
-            // If we deserialize the typedstream, use that data
-
-            self.text = self
-                .components
-                .as_ref()
-                .and_then(|items| items.first())
-                .and_then(|item| item.deserialize_as_nsstring())
-                .map(String::from);
-
-            // If the above parsing failed, fall back to the legacy parser instead
-            if self.text.is_none() {
-                self.text =
-                    Some(streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?);
+                // If the above parsing failed, fall back to the legacy parser instead
+                if self.text.is_none() {
+                    self.text = Some(
+                        streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?,
+                    );
+                }
             }
         }
+
+        // Generate the edited message data
+        let summary_info = if self.is_edited() {
+            self.message_summary_info(db)
+        } else {
+            None
+        };
+        let edited_parts: Option<EditedMessage> = match &summary_info {
+            Some(payload) => EditedMessage::from_map(payload).ok(),
+            None => None,
+        };
+        self.edited_parts = edited_parts;
 
         if let Some(t) = &self.text {
             Ok(t)
@@ -387,11 +403,11 @@ impl Message {
     }
 
     /// Get a vector of a message body's components. If the text has not been captured with [`Self::generate_text()`], the vector will be empty.
-    /// 
+    ///
     /// # Parsing
-    /// 
+    ///
     /// There are two different ways to parse this data
-    /// 
+    ///
     /// ## Default parsing
     ///
     /// Message body text can be formatted with a [`Vec`] of [`TextAttributes`](crate::tables::messages::models::TextAttributes).
@@ -1025,6 +1041,7 @@ mod tests {
             deleted_from: None,
             num_replies: 0,
             components: None,
+            edited_parts: None,
         }
     }
 
