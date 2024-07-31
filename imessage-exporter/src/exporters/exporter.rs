@@ -64,7 +64,7 @@ pub(super) trait Writer<'a> {
         edited_message: &'a EditedMessage,
         message_part_idx: usize,
         indent: &str,
-    ) -> Result<String, MessageError>;
+    ) -> Option<String>;
     /// Format some attributed text
     fn format_attributed(&'a self, text: &'a str, attribute: &'a TextEffect) -> Cow<str>;
     fn write_to_file(file: &mut BufWriter<File>, text: &str) -> Result<(), RuntimeError>;
