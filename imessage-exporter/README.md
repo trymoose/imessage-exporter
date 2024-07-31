@@ -150,6 +150,8 @@ In HTML exports in Safari, when referencing files in-place, you must permit Safa
 
 Further, since the files are stored in `~/Library`, you will need to grant your browser Full Disk Access in System Settings.
 
+Note: This is not required when passing a valid `--copy-method`.
+
 ### PDF Exports
 
 I could not get PDF export to work in a reasonable way. The best way for a user to do this is to follow the steps above for Safari and print to PDF.
