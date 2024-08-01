@@ -823,11 +823,23 @@ impl<'a> Writer<'a> for HTML<'a> {
                         self.config
                             .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id)
                     };
-                    let timestamp = format(&msg.date(&self.config.offset));
 
-                    out_s.push_str(&format!(
-                        "<span class=\"timestamp\">{timestamp}: </span><span class=\"unsent\">{who} unsent a message</span>"
-                    ))
+                    match readable_diff(
+                        msg.date(&self.config.offset),
+                        msg.date_edited(&self.config.offset),
+                    ) {
+                        Some(diff) => {
+                            out_s.push_str(&format!(
+                                "<span class=\"unsent\">{who} unsent this message part {diff} after sending!</span>"
+                            ))
+                        },
+                        None => {
+                            out_s.push_str(&format!(
+                                "<span class=\"unsent\">{who} unsent this message part!</span>"
+                            ))
+                        },
+                    }
+
                 }
                 EditStatus::Original => {
                     return None;
@@ -2899,6 +2911,7 @@ mod edited_tests {
         let mut message = blank();
         // May 17, 2022  8:29:42 PM
         message.date = 674526582885055488;
+        message.date_edited = 674530231992568192;
         message.text = Some(
             "From arbitrary byte stream:\r\u{FFFC}To native Rust data structures:\r".to_string(),
         );
@@ -2938,7 +2951,7 @@ mod edited_tests {
         message.components = parser.parse().ok();
 
         let actual = exporter.format_message(&message, 0).unwrap();
-        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">From arbitrary byte stream:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"attachment_error\">Attachment does not exist!</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">To native Rust data structures:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"deleted\"><span class=\"timestamp\">May 17, 2022  5:29:42 PM: </span><span class=\"unsent\">You unsent a message</span></span>\n</div>\n</div>\n</div>\n";
+        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">From arbitrary byte stream:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"attachment_error\">Attachment does not exist!</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">To native Rust data structures:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"deleted\"><span class=\"unsent\">You unsent this message part 1 hour, 49 seconds after sending!</span></span>\n</div>\n</div>\n</div>\n";
 
         assert_eq!(actual, expected);
     }
@@ -2993,6 +3006,7 @@ mod edited_tests {
         let mut message = blank();
         // May 17, 2022  8:29:42 PM
         message.date = 674526582885055488;
+        message.date_edited = 674530231992568192;
         message.text = None;
         message.is_from_me = true;
         message.chat_id = Some(0);

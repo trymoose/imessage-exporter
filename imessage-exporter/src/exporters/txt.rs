@@ -212,7 +212,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                 BubbleComponent::Text(text_attrs) => {
                     if let Some(text) = &message.text {
                         // Render edited message content, if applicable
-                        if message.is_edited() {
+                        if message.is_part_edited(idx) {
                             if let Some(edited_parts) = &message.edited_parts {
                                 if let Some(edited) =
                                     self.format_edited(message, edited_parts, idx, &indent)
@@ -606,8 +606,22 @@ impl<'a> Writer<'a> for TXT<'a> {
                     } else {
                         "They"
                     };
-                    out_s.push_str(who);
-                    out_s.push_str(" unsent a message.");
+
+                    match readable_diff(
+                        msg.date(&self.config.offset),
+                        msg.date_edited(&self.config.offset),
+                    ) {
+                        Some(diff) => {
+                            out_s.push_str(who);
+                            out_s.push_str(" unsent this message part ");
+                            out_s.push_str(&diff);
+                            out_s.push_str(" after sending!");
+                        }
+                        None => {
+                            out_s.push_str(who);
+                            out_s.push_str(" unsent this message part!");
+                        }
+                    }
                 }
                 EditStatus::Original => {
                     return None;
@@ -2018,6 +2032,7 @@ mod edited_tests {
         let mut message = blank();
         // May 17, 2022  8:29:42 PM
         message.date = 674526582885055488;
+        message.date_edited = 674530231992568192;
         message.text = Some(
             "From arbitrary byte stream:\r\u{FFFC}To native Rust data structures:\r".to_string(),
         );
@@ -2057,7 +2072,7 @@ mod edited_tests {
         message.components = parser.parse().ok();
 
         let actual = exporter.format_message(&message, 0).unwrap();
-        let expected = "May 17, 2022  5:29:42 PM\nMe\nFrom arbitrary byte stream:\r\nAttachment missing!\nTo native Rust data structures:\r\nYou unsent a message.\n\n";
+        let expected = "May 17, 2022  5:29:42 PM\nMe\nFrom arbitrary byte stream:\r\nAttachment missing!\nTo native Rust data structures:\r\nYou unsent this message part 1 hour, 49 seconds after sending!\n\n";
 
         assert_eq!(actual, expected);
     }
@@ -2112,6 +2127,7 @@ mod edited_tests {
         let mut message = blank();
         // May 17, 2022  8:29:42 PM
         message.date = 674526582885055488;
+        message.date_edited = 674530231992568192;
         message.text = None;
         message.is_from_me = true;
         message.chat_id = Some(0);
