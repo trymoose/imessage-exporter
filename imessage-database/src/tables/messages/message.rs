@@ -506,7 +506,7 @@ impl Message {
 
     /// `true` if the message renames a thread, else `false`
     pub fn is_announcement(&self) -> bool {
-        self.group_title.is_some() || self.group_action_type != 0
+        self.group_title.is_some() || self.group_action_type != 0 || self.is_fully_unsent()
     }
 
     /// `true` if the message is a reaction to another message, else `false`
