@@ -105,7 +105,7 @@ impl<'a> Exporter<'a> for TXT<'a> {
             let _ = msg.generate_text(&self.config.db);
 
             // Render the announcement in-line
-            if msg.is_announcement() || msg.is_fully_unsent() {
+            if msg.is_announcement() {
                 let announcement = self.format_announcement(&msg);
                 TXT::write_to_file(self.get_or_create_file(&msg), &announcement)?;
             }
@@ -565,13 +565,13 @@ impl<'a> Writer<'a> for TXT<'a> {
         message_part_idx: usize,
         indent: &str,
     ) -> Option<String> {
-        if let Some(edited_message) = edited_message.part(message_part_idx) {
+        if let Some(edited_message_part) = edited_message.part(message_part_idx) {
             let mut out_s = String::new();
             let mut previous_timestamp: Option<&i64> = None;
 
-            match edited_message.status {
+            match edited_message_part.status {
                 EditStatus::Edited => {
-                    for event in &edited_message.edit_history {
+                    for event in &edited_message_part.edit_history {
                         match previous_timestamp {
                             // Original message get an absolute timestamp
                             None => {

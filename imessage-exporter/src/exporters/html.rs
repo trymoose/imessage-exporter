@@ -113,7 +113,7 @@ impl<'a> Exporter<'a> for HTML<'a> {
             let _ = msg.generate_text(&self.config.db);
 
             // Render the announcement in-line
-            if msg.is_announcement() || msg.is_fully_unsent() {
+            if msg.is_announcement() {
                 let announcement = self.format_announcement(&msg);
                 HTML::write_to_file(self.get_or_create_file(&msg), &announcement)?;
             }
@@ -429,7 +429,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                             self.add_line(
                                 &mut formatted_message,
                                 &edited,
-                                "<span class=\"deleted\">",
+                                "<span class=\"unsent\">",
                                 "</span>",
                             );
                         };
@@ -783,16 +783,16 @@ impl<'a> Writer<'a> for HTML<'a> {
         message_part_idx: usize,
         _: &str,
     ) -> Option<String> {
-        if let Some(edited_message) = edited_message.part(message_part_idx) {
+        if let Some(edited_message_part) = edited_message.part(message_part_idx) {
             let mut out_s = String::new();
             let mut previous_timestamp: Option<&i64> = None;
 
-            match edited_message.status {
+            match edited_message_part.status {
                 EditStatus::Edited => {
                     out_s.push_str("<table>");
 
-                    for (idx, event) in edited_message.edit_history.iter().enumerate() {
-                        let last = idx == edited_message.edit_history.len() - 1;
+                    for (idx, event) in edited_message_part.edit_history.iter().enumerate() {
+                        let last = idx == edited_message_part.edit_history.len() - 1;
                         let clean_text = sanitize_html(&event.text);
                         match previous_timestamp {
                             None => out_s.push_str(&self.edited_to_html("", &clean_text, last)),
@@ -838,7 +838,6 @@ impl<'a> Writer<'a> for HTML<'a> {
                             ))
                         },
                     }
-
                 }
                 EditStatus::Original => {
                     return None;
@@ -2950,7 +2949,7 @@ mod edited_tests {
         message.components = parser.parse().ok();
 
         let actual = exporter.format_message(&message, 0).unwrap();
-        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">From arbitrary byte stream:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"attachment_error\">Attachment does not exist!</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">To native Rust data structures:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"deleted\"><span class=\"unsent\">You unsent this message part 1 hour, 49 seconds after sending!</span></span>\n</div>\n</div>\n</div>\n";
+        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">From arbitrary byte stream:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"attachment_error\">Attachment does not exist!</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">To native Rust data structures:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"unsent\"><span class=\"unsent\">You unsent this message part 1 hour, 49 seconds after sending!</span></span>\n</div>\n</div>\n</div>\n";
 
         assert_eq!(actual, expected);
     }
