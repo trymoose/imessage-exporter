@@ -200,7 +200,7 @@ impl EditedMessage {
         }
     }
 
-    /// Gets the number of parts that were edited
+    /// Gets the number of parts that may or may not have been edited or unsent
     pub fn items(&self) -> usize {
         self.parts.len()
     }
