@@ -92,7 +92,11 @@ pub(crate) fn parse_body_typedstream(message: &Message) -> Option<Vec<BubbleComp
     if let Some(edited_message) = &message.edited_parts {
         for (idx, edited_message_part) in edited_message.parts.iter().enumerate() {
             if matches!(edited_message_part.status, EditStatus::Unsent) {
-                out_v.insert(idx, BubbleComponent::Retracted)
+                if idx >= out_v.len() {
+                    out_v.push(BubbleComponent::Retracted);
+                } else {
+                    out_v.insert(idx, BubbleComponent::Retracted)
+                }
             }
         }
     }
@@ -112,7 +116,7 @@ fn get_range(component: &Archivable) -> Option<(&i64, &u64)> {
     None
 }
 
-/// Given the attributedBody range indexes, get the substring from the Rust representations `char_indices()`
+/// Given the attributedBody range idxes, get the substring from the Rust representations `char_indices()`
 fn get_char_idx(text: &str, idx: usize, char_indices: &[usize]) -> usize {
     char_indices.get(idx).map_or(text.len(), |i| *i)
 }
