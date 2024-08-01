@@ -384,16 +384,12 @@ impl Message {
         }
 
         // Generate the edited message data
-        let summary_info = if self.is_edited() {
-            self.message_summary_info(db)
-        } else {
-            None
-        };
-        let edited_parts: Option<EditedMessage> = match &summary_info {
-            Some(payload) => EditedMessage::from_map(payload).ok(),
-            None => None,
-        };
-        self.edited_parts = edited_parts;
+        self.edited_parts = self
+            .is_edited()
+            .then(|| self.message_summary_info(db))
+            .flatten()
+            .as_ref()
+            .and_then(|payload| EditedMessage::from_map(payload).ok());
 
         if let Some(t) = &self.text {
             Ok(t)
