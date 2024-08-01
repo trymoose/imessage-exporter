@@ -159,19 +159,19 @@ fn get_bubble_type<'a>(
     end: usize,
     char_indices: &[usize],
 ) -> Option<BubbleResult<'a>> {
+    let range_start = get_char_idx(message.text.as_ref()?, start, char_indices);
+    let range_end = get_char_idx(message.text.as_ref()?, end, char_indices);
     for (idx, key) in components.iter().enumerate() {
         // In the future, we will detect TextEffects as well
         if let Some(key_name) = key.deserialize_as_nsstring() {
-            let start = get_char_idx(message.text.as_ref()?, start, char_indices);
-            let end = get_char_idx(message.text.as_ref()?, end, char_indices);
             match key_name {
                 "__kIMFileTransferGUIDAttributeName" => {
                     return Some(BubbleResult::New(BubbleComponent::Attachment))
                 }
                 "__kIMMentionConfirmedMention" => {
                     return Some(BubbleResult::Continuation(TextAttributes::new(
-                        start,
-                        end,
+                        range_start,
+                        range_end,
                         TextEffect::Mention(
                             components
                                 .get(idx + 1)?
@@ -182,8 +182,8 @@ fn get_bubble_type<'a>(
                 }
                 "__kIMLinkAttributeName" => {
                     return Some(BubbleResult::Continuation(TextAttributes::new(
-                        start,
-                        end,
+                        range_start,
+                        range_end,
                         TextEffect::Link(
                             components
                                 .get(idx + 2)?
@@ -194,15 +194,15 @@ fn get_bubble_type<'a>(
                 }
                 "__kIMOneTimeCodeAttributeName" => {
                     return Some(BubbleResult::Continuation(TextAttributes::new(
-                        start,
-                        end,
+                        range_start,
+                        range_end,
                         TextEffect::OTP,
                     )));
                 }
                 "__kIMCalendarEventAttributeName" => {
                     return Some(BubbleResult::Continuation(TextAttributes::new(
-                        start,
-                        end,
+                        range_start,
+                        range_end,
                         TextEffect::Conversion(Unit::Timezone),
                     )));
                 }
@@ -211,8 +211,8 @@ fn get_bubble_type<'a>(
         }
     }
     Some(BubbleResult::Continuation(TextAttributes::new(
-        get_char_idx(message.text.as_ref()?, start, char_indices),
-        get_char_idx(message.text.as_ref()?, end, char_indices),
+        range_start,
+        range_end,
         TextEffect::Default,
     )))
 }
