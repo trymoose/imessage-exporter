@@ -33,7 +33,7 @@ pub enum EditStatus {
 pub struct EditedEvent {
     /// The date the message part was edited
     pub date: i64,
-    /// The content of the edited message part in [`streamtyped`](crate::util::streamtyped) format
+    /// The content of the edited message part deserialized from the [`typedstream`](crate::util::typedstream) format
     pub text: String,
     /// A GUID reference to another message
     pub guid: Option<String>,

@@ -535,7 +535,7 @@ impl Message {
         self.date_edited != 0
     }
 
-    /// `true` if the message was edited, else `false`
+    /// `true` if the specified message component was edited, else `false`
     pub fn is_part_edited(&self, index: usize) -> bool {
         if let Some(edited_parts) = &self.edited_parts {
             if let Some(part) = edited_parts.part(index) {
@@ -593,6 +593,8 @@ impl Message {
     ///
     /// Messages that have expired from this restoration process are permanently deleted and
     /// cannot be recovered.
+    /// 
+    /// Note: This is not the same as an [`Unsent`](crate::message_types::edited::EditStatus::Unsent) message
     pub fn is_deleted(&self) -> bool {
         self.deleted_from.is_some()
     }
