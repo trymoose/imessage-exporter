@@ -98,7 +98,7 @@ pub struct Message {
     pub num_replies: i32,
     /// The components of the message body, parsed by [`TypedStreamReader`]
     pub components: Option<Vec<Archivable>>,
-    /// The components of the message body, parsed by [`TypedStreamReader`]
+    /// The components of the message that may or may not have been edited or unsent
     pub edited_parts: Option<EditedMessage>,
 }
 
