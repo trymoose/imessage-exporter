@@ -142,11 +142,8 @@ impl<'a> BalloonProvider<'a> for EditedMessage {
                         .map(String::from)
                     {
                         Some(text) => text,
-                        None => {
-                            eprintln!("fallback!");
-                            parse(typedstream.to_vec())
-                                .map_err(PlistParseError::StreamTypedError)?
-                        }
+                        None => parse(typedstream.to_vec())
+                            .map_err(PlistParseError::StreamTypedError)?,
                     };
 
                     let guid = message_data
