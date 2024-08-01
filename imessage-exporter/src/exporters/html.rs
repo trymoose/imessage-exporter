@@ -751,7 +751,6 @@ impl<'a> Writer<'a> for HTML<'a> {
                     )
                 }
                 Announcement::FullyUnsent => {
-                    // TODO: If the retracted part is the only message part to render, then we should instead render it as an announcement and not a message
                     format!(
                         "<div class =\"announcement\"><p><span class=\"timestamp\">{timestamp}</span> {who} unsent a message.</p></div>"
                     )
