@@ -477,7 +477,7 @@ impl Message {
     ///
     /// This field is stored as a unix timestamp with an epoch of `2001-01-01 00:00:00` in the local time zone
     pub fn date_edited(&self, offset: &i64) -> Result<DateTime<Local>, MessageError> {
-        get_local_time(&self.date_read, offset)
+        get_local_time(&self.date_edited, offset)
     }
 
     /// Gets the time until the message was read. This can happen in two ways:
