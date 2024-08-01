@@ -1,6 +1,6 @@
 # Features
 
-This exporter is fully-featured and well-documented.
+The library and binary crates aim to provide the most comprehensive and accurate representation of iMessage data available.
 
 ## Targeted Versions
 
