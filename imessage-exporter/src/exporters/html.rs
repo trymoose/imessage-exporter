@@ -14,12 +14,12 @@ use crate::{
 };
 
 use imessage_database::{
-    error::{message::MessageError, plist::PlistParseError, table::TableError},
+    error::{plist::PlistParseError, table::TableError},
     message_types::{
         app::AppMessage,
         app_store::AppStoreMessage,
         collaboration::CollaborationMessage,
-        edited::EditedMessage,
+        edited::{EditStatus, EditedMessage},
         expressives::{BubbleEffect, Expressive, ScreenEffect},
         handwriting::HandwrittenMessage,
         music::MusicMessage,
@@ -30,7 +30,7 @@ use imessage_database::{
     },
     tables::{
         attachment::{Attachment, MediaType},
-        messages::{models::BubbleType, Message},
+        messages::{models::BubbleComponent, Message},
         table::{Table, FITNESS_RECEIVER, ME, ORPHANED, YOU},
     },
     util::{
@@ -109,14 +109,16 @@ impl<'a> Exporter<'a> for HTML<'a> {
             }
             current_message_row = msg.rowid;
 
+            // Generate the text of the message
+            let _ = msg.generate_text(&self.config.db);
+
             // Render the announcement in-line
-            if msg.is_announcement() {
+            if msg.is_announcement() || msg.is_fully_unsent() {
                 let announcement = self.format_announcement(&msg);
                 HTML::write_to_file(self.get_or_create_file(&msg), &announcement)?;
             }
             // Message replies and reactions are rendered in context, so no need to render them separately
             else if !msg.is_reaction() {
-                let _ = msg.generate_text(&self.config.db);
                 let message = self
                     .format_message(&msg, 0)
                     .map_err(RuntimeError::DatabaseError)?;
@@ -245,7 +247,7 @@ impl<'a> Writer<'a> for HTML<'a> {
             "</span></p>",
         );
 
-        // If message was deleted, annotate it
+        // If message was deleted (not unsent), annotate it
         if message.is_deleted() {
             self.add_line(
                 &mut formatted_message,
@@ -271,21 +273,6 @@ impl<'a> Writer<'a> for HTML<'a> {
                 &sanitize_html(subject),
                 "<p>Subject: <span class=\"subject\">",
                 "</span></p>",
-            );
-        }
-
-        // If message was removed, display it
-        if message_parts.is_empty() && message.is_edited() {
-            // If this works, we want to format it as an announcement, so we early return for the Ok()
-            let edited = match self.format_edited(message, "") {
-                Ok(s) => return Ok(s),
-                Err(why) => format!("{}, {}", message.guid, why),
-            };
-            self.add_line(
-                &mut formatted_message,
-                &edited,
-                "<div class=\"edited\">",
-                "</div>",
             );
         }
 
@@ -319,44 +306,49 @@ impl<'a> Writer<'a> for HTML<'a> {
                 "",
             );
 
-            // Render edited messages
-            if message.is_edited() {
-                let edited = match self.format_edited(message, "") {
-                    Ok(s) => s,
-                    Err(why) => format!("{}, {}", message.guid, why),
-                };
-                self.add_line(
-                    &mut formatted_message,
-                    &edited,
-                    "<div class=\"edited\">",
-                    "</div>",
-                );
-            }
-
             match message_part {
-                BubbleType::Text(text_attrs) => {
+                BubbleComponent::Text(text_attrs) => {
                     if let Some(text) = &message.text {
-                        let mut formatted_text = String::with_capacity(text.len());
-
-                        for text_attr in text_attrs {
-                            // We cannot sanitize the html beforehand because it may change the length of the text
-                            if let Some(message_content) = text.get(text_attr.start..text_attr.end)
-                            {
-                                formatted_text.push_str(&self.format_attributed(
-                                    &sanitize_html(message_content),
-                                    &text_attr.effect,
-                                ))
+                        // Render edited message content, if applicable
+                        if message.is_part_edited(idx) {
+                            if let Some(edited_parts) = &message.edited_parts {
+                                if let Some(edited) =
+                                    self.format_edited(message, edited_parts, idx, "")
+                                {
+                                    self.add_line(
+                                        &mut formatted_message,
+                                        &edited,
+                                        "<div class=\"edited\">",
+                                        "</div>",
+                                    );
+                                };
                             }
-                        }
+                        } else {
+                            let mut formatted_text = String::with_capacity(text.len());
 
-                        // If we failed to parse any text above, make sure we sanitize if before using it
-                        if formatted_text.is_empty() {
-                            formatted_text.push_str(&sanitize_html(text));
-                        }
+                            for text_attr in text_attrs {
+                                // We cannot sanitize the html beforehand because it may change the length of the text
+                                if let Some(message_content) =
+                                    text.get(text_attr.start..text_attr.end)
+                                {
+                                    formatted_text.push_str(&self.format_attributed(
+                                        &sanitize_html(message_content),
+                                        &text_attr.effect,
+                                    ))
+                                }
+                            }
 
-                        // Render the message body if the message was not edited
-                        // If it was edited, it was rendered already
-                        if !message.is_edited() {
+                            // If we failed to parse any text above, make sure we sanitize if before using it
+                            if formatted_text.is_empty() {
+                                formatted_text.push_str(&sanitize_html(text));
+                            }
+
+                            // Render the message body if the message or message part was not edited
+                            // If it was edited, it was rendered already
+                            // if match &edited_parts {
+                            //     Some(edited_parts) => edited_parts.is_unedited_at(idx),
+                            //     None => !message.is_edited(),
+                            // } {
                             if formatted_text.starts_with(FITNESS_RECEIVER) {
                                 self.add_line(
                                     &mut formatted_message,
@@ -375,7 +367,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                         }
                     }
                 }
-                BubbleType::Attachment => {
+                BubbleComponent::Attachment => {
                     match attachments.get_mut(attachment_index) {
                         Some(attachment) => {
                             if attachment.is_sticker {
@@ -412,12 +404,12 @@ impl<'a> Writer<'a> for HTML<'a> {
                         None => self.add_line(
                             &mut formatted_message,
                             "Attachment does not exist!",
-                            "",
-                            "",
+                            "<span class=\"attachment_error\">",
+                            "</span>",
                         ),
                     }
                 }
-                BubbleType::App => match self.format_app(message, &mut attachments, "") {
+                BubbleComponent::App => match self.format_app(message, &mut attachments, "") {
                     Ok(ok_bubble) => self.add_line(
                         &mut formatted_message,
                         &ok_bubble,
@@ -431,6 +423,18 @@ impl<'a> Writer<'a> for HTML<'a> {
                         "</div>",
                     ),
                 },
+                BubbleComponent::Retracted => {
+                    if let Some(edited_parts) = &message.edited_parts {
+                        if let Some(edited) = self.format_edited(message, edited_parts, idx, "") {
+                            self.add_line(
+                                &mut formatted_message,
+                                &edited,
+                                "<span class=\"deleted\">",
+                                "</span>",
+                            );
+                        };
+                    }
+                }
             };
 
             // Write the part div end
@@ -746,6 +750,11 @@ impl<'a> Writer<'a> for HTML<'a> {
                         "\n<div class =\"announcement\"><p><span class=\"timestamp\">{timestamp}</span> {who} performed unknown action {num}</p></div>\n"
                     )
                 }
+                Announcement::FullyUnsent => {
+                    format!(
+                        "<div class =\"announcement\"><p><span class=\"timestamp\">{timestamp}</span> {who} unsent a message.</p></div>"
+                    )
+                }
             },
             None => String::from(
                 "\n<div class =\"announcement\"><p>Unable to format announcement!</p></div>\n",
@@ -767,62 +776,83 @@ impl<'a> Writer<'a> for HTML<'a> {
         "<hr>Shared location!"
     }
 
-    fn format_edited(&self, msg: &'a Message, _: &str) -> Result<String, MessageError> {
-        if let Some(payload) = msg.message_summary_info(&self.config.db) {
-            let edited_message =
-                EditedMessage::from_map(&payload).map_err(MessageError::PlistParseError)?;
-
+    fn format_edited(
+        &self,
+        msg: &'a Message,
+        edited_message: &'a EditedMessage,
+        message_part_idx: usize,
+        _: &str,
+    ) -> Option<String> {
+        if let Some(edited_message) = edited_message.part(message_part_idx) {
             let mut out_s = String::new();
             let mut previous_timestamp: Option<&i64> = None;
 
-            if edited_message.is_deleted() {
-                let who = if msg.is_from_me() {
-                    self.config.options.custom_name.as_deref().unwrap_or(YOU)
-                } else {
-                    "They"
-                };
-                let timestamp = format(&msg.date(&self.config.offset));
+            match edited_message.status {
+                EditStatus::Edited => {
+                    out_s.push_str("<table>");
 
-                out_s.push_str(&format!(
-                    "<div class =\"announcement\"><p><span class=\"timestamp\">{timestamp}</span> {who} deleted a message.</p></div>"
-                ));
-            } else {
-                out_s.push_str("<table>");
+                    for (idx, event) in edited_message.edit_history.iter().enumerate() {
+                        let last = idx == edited_message.edit_history.len() - 1;
+                        let clean_text = sanitize_html(&event.text);
+                        match previous_timestamp {
+                            None => out_s.push_str(&self.edited_to_html("", &clean_text, last)),
+                            Some(prev_timestamp) => {
+                                let end = get_local_time(&event.date, &self.config.offset);
+                                let start = get_local_time(prev_timestamp, &self.config.offset);
 
-                for (idx, event) in edited_message.events.iter().enumerate() {
-                    let last = idx == edited_message.items() - 1;
-                    let clean_text = sanitize_html(&event.text);
-                    match previous_timestamp {
-                        None => out_s.push_str(&self.edited_to_html("", &clean_text, last)),
-                        Some(prev_timestamp) => {
-                            let end = get_local_time(&event.date, &self.config.offset);
-                            let start = get_local_time(prev_timestamp, &self.config.offset);
-
-                            let diff = readable_diff(start, end).unwrap_or_default();
-                            out_s.push_str(&self.edited_to_html(
-                                &format!("Edited {diff} later"),
-                                &clean_text,
-                                last,
-                            ));
+                                let diff = readable_diff(start, end).unwrap_or_default();
+                                out_s.push_str(&self.edited_to_html(
+                                    &format!("Edited {diff} later"),
+                                    &clean_text,
+                                    last,
+                                ));
+                            }
                         }
+
+                        // Update the previous timestamp for the next loop
+                        previous_timestamp = Some(&event.date);
                     }
 
-                    // Update the previous timestamp for the next loop
-                    previous_timestamp = Some(&event.date);
+                    out_s.push_str("</table>");
                 }
+                EditStatus::Unsent => {
+                    let who = if msg.is_from_me() {
+                        self.config.options.custom_name.as_deref().unwrap_or(YOU)
+                    } else {
+                        self.config
+                            .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id)
+                    };
 
-                out_s.push_str("</table>");
+                    match readable_diff(
+                        msg.date(&self.config.offset),
+                        msg.date_edited(&self.config.offset),
+                    ) {
+                        Some(diff) => {
+                            out_s.push_str(&format!(
+                                "<span class=\"unsent\">{who} unsent this message part {diff} after sending!</span>"
+                            ))
+                        },
+                        None => {
+                            out_s.push_str(&format!(
+                                "<span class=\"unsent\">{who} unsent this message part!</span>"
+                            ))
+                        },
+                    }
+
+                }
+                EditStatus::Original => {
+                    return None;
+                }
             }
-
-            return Ok(out_s);
+            return Some(out_s);
         }
-        Err(MessageError::PlistParseError(PlistParseError::NoPayload))
+        None
     }
 
     fn format_attributed(&'a self, text: &'a str, attribute: &'a TextEffect) -> Cow<str> {
         match attribute {
             TextEffect::Default => Cow::Borrowed(text),
-            TextEffect::Mention => Cow::Owned(self.format_mention(text)),
+            TextEffect::Mention(mentioned) => Cow::Owned(self.format_mention(text, mentioned)),
             TextEffect::Link(url) => Cow::Owned(self.format_link(text, url)),
             TextEffect::OTP => Cow::Owned(self.format_otp(text)),
             TextEffect::Styles(styles) => Cow::Owned(self.format_styles(text, styles)),
@@ -1302,8 +1332,8 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
 }
 
 impl<'a> TextEffectFormatter for HTML<'a> {
-    fn format_mention(&self, text: &str) -> String {
-        format!("<b>{text}</b>")
+    fn format_mention(&self, text: &str, mentioned: &str) -> String {
+        format!("<span title=\"{mentioned}\"><b>{text}</b></span>")
     }
 
     fn format_link(&self, text: &str, url: &str) -> String {
@@ -1550,6 +1580,7 @@ mod tests {
             deleted_from: None,
             num_replies: 0,
             components: None,
+            edited_parts: None,
         }
     }
 
@@ -1755,8 +1786,8 @@ mod tests {
 
         let mut message = blank();
         // May 17, 2022  8:29:42 PM
-        message.date = 674526582885055488;
         message.text = Some("Hello world".to_string());
+        message.date = 674526582885055488;
         message.is_from_me = true;
         message.deleted_from = Some(0);
 
@@ -2617,8 +2648,8 @@ mod text_effect_tests {
         let config = fake_config(options);
         let exporter = HTML::new(&config);
 
-        let expected = exporter.format_mention("Chris");
-        let actual = "<b>Chris</b>";
+        let expected = exporter.format_mention("Chris", "+15558675309");
+        let actual = "<span title=\"+15558675309\"><b>Chris</b></span>";
 
         assert_eq!(expected, actual);
     }
@@ -2739,7 +2770,7 @@ mod text_effect_tests {
         message.components = parser.parse().ok();
 
         let actual = exporter.format_message(&message, 0).unwrap();
-        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">Test <b>Dad</b> </span>\n</div>\n</div>\n</div>\n";
+        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">Test <span title=\"+15558675309\"><b>Dad</b></span> </span>\n</div>\n</div>\n</div>\n";
 
         assert_eq!(actual, expected);
     }
@@ -2845,6 +2876,160 @@ mod text_effect_tests {
 
         let actual = exporter.format_message(&message, 0).unwrap();
         let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">Hi. Right now or <u>tomorrow</u>?</span>\n</div>\n</div>\n</div>\n";
+
+        assert_eq!(actual, expected);
+    }
+}
+
+#[cfg(test)]
+mod edited_tests {
+    use std::{
+        env::{current_dir, set_var},
+        fs::File,
+        io::Read,
+    };
+
+    use super::tests::{blank, fake_config, fake_options};
+
+    use crate::{exporters::exporter::Writer, Exporter, HTML};
+    use imessage_database::{
+        message_types::edited::{EditStatus, EditedMessage, EditedMessagePart},
+        util::typedstream::parser::TypedStreamReader,
+    };
+
+    #[test]
+    fn can_format_html_conversion_final_unsent() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = fake_config(options);
+        let exporter = HTML::new(&config);
+
+        let mut message = blank();
+        // May 17, 2022  8:29:42 PM
+        message.date = 674526582885055488;
+        message.date_edited = 674530231992568192;
+        message.text = Some(
+            "From arbitrary byte stream:\r\u{FFFC}To native Rust data structures:\r".to_string(),
+        );
+        message.is_from_me = true;
+        message.chat_id = Some(0);
+        message.edited_parts = Some(EditedMessage {
+            parts: vec![
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Unsent,
+                    edit_history: vec![],
+                },
+            ],
+        });
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("imessage-database/test_data/typedstream/MultiPartWithDeleted");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        message.components = parser.parse().ok();
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">From arbitrary byte stream:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"attachment_error\">Attachment does not exist!</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">To native Rust data structures:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"deleted\"><span class=\"unsent\">You unsent this message part 1 hour, 49 seconds after sending!</span></span>\n</div>\n</div>\n</div>\n";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_html_conversion_no_edits() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = fake_config(options);
+        let exporter = HTML::new(&config);
+
+        let mut message = blank();
+        // May 17, 2022  8:29:42 PM
+        message.date = 674526582885055488;
+        message.text = Some(
+            "From arbitrary byte stream:\r\u{FFFC}To native Rust data structures:\r".to_string(),
+        );
+        message.is_from_me = true;
+        message.chat_id = Some(0);
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("imessage-database/test_data/typedstream/MultiPartWithDeleted");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        message.components = parser.parse().ok();
+
+        let actual = exporter.format_message(&message, 0).unwrap();
+        let expected = "<div class=\"message\">\n<div class=\"sent iMessage\">\n<p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span>\n<span class=\"sender\">Me</span></p>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">From arbitrary byte stream:\r</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"attachment_error\">Attachment does not exist!</span>\n</div>\n<hr><div class=\"message_part\">\n<span class=\"bubble\">To native Rust data structures:\r</span>\n</div>\n</div>\n</div>\n";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_html_conversion_fully_unsent() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let config = fake_config(options);
+        let exporter = HTML::new(&config);
+
+        let mut message = blank();
+        // May 17, 2022  8:29:42 PM
+        message.date = 674526582885055488;
+        message.date_edited = 674530231992568192;
+        message.text = None;
+        message.is_from_me = true;
+        message.chat_id = Some(0);
+        message.edited_parts = Some(EditedMessage {
+            parts: vec![EditedMessagePart {
+                status: EditStatus::Unsent,
+                edit_history: vec![],
+            }],
+        });
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .parent()
+            .unwrap()
+            .join("imessage-database/test_data/typedstream/Blank");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        message.components = parser.parse().ok();
+
+        let actual = exporter.format_announcement(&message);
+        let expected = "<div class =\"announcement\"><p><span class=\"timestamp\">May 17, 2022  5:29:42 PM</span> You unsent a message.</p></div>";
 
         assert_eq!(actual, expected);
     }

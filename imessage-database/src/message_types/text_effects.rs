@@ -12,16 +12,26 @@ pub enum TextEffect<'a> {
     /// Default, unstyled text
     Default,
     /// A [mentioned](https://support.apple.com/guide/messages/mention-a-person-icht306ee34b/mac) contact in the conversation
-    Mention,
+    /// 
+    /// The embedded data contains information about the mentioned contact.
+    Mention(&'a str),
     /// A clickable link, i.e. `https://`, `tel:`, `mailto:`, and others
+    /// 
+    /// The embedded data contains the url.
     Link(&'a str),
     /// A one-time code, i.e. from a 2FA message
     OTP,
     /// Traditional formatting styles
+    /// 
+    /// The embedded data contains the formatting styles applied to the range.
     Styles(Vec<Style>),
     /// Animation applied to the text
+    /// 
+    /// The embedded data contains the animation applied to the range.
     Animated(Animation),
     /// Conversions that can be applied to text
+    /// 
+    /// The embedded data contains the unit that the range represents.
     Conversion(Unit),
 }
 

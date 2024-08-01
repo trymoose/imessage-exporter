@@ -688,6 +688,7 @@ mod who_tests {
             deleted_from: None,
             num_replies: 0,
             components: None,
+            edited_parts: None,
         }
     }
 

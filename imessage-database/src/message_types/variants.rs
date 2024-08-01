@@ -104,6 +104,8 @@ pub enum Announcement<'a> {
     NameChange(&'a str),
     /// Someone updated the group photo
     PhotoChange,
+    /// All parts of the message were unsent
+    FullyUnsent,
     /// Types that may occur in the future, i.e. someone leaving or joining a group
     Unknown(&'a i32),
 }

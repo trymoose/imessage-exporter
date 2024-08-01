@@ -1,11 +1,12 @@
 use std::{borrow::Cow, fs::File, io::BufWriter};
 
 use imessage_database::{
-    error::{message::MessageError, plist::PlistParseError, table::TableError},
+    error::{plist::PlistParseError, table::TableError},
     message_types::{
         app::AppMessage,
         app_store::AppStoreMessage,
         collaboration::CollaborationMessage,
+        edited::EditedMessage,
         handwriting::HandwrittenMessage,
         music::MusicMessage,
         placemark::PlacemarkMessage,
@@ -57,7 +58,13 @@ pub(super) trait Writer<'a> {
     /// Format a legacy Shared Location message
     fn format_shared_location(&self, msg: &'a Message) -> &str;
     /// Format an edited message
-    fn format_edited(&self, msg: &'a Message, indent: &str) -> Result<String, MessageError>;
+    fn format_edited(
+        &self,
+        msg: &'a Message,
+        edited_message: &'a EditedMessage,
+        message_part_idx: usize,
+        indent: &str,
+    ) -> Option<String>;
     /// Format some attributed text
     fn format_attributed(&'a self, text: &'a str, attribute: &'a TextEffect) -> Cow<str>;
     fn write_to_file(file: &mut BufWriter<File>, text: &str) -> Result<(), RuntimeError>;
@@ -99,7 +106,7 @@ pub(super) trait BalloonFormatter<T> {
 
 pub(super) trait TextEffectFormatter {
     /// Format message text containing a [`Mention`](imessage_database::message_types::text_effects::TextEffect::Mention)
-    fn format_mention(&self, text: &str) -> String;
+    fn format_mention(&self, text: &str, mentioned: &str) -> String;
     /// Format message text containing a [`Link`](imessage_database::message_types::text_effects::TextEffect::Link)
     fn format_link(&self, text: &str, url: &str) -> String;
     /// Format message text containing an [`OTP`](imessage_database::message_types::text_effects::TextEffect::OTP)

@@ -11,13 +11,14 @@ use rusqlite::{blob::Blob, Connection, Error, Result, Row, Statement};
 use crate::{
     error::{message::MessageError, table::TableError},
     message_types::{
+        edited::{EditStatus, EditedMessage},
         expressives::{BubbleEffect, Expressive, ScreenEffect},
-        variants::{Announcement, CustomBalloon, Reaction, Variant},
+        variants::{Announcement, BalloonProvider, CustomBalloon, Reaction, Variant},
     },
     tables::{
         messages::{
             body::{parse_body_legacy, parse_body_typedstream},
-            models::{BubbleType, Service},
+            models::{BubbleComponent, Service},
         },
         table::{
             Cacheable, Diagnostic, Table, ATTRIBUTED_BODY, CHAT_MESSAGE_JOIN, MESSAGE,
@@ -29,10 +30,7 @@ use crate::{
         output::{done_processing, processing},
         query_context::QueryContext,
         streamtyped,
-        typedstream::{
-            models::{Archivable, Class, OutputData},
-            parser::TypedStreamReader,
-        },
+        typedstream::{models::Archivable, parser::TypedStreamReader},
     },
 };
 
@@ -100,6 +98,8 @@ pub struct Message {
     pub num_replies: i32,
     /// The components of the message body, parsed by [`TypedStreamReader`]
     pub components: Option<Vec<Archivable>>,
+    /// The components of the message that may or may not have been edited or unsent
+    pub edited_parts: Option<EditedMessage>,
 }
 
 impl Table for Message {
@@ -135,6 +135,7 @@ impl Table for Message {
             deleted_from: row.get("deleted_from").unwrap_or(None),
             num_replies: row.get("num_replies")?,
             components: None,
+            edited_parts: None,
         })
     }
 
@@ -360,29 +361,35 @@ impl Message {
     pub fn generate_text<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
         if self.text.is_none() {
             // Grab the body data from the table
-            let body = self.attributed_body(db).ok_or(MessageError::MissingData)?;
+            if let Some(body) = self.attributed_body(db) {
+                // Attempt to deserialize the typedstream data
+                let mut typedstream = TypedStreamReader::from(&body);
+                self.components = typedstream.parse().ok();
 
-            // Attempt to deserialize the typedstream data
-            let mut typedstream = TypedStreamReader::from(&body);
-            self.components = typedstream.parse().ok();
+                // If we deserialize the typedstream, use that data
+                self.text = self
+                    .components
+                    .as_ref()
+                    .and_then(|items| items.first())
+                    .and_then(|item| item.deserialize_as_nsstring())
+                    .map(String::from);
 
-            // If we deserialize the typedstream, use that data
-            if let Some(items) = &self.components {
-                if let Some(Archivable::Object(Class { name, .. }, value)) = items.first() {
-                    if name == "NSString" || name == "NSMutableString" {
-                        if let Some(OutputData::String(text)) = value.first() {
-                            self.text = Some(text.to_string());
-                        }
-                    }
+                // If the above parsing failed, fall back to the legacy parser instead
+                if self.text.is_none() {
+                    self.text = Some(
+                        streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?,
+                    );
                 }
             }
-
-            // If the above parsing failed, fall back to the legacy parser instead
-            if self.text.is_none() {
-                self.text =
-                    Some(streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?);
-            }
         }
+
+        // Generate the edited message data
+        self.edited_parts = self
+            .is_edited()
+            .then(|| self.message_summary_info(db))
+            .flatten()
+            .as_ref()
+            .and_then(|payload| EditedMessage::from_map(payload).ok());
 
         if let Some(t) = &self.text {
             Ok(t)
@@ -391,11 +398,15 @@ impl Message {
         }
     }
 
-    /// Get a vector of a message's components. If the text has not been captured with [`Self::generate_text()`], the vector will be empty.
-    /// 
-    /// # Default parsing
-    /// 
-    /// Message body text can be formatted with a [`Vec`] of [`TextAttributes`](crate::tables::messages::models::TextAttributes). 
+    /// Get a vector of a message body's components. If the text has not been captured with [`Self::generate_text()`], the vector will be empty.
+    ///
+    /// # Parsing
+    ///
+    /// There are two different ways to parse this data
+    ///
+    /// ## Default parsing
+    ///
+    /// Message body text can be formatted with a [`Vec`] of [`TextAttributes`](crate::tables::messages::models::TextAttributes).
     ///
     /// An iMessage that contains body text like:
     ///
@@ -407,26 +418,26 @@ impl Message {
     ///
     /// ```
     /// use imessage_database::message_types::text_effects::TextEffect;
-    /// use imessage_database::tables::messages::models::{TextAttributes, BubbleType};
+    /// use imessage_database::tables::messages::models::{TextAttributes, BubbleComponent};
     ///  
     /// let result = vec![
-    ///     BubbleType::Attachment,
-    ///     BubbleType::Text(vec![TextAttributes::new(3, 24, TextEffect::Default)]), // `Check out this photo!`
+    ///     BubbleComponent::Attachment,
+    ///     BubbleComponent::Text(vec![TextAttributes::new(3, 24, TextEffect::Default)]), // `Check out this photo!`
     /// ];
     /// ```
-    /// 
-    /// # Legacy parsing
-    /// 
-    /// If the `typedstream` data cannot be deserialized, this method falls back to a legacy string parsing algorithm that 
+    ///
+    /// ## Legacy parsing
+    ///
+    /// If the `typedstream` data cannot be deserialized, this method falls back to a legacy string parsing algorithm that
     /// only supports unstyled text.
-    /// 
+    ///
     /// If the message has attachments, there will be one [`U+FFFC`](https://www.compart.com/en/unicode/U+FFFC) character
     /// for each attachment and one [`U+FFFD`](https://www.compart.com/en/unicode/U+FFFD) for app messages that we need
     /// to format.
-    pub fn body(&self) -> Vec<BubbleType> {
+    pub fn body(&self) -> Vec<BubbleComponent> {
         // If the message is an app, it will be rendered differently, so just escape there
         if self.balloon_bundle_id.is_some() {
-            return vec![BubbleType::App];
+            return vec![BubbleComponent::App];
         }
 
         if let Some(body) = parse_body_typedstream(self) {
@@ -462,7 +473,7 @@ impl Message {
     ///
     /// This field is stored as a unix timestamp with an epoch of `2001-01-01 00:00:00` in the local time zone
     pub fn date_edited(&self, offset: &i64) -> Result<DateTime<Local>, MessageError> {
-        get_local_time(&self.date_read, offset)
+        get_local_time(&self.date_edited, offset)
     }
 
     /// Gets the time until the message was read. This can happen in two ways:
@@ -522,6 +533,25 @@ impl Message {
     /// `true` if the message was edited, else `false`
     pub fn is_edited(&self) -> bool {
         self.date_edited != 0
+    }
+
+    /// `true` if the message was edited, else `false`
+    pub fn is_part_edited(&self, index: usize) -> bool {
+        if let Some(edited_parts) = &self.edited_parts {
+            if let Some(part) = edited_parts.part(index) {
+                return matches!(part.status, EditStatus::Edited);
+            }
+        }
+        false
+    }
+
+    /// `true` if all message components were unsent, else `false`
+    pub fn is_fully_unsent(&self) -> bool {
+        self.edited_parts.as_ref().map_or(false, |ep| {
+            ep.parts
+                .iter()
+                .all(|part| matches!(part.status, EditStatus::Unsent))
+        })
     }
 
     /// `true` if the message has attachments, else `false`
@@ -872,6 +902,10 @@ impl Message {
             return Some(Announcement::NameChange(name));
         }
 
+        if self.is_fully_unsent() {
+            return Some(Announcement::FullyUnsent);
+        }
+
         return match &self.group_action_type {
             0 => None,
             1 => Some(Announcement::PhotoChange),
@@ -987,6 +1021,7 @@ impl Message {
 mod tests {
     use crate::{
         message_types::{
+            edited::{EditStatus, EditedMessage, EditedMessagePart},
             expressives,
             variants::{CustomBalloon, Variant},
         },
@@ -1026,6 +1061,7 @@ mod tests {
             deleted_from: None,
             num_replies: 0,
             components: None,
+            edited_parts: None,
         }
     }
 
@@ -1205,5 +1241,121 @@ mod tests {
         m.associated_message_guid = Some("bp:FAKE_GUID".to_string());
 
         assert_eq!(None, m.clean_associated_guid());
+    }
+
+    #[test]
+    fn can_get_fully_unsent_true_single() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![EditedMessagePart {
+                status: EditStatus::Unsent,
+                edit_history: vec![],
+            }],
+        });
+
+        assert!(m.is_fully_unsent());
+    }
+
+    #[test]
+    fn can_get_fully_unsent_true_multiple() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![
+                EditedMessagePart {
+                    status: EditStatus::Unsent,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Unsent,
+                    edit_history: vec![],
+                },
+            ],
+        });
+
+        assert!(m.is_fully_unsent());
+    }
+
+    #[test]
+    fn can_get_fully_unsent_false() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![EditedMessagePart {
+                status: EditStatus::Original,
+                edit_history: vec![],
+            }],
+        });
+
+        assert!(!m.is_fully_unsent());
+    }
+
+    #[test]
+    fn can_get_fully_unsent_false_multiple() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![
+                EditedMessagePart {
+                    status: EditStatus::Unsent,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+            ],
+        });
+
+        assert!(!m.is_fully_unsent());
+    }
+
+    #[test]
+    fn can_get_part_edited_true() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![
+                EditedMessagePart {
+                    status: EditStatus::Edited,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+            ],
+        });
+
+        assert!(m.is_part_edited(0));
+    }
+
+    #[test]
+    fn can_get_part_edited_false() {
+        let mut m = blank();
+        m.edited_parts = Some(EditedMessage {
+            parts: vec![
+                EditedMessagePart {
+                    status: EditStatus::Edited,
+                    edit_history: vec![],
+                },
+                EditedMessagePart {
+                    status: EditStatus::Original,
+                    edit_history: vec![],
+                },
+            ],
+        });
+
+        assert!(!m.is_part_edited(1));
+    }
+
+    #[test]
+    fn can_get_part_edited_blank() {
+        let m = blank();
+
+        assert!(!m.is_part_edited(0));
+    }
+
+    #[test]
+    fn can_get_fully_unsent_none() {
+        let m = blank();
+
+        assert!(!m.is_fully_unsent());
     }
 }

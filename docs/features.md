@@ -23,9 +23,9 @@ This tool targets the current latest public release for macOS and iMessage. It m
     - OTP/2FA
     - Unit Conversions
 - Edited and Unsent messages
-  - Detects if messages were edited or unsent
+  - Detects if messages components were edited or unsent
     - Edited messages
-      - Parses `typedstream` message data
+      - Parses `typedstream` edited body data
       - Displays content and timestamps for each edit
       - Humanizes display of edit timestamp gaps
       - Edited messages received before Ventura display as normal messages without history
@@ -36,6 +36,7 @@ This tool targets the current latest public release for macOS and iMessage. It m
   - Parts are displayed as
     - New lines in TXT exports
     - Separate balloons in HTML exports
+  - Handles Edited and Unsent parts
 - Threads and Message Replies
   - Threads are displayed both threaded under the parent as well as in-place
     - This is to preserve context, which can be lost if replying to older messages
