@@ -160,13 +160,24 @@ impl<'a> Exporter<'a> for HTML<'a> {
                         path.push(self.config.filename(chatroom));
                         path.set_extension("html");
 
+                        // If the file already exists, don't write the headers again
+                        // This can happen if multiple chats use the same group name
+                        let file_exists = path.exists();
+
                         let file = File::options()
                             .append(true)
                             .create(true)
                             .open(path.clone())
                             .map_err(RuntimeError::DiskError)?;
 
-                        Ok(entry.insert(BufWriter::new(file)))
+                        let mut buf = BufWriter::new(file);
+
+                        // Write headers if the file does not exist
+                        if !file_exists {
+                            let _ = HTML::write_headers(&mut buf);
+                        }
+
+                        Ok(entry.insert(buf))
                     }
                 };
             }
