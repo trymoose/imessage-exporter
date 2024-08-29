@@ -593,7 +593,7 @@ impl Message {
     ///
     /// Messages that have expired from this restoration process are permanently deleted and
     /// cannot be recovered.
-    /// 
+    ///
     /// Note: This is not the same as an [`Unsent`](crate::message_types::edited::EditStatus::Unsent) message
     pub fn is_deleted(&self) -> bool {
         self.deleted_from.is_some()
