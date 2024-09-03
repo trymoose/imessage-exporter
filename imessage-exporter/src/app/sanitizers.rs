@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::sync::LazyLock;
 
 use std::borrow::Cow;
@@ -19,16 +19,16 @@ static FILENAME_DISALLOWED_CHARS: LazyLock<HashSet<&char>> = LazyLock::new(|| {
 });
 
 /// Characters disallowed in HTML
-static HTML_DISALLOWED_CHARS: LazyLock<HashSet<&char>> = LazyLock::new(|| {
-    let mut set = HashSet::new();
-    set.insert(&'>');
-    set.insert(&'<');
-    set.insert(&'"');
-    set.insert(&'\'');
-    set.insert(&'`');
-    set.insert(&'&');
-    set.insert(&' ');
-    set
+static HTML_DISALLOWED_CHARS: LazyLock<HashMap<&char, &str>> = LazyLock::new(|| {
+    let mut map = HashMap::new();
+    map.insert(&'>', "&gt;");
+    map.insert(&'<', "&lt;");
+    map.insert(&'"', "&quot;");
+    map.insert(&'\'', "&apos;");
+    map.insert(&'`', "&grave;");
+    map.insert(&'&', "&amp;");
+    map.insert(&' ', "&nbsp;");
+    map
 });
 /// The character to replace disallowed chars with
 const FILENAME_REPLACEMENT_CHAR: char = '_';
@@ -50,18 +50,14 @@ pub fn sanitize_filename(filename: &str) -> String {
 /// Escapes HTML special characters in the input string.
 pub fn sanitize_html(input: &str) -> Cow<str> {
     for (idx, c) in input.char_indices() {
-        if HTML_DISALLOWED_CHARS.contains(&c) {
+        if HTML_DISALLOWED_CHARS.contains_key(&c) {
             let mut res = String::from(&input[..idx]);
-            input[idx..].chars().for_each(|c| match c {
-                '<' => res.push_str("&lt;"),
-                '>' => res.push_str("&gt;"),
-                '"' => res.push_str("&quot;"),
-                '\'' => res.push_str("&apos;"),
-                '`' => res.push_str("&grave;"),
-                '&' => res.push_str("&amp;"),
-                ' ' => res.push_str("&nbsp;"),
-                _ => res.push(c),
-            });
+            input[idx..]
+                .chars()
+                .for_each(|c| match HTML_DISALLOWED_CHARS.get(&c) {
+                    Some(replacement) => res.push_str(replacement),
+                    None => res.push(c),
+                });
             return Cow::Owned(res);
         }
     }
