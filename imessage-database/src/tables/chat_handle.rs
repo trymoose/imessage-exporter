@@ -85,7 +85,9 @@ impl Deduplicate for ChatToHandle {
     /// Given the initial set of duplicated chats, deduplicate them based on the participants
     ///
     /// This returns a new hashmap that maps the real chat ID to a new deduplicated unique chat ID
-    /// that represents a single chat for all of the same participants, even if they have multiple handles
+    /// that represents a single chat for all of the same participants, even if they have multiple handles.
+    /// 
+    /// Assuming no new chat-handle relationships have been written to the database, deduplicated data is deterministic across runs.
     fn dedupe(duplicated_data: &HashMap<i32, Self::T>) -> HashMap<i32, i32> {
         let mut deduplicated_chats: HashMap<i32, i32> = HashMap::new();
         let mut participants_to_unique_chat_id: HashMap<Self::T, i32> = HashMap::new();

@@ -96,7 +96,9 @@ impl Deduplicate for Handle {
     /// Given the initial set of duplicated handles, deduplicate them
     ///
     /// This returns a new hashmap that maps the real handle ID to a new deduplicated unique handle ID
-    /// that represents a single handle for all of the deduplicate handles
+    /// that represents a single handle for all of the deduplicate handles.
+    /// 
+    /// Assuming no new handles have been written to the database, deduplicated data is deterministic across runs.
     fn dedupe(duplicated_data: &HashMap<i32, Self::T>) -> HashMap<i32, i32> {
         let mut deduplicated_participants: HashMap<i32, i32> = HashMap::new();
         let mut participant_to_unique_participant_id: HashMap<Self::T, i32> = HashMap::new();
