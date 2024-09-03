@@ -57,8 +57,8 @@ impl<'a> Exporter<'a> for TXT<'a> {
         let file = File::options()
             .append(true)
             .create(true)
-            .open(orphaned)
-            .map_err(RuntimeError::DiskError)?;
+            .open(&orphaned)
+            .map_err(|err| RuntimeError::CreateError(err, orphaned))?;
 
         Ok(TXT {
             config,
@@ -145,8 +145,8 @@ impl<'a> Exporter<'a> for TXT<'a> {
                         let file = File::options()
                             .append(true)
                             .create(true)
-                            .open(path.clone())
-                            .map_err(RuntimeError::DiskError)?;
+                            .open(&path)
+                            .map_err(|err| RuntimeError::CreateError(err, path))?;
 
                         Ok(entry.insert(BufWriter::new(file)))
                     }

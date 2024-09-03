@@ -63,8 +63,8 @@ impl<'a> Exporter<'a> for HTML<'a> {
         let file = File::options()
             .append(true)
             .create(true)
-            .open(orphaned)
-            .map_err(RuntimeError::DiskError)?;
+            .open(&orphaned)
+            .map_err(|err| RuntimeError::CreateError(err, orphaned))?;
 
         Ok(HTML {
             config,
@@ -166,8 +166,8 @@ impl<'a> Exporter<'a> for HTML<'a> {
                         let file = File::options()
                             .append(true)
                             .create(true)
-                            .open(path.clone())
-                            .map_err(RuntimeError::DiskError)?;
+                            .open(&path)
+                            .map_err(|err| RuntimeError::CreateError(err, path))?;
 
                         let mut buf = BufWriter::new(file);
 
