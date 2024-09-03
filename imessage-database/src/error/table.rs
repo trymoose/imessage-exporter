@@ -2,6 +2,7 @@
  Errors that can happen when extracting data from a `SQLite` table.
 */
 
+use std::error;
 use std::fmt::{Display, Formatter, Result};
 
 /// Errors that can happen when extracting data from a `SQLite` table
@@ -14,6 +15,7 @@ pub enum TableError {
     Messages(rusqlite::Error),
     CannotConnect(String),
     CannotRead(std::io::Error),
+    Unknown(Box<dyn error::Error>),
 }
 
 impl Display for TableError {
@@ -26,6 +28,7 @@ impl Display for TableError {
             TableError::Messages(why) => write!(fmt, "Failed to parse messages row: {why}"),
             TableError::CannotConnect(why) => write!(fmt, "{why}"),
             TableError::CannotRead(why) => write!(fmt, "{why}"),
+            TableError::Unknown(why) => write!(fmt, "{why}"),
         }
     }
 }

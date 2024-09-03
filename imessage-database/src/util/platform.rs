@@ -2,9 +2,8 @@
  Contains data structures used to describe database platforms.
 */
 
+use crate::tables::table::{DEFAULT_PATH_IOS, DEFAULT_PATH_IOS_FS_NEW, DEFAULT_PATH_IOS_FS_OLD};
 use std::{fmt::Display, path::Path};
-
-use crate::tables::table::DEFAULT_PATH_IOS;
 
 /// Represents the platform that created the database this library connects to
 #[derive(PartialEq, Eq, Debug)]
@@ -15,6 +14,9 @@ pub enum Platform {
     /// iOS-sourced data
     #[allow(non_camel_case_types)]
     iOS,
+    /// extracted ios backup
+    #[allow(non_camel_case_types)]
+    iOSFS,
 }
 
 impl Platform {
@@ -22,6 +24,8 @@ impl Platform {
     pub fn determine(db_path: &Path) -> Self {
         if db_path.join(DEFAULT_PATH_IOS).exists() {
             return Self::iOS;
+        }else if db_path.join(DEFAULT_PATH_IOS_FS_OLD).exists() || db_path.join(DEFAULT_PATH_IOS_FS_NEW).exists() {
+            return Self::iOSFS;
         } else if db_path.is_file() {
             return Self::macOS;
         }
@@ -34,6 +38,7 @@ impl Platform {
         match platform.to_lowercase().as_str() {
             "macos" => Some(Self::macOS),
             "ios" => Some(Self::iOS),
+            "iosfs" => Some(Self::iOSFS),
             _ => None,
         }
     }
@@ -51,6 +56,7 @@ impl Display for Platform {
         match self {
             Platform::macOS => write!(fmt, "macOS"),
             Platform::iOS => write!(fmt, "iOS"),
+            Platform::iOSFS => write!(fmt, "iOS_fs"),
         }
     }
 }
@@ -68,9 +74,17 @@ mod tests {
 
     #[test]
     fn can_parse_ios_any_case() {
-        assert!(matches!(Platform::from_cli("ios"), Some(Platform::iOS)));
+        assert!(matches!(Platform::from_cli("ios"), Some(Platform::iO)));
         assert!(matches!(Platform::from_cli("IOS"), Some(Platform::iOS)));
         assert!(matches!(Platform::from_cli("iOS"), Some(Platform::iOS)));
+    }
+
+    #[test]
+    fn can_parse_ios_fs_any_case() {
+        assert!(matches!(Platform::from_cli("iosfs"), Some(Platform::iOSFS)));
+        assert!(matches!(Platform::from_cli("iOSfs"), Some(Platform::iOSFS)));
+        assert!(matches!(Platform::from_cli("iOSFS"), Some(Platform::iOSFS)));
+        assert!(matches!(Platform::from_cli("iosFS"), Some(Platform::iOSFS)));
     }
 
     #[test]

@@ -26,7 +26,7 @@ use crate::{
         },
     },
     util::{
-        dates::{get_local_time, readable_diff},
+        dates::{get_local_time, readable_diff, unreadable_diff},
         output::{done_processing, processing},
         query_context::QueryContext,
         streamtyped,
@@ -495,6 +495,18 @@ impl Message {
         // Message we sent
         else if self.is_from_me && self.date_delivered != 0 && self.date != 0 {
             return readable_diff(self.date(offset), self.date_delivered(offset));
+        }
+        None
+    }
+
+    pub fn time_until_read_unix(&self, offset: &i64) -> Option<i64> {
+        // Message we received
+        if !self.is_from_me && self.date_read != 0 && self.date != 0 {
+            return unreadable_diff(self.date(offset), self.date_read(offset));
+        }
+        // Message we sent
+        else if self.is_from_me && self.date_delivered != 0 && self.date != 0 {
+            return unreadable_diff(self.date(offset), self.date_delivered(offset));
         }
         None
     }

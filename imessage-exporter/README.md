@@ -40,7 +40,7 @@ The [releases page](https://github.com/ReagentX/imessage-exporter/releases) prov
 -d, --diagnostics
         Print diagnostic information and exit
         
--f, --format <txt, html>
+-f, --format <txt, html, ndjson>
         Specify a single file format to export messages into
         
 -c, --copy-method <compatible, efficient, disabled>
@@ -55,13 +55,14 @@ The [releases page](https://github.com/ReagentX/imessage-exporter/releases) prov
         For macOS, specify a path to a `chat.db` file
         For iOS, specify a path to the root of an unencrypted backup directory
         If omitted, the default directory is ~/Library/Messages/chat.db
+        For iOSFS, specify a path to the root of an extracted and decrypted iOS backup.
         
 -r, --attachment-root <path/to/attachments>
         Specify an optional custom path to look for attachments in (macOS only)
         Only use this if attachments are stored separately from the database's default location
         The default location is ~/Library/Messages/Attachments
         
--a, --platform <macOS, iOS>
+-a, --platform <macOS, iOS, iOSFS>
         Specify the platform the database was created on
         If omitted, the platform type is determined automatically
         

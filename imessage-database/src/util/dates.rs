@@ -50,6 +50,21 @@ pub fn format(date: &Result<DateTime<Local>, MessageError>) -> String {
     }
 }
 
+pub fn unreadable_diff(
+    start: Result<DateTime<Local>, MessageError>,
+    end: Result<DateTime<Local>, MessageError>,
+) -> Option<i64> {
+    // Calculate diff
+    let diff: Duration = end.ok()? - start.ok()?;
+    let seconds = diff.num_seconds();
+
+    // Early escape for invalid date diff
+    if seconds < 0 {
+        return None;
+    }
+    Some(seconds)
+}
+
 /// Generate a readable diff from two local timestamps.
 ///
 /// # Example:

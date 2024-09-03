@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     collections::{
         hash_map::Entry::{Occupied, Vacant},
         HashMap,
@@ -119,14 +118,14 @@ impl<'a> Exporter<'a> for HTML<'a> {
             // Render the announcement in-line
             if msg.is_announcement() {
                 let announcement = self.format_announcement(&msg);
-                HTML::write_to_file(self.get_or_create_file(&msg)?, &announcement)?;
+                HTML::write_to_file(self.get_or_create_file(&msg)?, announcement.to_string())?;
             }
             // Message replies and reactions are rendered in context, so no need to render them separately
             else if !msg.is_reaction() {
                 let message = self
                     .format_message(&msg, 0)
                     .map_err(RuntimeError::DatabaseError)?;
-                HTML::write_to_file(self.get_or_create_file(&msg)?, &message)?;
+                HTML::write_to_file(self.get_or_create_file(&msg)?, message.to_string())?;
             }
             current_message += 1;
             if current_message % 99 == 0 {
@@ -137,9 +136,9 @@ impl<'a> Exporter<'a> for HTML<'a> {
 
         eprintln!("Writing HTML footers...");
         for (_, buf) in self.files.iter_mut() {
-            HTML::write_to_file(buf, FOOTER)?;
+            HTML::write_to_file(buf, FOOTER.to_string())?;
         }
-        HTML::write_to_file(&mut self.orphaned, FOOTER)?;
+        HTML::write_to_file(&mut self.orphaned, FOOTER.to_string())?;
 
         Ok(())
     }
@@ -186,7 +185,7 @@ impl<'a> Exporter<'a> for HTML<'a> {
     }
 }
 
-impl<'a> Writer<'a> for HTML<'a> {
+impl<'a> Writer<'a, String> for HTML<'a> {
     fn format_message(&self, message: &Message, indent_size: usize) -> Result<String, TableError> {
         // Data we want to write to a file
         let mut formatted_message = String::new();
@@ -291,7 +290,7 @@ impl<'a> Writer<'a> for HTML<'a> {
         if message.is_shareplay() {
             self.add_line(
                 &mut formatted_message,
-                self.format_shareplay(),
+                self.format_shareplay().as_str(),
                 "<span class=\"shareplay\">",
                 "</span>",
             );
@@ -301,7 +300,7 @@ impl<'a> Writer<'a> for HTML<'a> {
         if message.started_sharing_location() || message.stopped_sharing_location() {
             self.add_line(
                 &mut formatted_message,
-                self.format_shared_location(message),
+                self.format_shared_location(message).as_str(),
                 "<span class=\"shared_location\">",
                 "</span>",
             );
@@ -455,7 +454,7 @@ impl<'a> Writer<'a> for HTML<'a> {
             if message.expressive_send_style_id.is_some() {
                 self.add_line(
                     &mut formatted_message,
-                    self.format_expressive(message),
+                    self.format_expressive(message).as_str(),
                     "<span class=\"expressive\">",
                     "</span>",
                 );
@@ -709,27 +708,27 @@ impl<'a> Writer<'a> for HTML<'a> {
         }
     }
 
-    fn format_expressive(&self, msg: &'a Message) -> &'a str {
+    fn format_expressive(&self, msg: &'a Message) -> String {
         match msg.get_expressive() {
             Expressive::Screen(effect) => match effect {
-                ScreenEffect::Confetti => "Sent with Confetti",
-                ScreenEffect::Echo => "Sent with Echo",
-                ScreenEffect::Fireworks => "Sent with Fireworks",
-                ScreenEffect::Balloons => "Sent with Balloons",
-                ScreenEffect::Heart => "Sent with Heart",
-                ScreenEffect::Lasers => "Sent with Lasers",
-                ScreenEffect::ShootingStar => "Sent with Shooting Star",
-                ScreenEffect::Sparkles => "Sent with Sparkles",
-                ScreenEffect::Spotlight => "Sent with Spotlight",
+                ScreenEffect::Confetti => "Sent with Confetti".to_string(),
+                ScreenEffect::Echo => "Sent with Echo".to_string(),
+                ScreenEffect::Fireworks => "Sent with Fireworks".to_string(),
+                ScreenEffect::Balloons => "Sent with Balloons".to_string(),
+                ScreenEffect::Heart => "Sent with Heart".to_string(),
+                ScreenEffect::Lasers => "Sent with Lasers".to_string(),
+                ScreenEffect::ShootingStar => "Sent with Shooting Star".to_string(),
+                ScreenEffect::Sparkles => "Sent with Sparkles".to_string(),
+                ScreenEffect::Spotlight => "Sent with Spotlight".to_string(),
             },
             Expressive::Bubble(effect) => match effect {
-                BubbleEffect::Slam => "Sent with Slam",
-                BubbleEffect::Loud => "Sent with Loud",
-                BubbleEffect::Gentle => "Sent with Gentle",
-                BubbleEffect::InvisibleInk => "Sent with Invisible Ink",
+                BubbleEffect::Slam => "Sent with Slam".to_string(),
+                BubbleEffect::Loud => "Sent with Loud".to_string(),
+                BubbleEffect::Gentle => "Sent with Gentle".to_string(),
+                BubbleEffect::InvisibleInk => "Sent with Invisible Ink".to_string(),
             },
-            Expressive::Unknown(effect) => effect,
-            Expressive::None => "",
+            Expressive::Unknown(effect) => effect.to_string(),
+            Expressive::None => "".to_string(),
         }
     }
 
@@ -773,18 +772,18 @@ impl<'a> Writer<'a> for HTML<'a> {
         };
     }
 
-    fn format_shareplay(&self) -> &str {
-        "<hr>SharePlay Message Ended"
+    fn format_shareplay(&self) -> String {
+        "<hr>SharePlay Message Ended".to_string()
     }
 
-    fn format_shared_location(&self, msg: &'a Message) -> &str {
+    fn format_shared_location(&self, msg: &'a Message) -> String {
         // Handle Shared Location
         if msg.started_sharing_location() {
-            return "<hr>Started sharing location!";
+            return "<hr>Started sharing location!".to_string();
         } else if msg.stopped_sharing_location() {
-            return "<hr>Stopped sharing location!";
+            return "<hr>Stopped sharing location!".to_string();
         }
-        "<hr>Shared location!"
+        "<hr>Shared location!".to_string()
     }
 
     fn format_edited(
@@ -859,25 +858,25 @@ impl<'a> Writer<'a> for HTML<'a> {
         None
     }
 
-    fn format_attributed(&'a self, text: &'a str, attribute: &'a TextEffect) -> Cow<str> {
+    fn format_attributed(&'a self, text: &'a str, attribute: &'a TextEffect) -> String {
         match attribute {
-            TextEffect::Default => Cow::Borrowed(text),
-            TextEffect::Mention(mentioned) => Cow::Owned(self.format_mention(text, mentioned)),
-            TextEffect::Link(url) => Cow::Owned(self.format_link(text, url)),
-            TextEffect::OTP => Cow::Owned(self.format_otp(text)),
-            TextEffect::Styles(styles) => Cow::Owned(self.format_styles(text, styles)),
-            TextEffect::Animated(animation) => Cow::Owned(self.format_animated(text, animation)),
-            TextEffect::Conversion(unit) => Cow::Owned(self.format_conversion(text, unit)),
+            TextEffect::Default => text.to_string(),
+            TextEffect::Mention(mentioned) => self.format_mention(text, mentioned).to_string(),
+            TextEffect::Link(url) => self.format_link(text, url).to_string(),
+            TextEffect::OTP => self.format_otp(text).to_string(),
+            TextEffect::Styles(styles) => self.format_styles(text, styles).to_string(),
+            TextEffect::Animated(animation) => self.format_animated(text, animation).to_string(),
+            TextEffect::Conversion(unit) => self.format_conversion(text, unit).to_string(),
         }
     }
 
-    fn write_to_file(file: &mut BufWriter<File>, text: &str) -> Result<(), RuntimeError> {
+    fn write_to_file(file: &mut BufWriter<File>, text: String) -> Result<(), RuntimeError> {
         file.write_all(text.as_bytes())
             .map_err(RuntimeError::DiskError)
     }
 }
 
-impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
+impl<'a> BalloonFormatter<&'a Message, String> for HTML<'a> {
     fn format_url(&self, balloon: &URLMessage, _: &Message) -> String {
         let mut out_s = String::new();
 
@@ -1341,7 +1340,7 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
     }
 }
 
-impl<'a> TextEffectFormatter for HTML<'a> {
+impl<'a> TextEffectFormatter<String> for HTML<'a> {
     fn format_mention(&self, text: &str, mentioned: &str) -> String {
         format!("<span title=\"{mentioned}\"><b>{text}</b></span>")
     }
@@ -1417,13 +1416,13 @@ impl<'a> HTML<'a> {
 
     fn write_headers(file: &mut BufWriter<File>) -> Result<(), RuntimeError> {
         // Write file header
-        HTML::write_to_file(file, HEADER)?;
+        HTML::write_to_file(file, HEADER.to_string())?;
 
         // Write CSS
-        HTML::write_to_file(file, "<style>\n")?;
-        HTML::write_to_file(file, STYLE)?;
-        HTML::write_to_file(file, "\n</style>")?;
-        HTML::write_to_file(file, "\n</head>\n<body>\n")?;
+        HTML::write_to_file(file, "<style>\n".to_string())?;
+        HTML::write_to_file(file, STYLE.to_string())?;
+        HTML::write_to_file(file, "\n</style>".to_string())?;
+        HTML::write_to_file(file, "\n</head>\n<body>\n".to_string())?;
         Ok(())
     }
 

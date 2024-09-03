@@ -14,7 +14,7 @@ use crate::{
         attachment_manager::AttachmentManager, converter::Converter, error::RuntimeError,
         export_type::ExportType, options::Options, sanitizers::sanitize_filename,
     },
-    Exporter, HTML, TXT,
+    Exporter, HTML, TXT, NDJSON,
 };
 
 use imessage_database::{
@@ -120,8 +120,11 @@ impl Config {
     ///
     /// If it does not, first try and make a flat list of its members. Failing that, use the unique `chat_identifier` field.
     pub fn filename(&self, chatroom: &Chat) -> String {
-        let filename = match &chatroom.display_name() {
-            // If there is a display name, use that
+        sanitize_filename(self.chatroom_name(chatroom).as_str())
+    }
+
+    pub fn chatroom_name(&self, chatroom: &Chat) -> String {
+        match &chatroom.display_name() {
             Some(name) => {
                 format!(
                     "{} - {}",
@@ -129,7 +132,6 @@ impl Config {
                     chatroom.rowid
                 )
             }
-            // Fallback if there is no name set
             None => {
                 if let Some(participants) = self.chatroom_participants.get(&chatroom.rowid) {
                     self.filename_from_participants(participants)
@@ -141,8 +143,7 @@ impl Config {
                     chatroom.chat_identifier.clone()
                 }
             }
-        };
-        sanitize_filename(&filename)
+        }
     }
 
     /// Generate a filename from a set of participants, truncating if the name is too long
@@ -343,6 +344,9 @@ impl Config {
                 }
                 ExportType::Txt => {
                     TXT::new(self)?.iter_messages()?;
+                }
+                ExportType::Json => {
+                    NDJSON::new(self)?.iter_messages()?;
                 }
             }
         }

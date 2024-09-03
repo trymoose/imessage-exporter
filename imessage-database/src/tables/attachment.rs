@@ -301,6 +301,7 @@ impl Attachment {
             return match platform {
                 Platform::macOS => Some(Attachment::gen_macos_attachment(&path_str)),
                 Platform::iOS => Attachment::gen_ios_attachment(&path_str, db_path),
+                Platform::iOSFS => Attachment::gen_ios_fs_attachment(&path_str, db_path),
             };
         }
         None
@@ -374,6 +375,19 @@ impl Attachment {
                             // This hits if the attachment path doesn't get generated
                             true
                         }
+                        Platform::iOSFS => {
+                            if let Some(parsed_path) =
+                                Attachment::gen_ios_fs_attachment(filepath, db_path)
+                            {
+                                let file = Path::new(&parsed_path);
+                                if let Ok(metadata) = file.metadata() {
+                                    size_on_disk += metadata.len();
+                                }
+                                return !file.exists();
+                            }
+                            // This hits if the attachment path doesn't get generated
+                            true
+                        }
                     }
                 } else {
                     // This hits if there is no path provided for the current attachment
@@ -432,6 +446,20 @@ impl Attachment {
         let directory = filename.get(0..2)?;
 
         Some(format!("{}/{directory}/{filename}", db_path.display()))
+    }
+
+    /// Generate an iOS path for an attachment from extracted backup
+    fn gen_ios_fs_attachment(file_path: &str, db_path: &Path) -> Option<String> {
+        let filename = file_path.get(2..)?;
+        let new_path = db_path.join(filename);
+        let old_path = db_path.join("Media").join(filename);
+        if new_path.exists() {
+            Some(format!("{}", new_path.display()))
+        } else if old_path.exists() {
+            Some(format!("{}", old_path.display()))
+        } else {
+            None
+        }
     }
 }
 

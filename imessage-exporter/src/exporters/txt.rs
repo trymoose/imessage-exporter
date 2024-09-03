@@ -1,5 +1,4 @@
 use std::{
-    borrow::Cow,
     collections::{
         hash_map::Entry::{Occupied, Vacant},
         HashMap,
@@ -110,14 +109,14 @@ impl<'a> Exporter<'a> for TXT<'a> {
             // Render the announcement in-line
             if msg.is_announcement() {
                 let announcement = self.format_announcement(&msg);
-                TXT::write_to_file(self.get_or_create_file(&msg)?, &announcement)?;
+                TXT::write_to_file(self.get_or_create_file(&msg)?, announcement.to_string())?;
             }
             // Message replies and reactions are rendered in context, so no need to render them separately
             else if !msg.is_reaction() {
                 let message = self
                     .format_message(&msg, 0)
                     .map_err(RuntimeError::DatabaseError)?;
-                TXT::write_to_file(self.get_or_create_file(&msg)?, &message)?;
+                TXT::write_to_file(self.get_or_create_file(&msg)?, message.to_string())?;
             }
             current_message += 1;
             if current_message % 99 == 0 {
@@ -158,7 +157,7 @@ impl<'a> Exporter<'a> for TXT<'a> {
     }
 }
 
-impl<'a> Writer<'a> for TXT<'a> {
+impl<'a> Writer<'a, String> for TXT<'a> {
     fn format_message(&self, message: &Message, indent_size: usize) -> Result<String, TableError> {
         let indent = String::from_iter((0..indent_size).map(|_| " "));
         // Data we want to write to a file
@@ -202,14 +201,14 @@ impl<'a> Writer<'a> for TXT<'a> {
 
         // Handle SharePlay
         if message.is_shareplay() {
-            self.add_line(&mut formatted_message, self.format_shareplay(), &indent);
+            self.add_line(&mut formatted_message, self.format_shareplay().as_str(), &indent);
         }
 
         // Handle Shared Location
         if message.started_sharing_location() || message.stopped_sharing_location() {
             self.add_line(
                 &mut formatted_message,
-                self.format_shared_location(message),
+                self.format_shared_location(message).as_str(),
                 &indent,
             );
         }
@@ -303,7 +302,7 @@ impl<'a> Writer<'a> for TXT<'a> {
             if message.expressive_send_style_id.is_some() {
                 self.add_line(
                     &mut formatted_message,
-                    self.format_expressive(message),
+                    self.format_expressive(message).as_str(),
                     &indent,
                 );
             }
@@ -501,27 +500,27 @@ impl<'a> Writer<'a> for TXT<'a> {
         }
     }
 
-    fn format_expressive(&self, msg: &'a Message) -> &'a str {
+    fn format_expressive(&self, msg: &'a Message) -> String {
         match msg.get_expressive() {
             Expressive::Screen(effect) => match effect {
-                ScreenEffect::Confetti => "Sent with Confetti",
-                ScreenEffect::Echo => "Sent with Echo",
-                ScreenEffect::Fireworks => "Sent with Fireworks",
-                ScreenEffect::Balloons => "Sent with Balloons",
-                ScreenEffect::Heart => "Sent with Heart",
-                ScreenEffect::Lasers => "Sent with Lasers",
-                ScreenEffect::ShootingStar => "Sent with Shooting Star",
-                ScreenEffect::Sparkles => "Sent with Sparkles",
-                ScreenEffect::Spotlight => "Sent with Spotlight",
+                ScreenEffect::Confetti => "Sent with Confetti".to_string(),
+                ScreenEffect::Echo => "Sent with Echo".to_string(),
+                ScreenEffect::Fireworks => "Sent with Fireworks".to_string(),
+                ScreenEffect::Balloons => "Sent with Balloons".to_string(),
+                ScreenEffect::Heart => "Sent with Heart".to_string(),
+                ScreenEffect::Lasers => "Sent with Lasers".to_string(),
+                ScreenEffect::ShootingStar => "Sent with Shooting Star".to_string(),
+                ScreenEffect::Sparkles => "Sent with Sparkles".to_string(),
+                ScreenEffect::Spotlight => "Sent with Spotlight".to_string(),
             },
             Expressive::Bubble(effect) => match effect {
-                BubbleEffect::Slam => "Sent with Slam",
-                BubbleEffect::Loud => "Sent with Loud",
-                BubbleEffect::Gentle => "Sent with Gentle",
-                BubbleEffect::InvisibleInk => "Sent with Invisible Ink",
+                BubbleEffect::Slam => "Sent with Slam".to_string(),
+                BubbleEffect::Loud => "Sent with Loud".to_string(),
+                BubbleEffect::Gentle => "Sent with Gentle".to_string(),
+                BubbleEffect::InvisibleInk => "Sent with Invisible Ink".to_string(),
             },
-            Expressive::Unknown(effect) => effect,
-            Expressive::None => "",
+            Expressive::Unknown(effect) => effect.to_string(),
+            Expressive::None => "".to_string(),
         }
     }
 
@@ -553,18 +552,18 @@ impl<'a> Writer<'a> for TXT<'a> {
         };
     }
 
-    fn format_shareplay(&self) -> &str {
-        "SharePlay Message\nEnded"
+    fn format_shareplay(&self) -> String {
+        "SharePlay Message\nEnded".to_string()
     }
 
-    fn format_shared_location(&self, msg: &'a Message) -> &str {
+    fn format_shared_location(&self, msg: &'a Message) -> String {
         // Handle Shared Location
         if msg.started_sharing_location() {
-            return "Started sharing location!";
+            return "Started sharing location!".to_string();
         } else if msg.stopped_sharing_location() {
-            return "Stopped sharing location!";
+            return "Stopped sharing location!".to_string();
         }
-        "Shared location!"
+        "Shared location!".to_string()
     }
 
     fn format_edited(
@@ -642,18 +641,18 @@ impl<'a> Writer<'a> for TXT<'a> {
         None
     }
 
-    fn format_attributed(&'a self, msg: &'a str, _: &'a TextEffect) -> Cow<str> {
+    fn format_attributed(&'a self, msg: &'a str, _: &'a TextEffect) -> String {
         // There isn't really a way to represent formatted text in a plain text export
-        Cow::Borrowed(msg)
+        msg.to_string()
     }
 
-    fn write_to_file(file: &mut BufWriter<File>, text: &str) -> Result<(), RuntimeError> {
+    fn write_to_file(file: &mut BufWriter<File>, text: String) -> Result<(), RuntimeError> {
         file.write_all(text.as_bytes())
             .map_err(RuntimeError::DiskError)
     }
 }
 
-impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
+impl<'a> BalloonFormatter<&'a str, String> for TXT<'a> {
     fn format_url(&self, balloon: &URLMessage, indent: &str) -> String {
         let mut out_s = String::new();
 

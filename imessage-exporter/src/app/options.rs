@@ -10,7 +10,7 @@ use imessage_database::{
         query_context::QueryContext,
     },
 };
-
+use imessage_database::tables::table::{DEFAULT_PATH_IOS_FS_NEW, DEFAULT_PATH_IOS_FS_OLD};
 use crate::app::{
     attachment_manager::AttachmentManager, error::RuntimeError, export_type::ExportType,
 };
@@ -34,12 +34,12 @@ pub const OPTION_BYPASS_FREE_SPACE_CHECK: &str = "ignore-disk-warning";
 pub const OPTION_USE_CALLER_ID: &str = "use-caller-id";
 
 // Other CLI Text
-pub const SUPPORTED_FILE_TYPES: &str = "txt, html";
+pub const SUPPORTED_FILE_TYPES: &str = "txt, html, json";
 pub const SUPPORTED_PLATFORMS: &str = "macOS, iOS";
 pub const SUPPORTED_ATTACHMENT_MANAGER_MODES: &str = "compatible, efficient, disabled";
 pub const ABOUT: &str = concat!(
     "The `imessage-exporter` binary exports iMessage data to\n",
-    "`txt` or `html` formats. It can also run diagnostics\n",
+    "`txt`, `json`, or `html` formats. It can also run diagnostics\n",
     "to find problems with the iMessage database."
 );
 
@@ -209,9 +209,9 @@ impl Options {
         };
 
         // Warn the user that custom attachment roots have no effect on iOS backups
-        if attachment_root.is_some() && platform == Platform::iOS {
+        if attachment_root.is_some() && (platform == Platform::iOS || platform == Platform::iOSFS) {
             eprintln!(
-                "Option {OPTION_ATTACHMENT_ROOT} is enabled, but the platform is {}, so the root will have no effect!", Platform::iOS
+                "Option {OPTION_ATTACHMENT_ROOT} is enabled, but the platform is {}, so the root will have no effect!", platform
             );
         }
 
@@ -249,6 +249,13 @@ impl Options {
         match self.platform {
             Platform::iOS => self.db_path.join(DEFAULT_PATH_IOS),
             Platform::macOS => self.db_path.clone(),
+            Platform::iOSFS => {
+                if self.db_path.join(DEFAULT_PATH_IOS_FS_OLD).exists() {
+                    self.db_path.join(DEFAULT_PATH_IOS_FS_OLD)
+                } else {
+                    self.db_path.join(DEFAULT_PATH_IOS_FS_NEW)
+                }
+            },
         }
     }
 }

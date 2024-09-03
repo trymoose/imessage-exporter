@@ -18,3 +18,5 @@ imessage-database = { path = "../imessage-database" }
 indicatif = "0.17.8"
 rusqlite = { version = "0.32.1", features = ["blob", "bundled"] }
 uuid = { version = "1.10.0", features = ["v4", "fast-rng"] }
+json = "0.12"
+base64 = "0.22.1"

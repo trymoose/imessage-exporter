@@ -133,6 +133,9 @@ pub const UNKNOWN: &str = "Unknown";
 pub const DEFAULT_PATH_MACOS: &str = "Library/Messages/chat.db";
 /// Default location for the Messages database in an unencrypted iOS backup
 pub const DEFAULT_PATH_IOS: &str = "3d/3d0d7e5fb2ce288813306e4d4636395e047a3d28";
+/// Default location for the Messages database in an extracted iOS backup
+pub const DEFAULT_PATH_IOS_FS_OLD: &str = "Home/Library/SMS/sms.db";
+pub const DEFAULT_PATH_IOS_FS_NEW: &str = "Library/SMS/sms.db";
 /// Chat name reserved for messages that do not belong to a chat in the table
 pub const ORPHANED: &str = "orphaned";
 /// Maximum length a filename can be
@@ -141,3 +144,6 @@ pub const MAX_LENGTH: usize = 240;
 pub const FITNESS_RECEIVER: &str = "$(kIMTranscriptPluginBreadcrumbTextReceiverIdentifier)";
 /// Name for attachments directory in exports
 pub const ATTACHMENTS_DIR: &str = "attachments";
+/// Name for json messages file
+pub const MESSAGES_FILE: &str = "messages";
+pub const MESSAGES_FILE_EXT: &str = "ndjson";
