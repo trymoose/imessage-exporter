@@ -103,7 +103,12 @@ impl Deduplicate for Handle {
 
         // Build cache of each unique set of participants to a new identifier:
         let mut unique_participant_identifier = 0;
-        for (participant_id, participant) in duplicated_data {
+
+        // Iterate over the values in a deterministic order
+        let mut sorted_dupes: Vec<(&i32, &Self::T)> = duplicated_data.iter().collect();
+        sorted_dupes.sort_by(|(a, _), (b, _)| a.cmp(b));
+
+        for (participant_id, participant) in sorted_dupes {
             if let Some(id) = participant_to_unique_participant_id.get(participant) {
                 deduplicated_participants.insert(participant_id.to_owned(), id.to_owned());
             } else {
@@ -244,15 +249,61 @@ mod tests {
     #[test]
     fn test_can_dedupe() {
         let mut input: HashMap<i32, String> = HashMap::new();
-        input.insert(1, String::from("A"));
-        input.insert(2, String::from("A"));
-        input.insert(3, String::from("A"));
-        input.insert(4, String::from("B"));
-        input.insert(5, String::from("B"));
-        input.insert(6, String::from("C"));
+        input.insert(1, String::from("A")); // 0
+        input.insert(2, String::from("A")); // 0
+        input.insert(3, String::from("A")); // 0
+        input.insert(4, String::from("B")); // 1
+        input.insert(5, String::from("B")); // 1
+        input.insert(6, String::from("C")); // 2
 
         let output = Handle::dedupe(&input);
         let expected_deduped_ids: HashSet<i32> = output.values().copied().collect();
         assert_eq!(expected_deduped_ids.len(), 3);
+    }
+
+    #[test]
+    // Simulate 3 runs of the program and ensure that the order of the deduplicated contacts is stable
+    fn test_same_values() {
+        let mut input_1: HashMap<i32, String> = HashMap::new();
+        input_1.insert(1, String::from("A"));
+        input_1.insert(2, String::from("A"));
+        input_1.insert(3, String::from("A"));
+        input_1.insert(4, String::from("B"));
+        input_1.insert(5, String::from("B"));
+        input_1.insert(6, String::from("C"));
+
+        let mut input_2: HashMap<i32, String> = HashMap::new();
+        input_2.insert(1, String::from("A"));
+        input_2.insert(2, String::from("A"));
+        input_2.insert(3, String::from("A"));
+        input_2.insert(4, String::from("B"));
+        input_2.insert(5, String::from("B"));
+        input_2.insert(6, String::from("C"));
+
+        let mut input_3: HashMap<i32, String> = HashMap::new();
+        input_3.insert(1, String::from("A"));
+        input_3.insert(2, String::from("A"));
+        input_3.insert(3, String::from("A"));
+        input_3.insert(4, String::from("B"));
+        input_3.insert(5, String::from("B"));
+        input_3.insert(6, String::from("C"));
+
+        let mut output_1 = Handle::dedupe(&input_1)
+            .into_iter()
+            .collect::<Vec<(i32, i32)>>();
+        let mut output_2 = Handle::dedupe(&input_2)
+            .into_iter()
+            .collect::<Vec<(i32, i32)>>();
+        let mut output_3 = Handle::dedupe(&input_3)
+            .into_iter()
+            .collect::<Vec<(i32, i32)>>();
+
+        output_1.sort();
+        output_2.sort();
+        output_3.sort();
+
+        assert_eq!(output_1, output_2);
+        assert_eq!(output_1, output_3);
+        assert_eq!(output_2, output_3);
     }
 }
