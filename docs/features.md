@@ -88,6 +88,12 @@ This tool targets the current latest public release for macOS and iMessage. It m
     - SharePlay/Facetime messages
     - Check In messages
     - Find My messages
+- Handwritten Messages
+  - Parses the protobuf payload to extract handwritten messages.
+    - Preview images display in HTML exports
+    - TXT export behavior depends on attachment settings:
+      - `disabled`: embed in text file as ascii graphic
+      - `compatible, efficient`: save as svg
 - Duplicated group chats
   - Handles (participants) and chats (threads) can become duplicated
   - On startup:

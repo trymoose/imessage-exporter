@@ -11,3 +11,5 @@ pub mod query_context;
 pub mod size;
 pub mod streamtyped;
 pub mod typedstream;
+
+pub mod handwriting;

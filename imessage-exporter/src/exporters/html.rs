@@ -612,11 +612,6 @@ impl<'a> Writer<'a> for HTML<'a> {
         if let Variant::App(balloon) = message.variant() {
             let mut app_bubble = String::new();
 
-            // Handwritten messages use a different payload type, so handle that first
-            if matches!(balloon, CustomBalloon::Handwriting) {
-                return Ok(self.format_handwriting(&HandwrittenMessage::new(), message));
-            }
-
             if let Some(payload) = message.payload_data(&self.config.db) {
                 let res = if message.is_url() {
                     let parsed = parse_plist(&payload)?;
@@ -669,6 +664,14 @@ impl<'a> Writer<'a> for HTML<'a> {
                         out_s.push_str("</div></div></a>");
 
                         return Ok(out_s);
+                    }
+                } else if let Some(payload) = message.raw_payload_data(&self.config.db) {
+                    // Handwritten messages use a different payload type
+                    if matches!(balloon, CustomBalloon::Handwriting) {
+                        return match HandwrittenMessage::from_payload(&payload) {
+                            Ok(bubble) => Ok(self.format_handwriting(&bubble, message)),
+                            Err(why) => Err(why),
+                        }
                     }
                 }
                 return Err(PlistParseError::NoPayload);
@@ -1192,8 +1195,9 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
         out_s
     }
 
-    fn format_handwriting(&self, _: &HandwrittenMessage, _: &Message) -> String {
-        String::from("Handwritten messages are not yet supported!")
+    fn format_handwriting(&self, balloon: &HandwrittenMessage, _: &Message) -> String {
+        // svg can be embedded directly into the html
+        balloon.render_svg()
     }
 
     fn format_apple_pay(&self, balloon: &AppMessage, _: &Message) -> String {
