@@ -9,7 +9,7 @@ use std::fmt::{Display, Formatter, Result};
 pub enum HandwritingError {
     ProtobufError(protobuf::Error),
     InvalidFrameSize(usize),
-    XZError(std::io::Error),
+    XZError(lzma_rs::error::Error),
     CompressionUnknown,
     InvalidStrokesLength(usize, usize),
     ConversionError,

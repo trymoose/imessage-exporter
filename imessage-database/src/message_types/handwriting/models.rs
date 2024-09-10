@@ -4,7 +4,7 @@
 
 use std::cmp::{max, min};
 use std::fmt::Write;
-use std::io::{Cursor, Read};
+use std::io::Cursor;
 
 use crate::{
     error::{handwriting::HandwritingError, plist::PlistParseError},
@@ -12,7 +12,6 @@ use crate::{
 };
 
 use protobuf::Message;
-use xz2::read::XzDecoder;
 
 /// Parser for [handwritten](https://support.apple.com/en-us/HT206894) iMessages
 /// This message type is not documented by Apple, but represents messages displayed as
@@ -224,11 +223,10 @@ fn decompress_strokes(msg: &BaseMessage) -> Result<Vec<u8>, PlistParseError> {
     let data = match msg.Handwriting.Compression.enum_value_or_default() {
         Compression::None => msg.Handwriting.Strokes.clone(),
         Compression::XZ => {
-            let cursor = Cursor::new(&msg.Handwriting.Strokes);
-            let mut decoder = XzDecoder::new(cursor);
+            let mut cursor = Cursor::new(&msg.Handwriting.Strokes);
+            // let mut decoder = XzDecoder::new(cursor);
             let mut buf = Vec::new();
-            decoder
-                .read_to_end(&mut buf)
+            lzma_rs::xz_decompress(&mut cursor, &mut buf)
                 .map_err(HandwritingError::XZError)
                 .map_err(PlistParseError::HandwritingError)?;
             buf
