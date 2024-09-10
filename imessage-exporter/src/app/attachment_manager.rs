@@ -1,17 +1,24 @@
-use std::{fmt::Display, fs, fs::{copy, create_dir_all, metadata}, path::{Path, PathBuf}};
-
-use filetime::{set_file_times, FileTime};
-use imessage_database::tables::{
-    attachment::{Attachment, MediaType},
-    messages::Message,
+use std::{
+    fmt::Display,
+    fs,
+    fs::{copy, create_dir_all, metadata},
+    path::{Path, PathBuf},
 };
-use uuid::Uuid;
-use imessage_database::message_types::handwriting::HandwrittenMessage;
-use imessage_database::util::dates::get_local_time;
+
 use crate::app::{
     converter::{convert_heic, Converter, ImageType},
     runtime::Config,
 };
+
+use imessage_database::message_types::handwriting::HandwrittenMessage;
+use imessage_database::tables::{
+    attachment::{Attachment, MediaType},
+    messages::Message,
+};
+use imessage_database::util::dates::get_local_time;
+
+use filetime::{set_file_times, FileTime};
+use uuid::Uuid;
 
 /// Represents different ways the app can interact with attachment data
 #[derive(Debug, PartialEq, Eq)]
@@ -71,7 +78,8 @@ impl AttachmentManager {
 
             return match get_local_time(&handwriting.created_at, &config.offset) {
                 Ok(date) => {
-                    let created_at = FileTime::from_unix_time(date.timestamp(), date.timestamp_subsec_nanos());
+                    let created_at =
+                        FileTime::from_unix_time(date.timestamp(), date.timestamp_subsec_nanos());
                     if let Err(why) = set_file_times(&to, created_at, created_at) {
                         eprintln!("Unable to update {to:?} metadata: {why}");
                     }

@@ -6,8 +6,9 @@ use std::{
     },
     fs::File,
     io::{BufWriter, Write},
+    path::PathBuf,
 };
-use std::path::PathBuf;
+
 use crate::{
     app::{error::RuntimeError, progress::build_progress_bar_export, runtime::Config},
     exporters::exporter::{BalloonFormatter, Exporter, Writer},
@@ -464,7 +465,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                         return match HandwrittenMessage::from_payload(&payload) {
                             Ok(bubble) => Ok(self.format_handwriting(&bubble, indent)),
                             Err(why) => Err(why),
-                        }
+                        };
                     }
                 }
                 return Err(PlistParseError::NoPayload);
@@ -810,9 +811,17 @@ impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
             .options
             .attachment_manager
             .handle_handwriting(balloon, self.config)
-            .map(|filepath| self.config.relative_path(PathBuf::from(&filepath)).unwrap_or(filepath))
+            .map(|filepath| {
+                self.config
+                    .relative_path(PathBuf::from(&filepath))
+                    .unwrap_or(filepath)
+            })
             .map(|filepath| format!("{indent}{filepath}"))
-            .unwrap_or_else(|| balloon.render_ascii().replace("\n", format!("{indent}\n").as_str()))
+            .unwrap_or_else(|| {
+                balloon
+                    .render_ascii()
+                    .replace("\n", format!("{indent}\n").as_str())
+            })
     }
 
     fn format_apple_pay(&self, balloon: &AppMessage, indent: &str) -> String {

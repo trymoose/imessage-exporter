@@ -1,6 +1,5 @@
 # Development environment
 /.vscode
-.idea
 
 # Generated files
 /target

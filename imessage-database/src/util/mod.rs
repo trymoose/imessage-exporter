@@ -4,6 +4,7 @@
 
 pub mod dates;
 pub mod dirs;
+pub mod handwriting;
 pub mod output;
 pub mod platform;
 pub mod plist;
@@ -11,5 +12,3 @@ pub mod query_context;
 pub mod size;
 pub mod streamtyped;
 pub mod typedstream;
-
-pub mod handwriting;

@@ -957,7 +957,9 @@ impl Message {
     /// This column contains data used by iMessage app balloons.
     pub fn raw_payload_data(&self, db: &Connection) -> Option<Vec<u8>> {
         let mut buf = Vec::new();
-        self.get_blob(db, MESSAGE_PAYLOAD)?.read_to_end(&mut buf).unwrap();
+        self.get_blob(db, MESSAGE_PAYLOAD)?
+            .read_to_end(&mut buf)
+            .unwrap();
         Some(buf)
     }
 

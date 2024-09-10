@@ -671,7 +671,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                         return match HandwrittenMessage::from_payload(&payload) {
                             Ok(bubble) => Ok(self.format_handwriting(&bubble, message)),
                             Err(why) => Err(why),
-                        }
+                        };
                     }
                 }
                 return Err(PlistParseError::NoPayload);
