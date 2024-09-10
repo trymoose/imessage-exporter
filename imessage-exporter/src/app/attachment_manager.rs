@@ -42,8 +42,8 @@ impl AttachmentManager {
         }
     }
 
-    pub fn handle_handwriting<'a>(
-        &'a self,
+    pub fn handle_handwriting(
+        &self,
         handwriting: &HandwrittenMessage,
         config: &Config,
     ) -> Option<String> {
