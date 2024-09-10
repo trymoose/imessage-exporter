@@ -959,7 +959,7 @@ impl Message {
         let mut buf = Vec::new();
         self.get_blob(db, MESSAGE_PAYLOAD)?
             .read_to_end(&mut buf)
-            .unwrap();
+            .ok()?;
         Some(buf)
     }
 
