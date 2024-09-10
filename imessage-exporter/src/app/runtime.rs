@@ -114,6 +114,14 @@ impl Config {
         }
     }
 
+    /// Get a relative path for the provided file.
+    pub fn relative_path(&self, path: PathBuf) -> Option<String> {
+        if let Ok(relative_path) = path.strip_prefix(&self.options.export_path) {
+            return Some(relative_path.display().to_string());
+        }
+        Some(path.display().to_string())
+    }
+
     /// Get a filename for a chat, possibly using cached data.
     ///
     /// If the chat has an assigned name, use that, truncating if necessary.

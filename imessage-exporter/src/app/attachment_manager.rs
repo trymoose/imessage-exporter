@@ -1,8 +1,4 @@
-use std::{
-    fmt::Display,
-    fs::{copy, create_dir_all, metadata},
-    path::{Path, PathBuf},
-};
+use std::{fmt::Display, fs, fs::{copy, create_dir_all, metadata}, path::{Path, PathBuf}};
 
 use filetime::{set_file_times, FileTime};
 use imessage_database::tables::{
@@ -10,7 +6,8 @@ use imessage_database::tables::{
     messages::Message,
 };
 use uuid::Uuid;
-
+use imessage_database::message_types::handwriting::HandwrittenMessage;
+use imessage_database::util::dates::get_local_time;
 use crate::app::{
     converter::{convert_heic, Converter, ImageType},
     runtime::Config,
@@ -36,6 +33,57 @@ impl AttachmentManager {
             "disabled" => Some(Self::Disabled),
             _ => None,
         }
+    }
+
+    pub fn handle_handwriting<'a>(
+        &'a self,
+        handwriting: &HandwrittenMessage,
+        config: &Config,
+    ) -> Option<String> {
+        if !matches!(self, AttachmentManager::Disabled) {
+            // Create a path to copy the file to
+            let mut to = config.attachment_path();
+
+            // Add the subdirectory
+            to.push("handwriting");
+
+            // Add the filename
+            // Each handwriting has a unique id, so cache then all in the same place
+            to.push(&handwriting.id);
+
+            // Set the new file's extension to svg
+            to.set_extension("svg");
+            if to.exists() {
+                return Some(to.display().to_string());
+            }
+
+            // Ensure the directory tree exists
+            if let Some(folder) = to.parent() {
+                if !folder.exists() {
+                    if let Err(why) = create_dir_all(folder) {
+                        eprintln!("Unable to create {folder:?}: {why}");
+                    }
+                }
+            }
+            if let Err(why) = fs::write(to.to_str()?, handwriting.render_svg()) {
+                eprintln!("Unable to write to {to:?}: {why}");
+            };
+
+            return match get_local_time(&handwriting.created_at, &config.offset) {
+                Ok(date) => {
+                    let created_at = FileTime::from_unix_time(date.timestamp(), date.timestamp_subsec_nanos());
+                    if let Err(why) = set_file_times(&to, created_at, created_at) {
+                        eprintln!("Unable to update {to:?} metadata: {why}");
+                    }
+                    return Some(to.display().to_string());
+                }
+                Err(why) => {
+                    eprintln!("Unable to parse date: {why}");
+                    None
+                }
+            };
+        }
+        None
     }
 
     /// Handle an attachment, copying and converting if requested

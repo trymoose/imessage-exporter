@@ -7,7 +7,7 @@ use std::{
     fs::File,
     io::{BufWriter, Write},
 };
-
+use std::path::PathBuf;
 use crate::{
     app::{error::RuntimeError, progress::build_progress_bar_export, runtime::Config},
     exporters::exporter::{BalloonFormatter, Exporter, Writer},
@@ -415,11 +415,6 @@ impl<'a> Writer<'a> for TXT<'a> {
         if let Variant::App(balloon) = message.variant() {
             let mut app_bubble = String::new();
 
-            // Handwritten messages use a different payload type, so handle that first
-            if matches!(balloon, CustomBalloon::Handwriting) {
-                return Ok(self.format_handwriting(&HandwrittenMessage::new(), indent));
-            }
-
             if let Some(payload) = message.payload_data(&self.config.db) {
                 // Handle URL messages separately since they are a special case
                 let res = if message.is_url() {
@@ -462,6 +457,14 @@ impl<'a> Writer<'a> for TXT<'a> {
                 if message.is_url() {
                     if let Some(text) = &message.text {
                         return Ok(text.to_string());
+                    }
+                } else if let Some(payload) = message.raw_payload_data(&self.config.db) {
+                    // Handwritten messages use a different payload type
+                    if matches!(balloon, CustomBalloon::Handwriting) {
+                        return match HandwrittenMessage::from_payload(&payload) {
+                            Ok(bubble) => Ok(self.format_handwriting(&bubble, indent)),
+                            Err(why) => Err(why),
+                        }
                     }
                 }
                 return Err(PlistParseError::NoPayload);
@@ -802,8 +805,14 @@ impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
         out_s.strip_suffix('\n').unwrap_or(&out_s).to_string()
     }
 
-    fn format_handwriting(&self, _: &HandwrittenMessage, indent: &str) -> String {
-        format!("{indent}Handwritten messages are not yet supported!")
+    fn format_handwriting(&self, balloon: &HandwrittenMessage, indent: &str) -> String {
+        self.config
+            .options
+            .attachment_manager
+            .handle_handwriting(balloon, self.config)
+            .map(|filepath| self.config.relative_path(PathBuf::from(&filepath)).unwrap_or(filepath))
+            .map(|filepath| format!("{indent}{filepath}"))
+            .unwrap_or_else(|| balloon.render_ascii().replace("\n", format!("{indent}\n").as_str()))
     }
 
     fn format_apple_pay(&self, balloon: &AppMessage, indent: &str) -> String {
