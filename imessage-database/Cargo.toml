@@ -16,3 +16,7 @@ rusqlite = { version = "0.32.1", features = ["blob", "bundled"] }
 sha1 = "0.10.6"
 protobuf = "3.5.1"
 xz2 = "0.1"
+
+[build-dependencies]
+protobuf = "3.5.1"
+protobuf-codegen = "3.5.1"
