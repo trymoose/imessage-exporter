@@ -35,7 +35,7 @@ pub struct Point {
 
 impl HandwrittenMessage {
     /// Converts a raw byte payload from the database into a handwriting image.
-    pub fn from_payload(payload: &Vec<u8>) -> Result<Self, PlistParseError> {
+    pub fn from_payload(payload: &[u8]) -> Result<Self, PlistParseError> {
         let msg = BaseMessage::parse_from_bytes(payload)
             .map_err(HandwritingError::ProtobufError)
             .map_err(PlistParseError::HandwritingError)?;
@@ -96,7 +96,7 @@ impl HandwrittenMessage {
 }
 
 ///  Draws a line on a 2d character grid using Bresenham's line algorithm.
-fn draw_line(canvas: &mut Vec<Vec<char>>, start: &Point, end: &Point) {
+fn draw_line(canvas: &mut [Vec<char>], start: &Point, end: &Point) {
     let mut x_curr = start.x as i64;
     let mut y_curr = start.y as i64;
     let x_end = end.x as i64;
@@ -125,7 +125,7 @@ fn draw_line(canvas: &mut Vec<Vec<char>>, start: &Point, end: &Point) {
 }
 
 /// Draws a point on a 2d character grid.
-fn draw_point(canvas: &mut Vec<Vec<char>>, x: i64, y: i64) {
+fn draw_point(canvas: &mut [Vec<char>], x: i64, y: i64) {
     if x >= 0 && x < canvas[0].len() as i64 && y >= 0 && y < canvas.len() as i64 {
         canvas[y as usize][x as usize] = '*';
     }
@@ -144,9 +144,9 @@ fn generate_strokes(svg: &mut String, strokes: &Vec<Vec<Point>>) {
     }
 }
 
-/// Converts all points from a canvas of max_x by max_y to a canvas of height and width.
+/// Converts all points from a canvas of `max_x` by `max_y` to a canvas of `height` and `width`.
 fn fit_strokes(
-    strokes: &Vec<Vec<Point>>,
+    strokes: &[Vec<Point>],
     height: i16,
     width: i16,
     max_x: i16,
@@ -167,13 +167,13 @@ fn fit_strokes(
         .collect()
 }
 
-/// Resize converts v from a coordinate where max_v is the current height/width and box_size is the wanted height/width.
+/// Resize converts `v` from a coordinate where `max_v` is the current height/width and `box_size` is the wanted height/width.
 fn resize(v: i16, box_size: i16, max_v: i16) -> i16 {
     i16::try_from((i64::from(v) * i64::from(box_size)) / i64::from(max_v)).unwrap()
 }
 
-/// Iterates through each point in each stroke and extracts the maximum x and y values.
-fn get_max_dimension(strokes: &Vec<Vec<Point>>) -> (i16, i16) {
+/// Iterates through each point in each stroke and extracts the maximum `x` and `y` values.
+fn get_max_dimension(strokes: &[Vec<Point>]) -> (i16, i16) {
     let mut x = 0;
     let mut y = 0;
     for stroke in strokes.iter() {
