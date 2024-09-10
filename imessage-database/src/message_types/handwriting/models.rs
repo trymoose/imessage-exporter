@@ -289,7 +289,7 @@ fn bytes2i16(b1: u8, b2: u8) -> Result<i16, PlistParseError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::message_types::handwriting::handwriting::{HandwrittenMessage, Point};
+    use crate::message_types::handwriting::models::{HandwrittenMessage, Point};
     use std::env::current_dir;
     use std::fs::File;
     use std::io::Read;

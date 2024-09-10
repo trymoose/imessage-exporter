@@ -7,6 +7,7 @@ pub mod app_store;
 pub mod collaboration;
 pub mod edited;
 pub mod expressives;
+pub mod handwriting;
 pub mod music;
 pub mod placemark;
 pub mod sticker;

@@ -4,7 +4,6 @@
 
 pub mod dates;
 pub mod dirs;
-pub mod handwriting;
 pub mod output;
 pub mod platform;
 pub mod plist;
