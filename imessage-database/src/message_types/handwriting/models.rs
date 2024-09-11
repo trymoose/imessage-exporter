@@ -135,12 +135,11 @@ fn draw_point(canvas: &mut [Vec<char>], x: i64, y: i64) {
 /// Generates svg lines from an array of strokes.
 fn generate_strokes(svg: &mut String, strokes: &[Vec<Point>]) {
     strokes.iter().for_each(|stroke| {
-        let mut points = Vec::new();
+        let mut points = String::with_capacity(stroke.len() * 3);
         stroke.iter().for_each(|point| {
-            points.push(format!("{},{}", point.x, point.y));
+            points.push_str(&format!(" {},{}", point.x, point.y));
         });
-        let line = points.join(" ");
-        svg.push_str(format!(r#"<polyline points="{}" fill="none" stroke="black" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />"#, line).as_str());
+        svg.push_str(format!(r#"<polyline points="{}" fill="none" stroke="black" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />"#, points.trim_start()).as_str());
         svg.push('\n');
     });
 }
@@ -155,12 +154,12 @@ fn fit_strokes(
 ) -> Vec<Vec<Point>> {
     strokes
         .iter()
-        .map(|e| -> Vec<Point> {
-            e.iter()
-                .map(|e| -> Point {
+        .map(|stroke| -> Vec<Point> {
+            stroke.iter()
+                .map(|point| -> Point {
                     Point {
-                        x: resize(e.x, width, max_x),
-                        y: resize(e.y, height, max_y),
+                        x: resize(point.x, width, max_x),
+                        y: resize(point.y, height, max_y),
                     }
                 })
                 .collect()
