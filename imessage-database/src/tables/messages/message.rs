@@ -530,6 +530,11 @@ impl Message {
         matches!(self.variant(), Variant::App(CustomBalloon::URL))
     }
 
+    /// `true` if the message is a [`HandwrittenMessage`](crate::message_types::handwriting::models::HandwrittenMessage), else `false`
+    pub fn is_handwriting(&self) -> bool {
+        matches!(self.variant(), Variant::App(CustomBalloon::Handwriting))
+    }
+
     /// `true` if the message was edited, else `false`
     pub fn is_edited(&self) -> bool {
         self.date_edited != 0
