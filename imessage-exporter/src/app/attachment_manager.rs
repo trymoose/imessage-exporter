@@ -72,6 +72,8 @@ impl AttachmentManager {
                     }
                 }
             }
+
+            // Attempt the svg render
             if let Err(why) = fs::write(to.to_str()?, handwriting.render_svg()) {
                 eprintln!("Unable to write to {to:?}: {why}");
             };
