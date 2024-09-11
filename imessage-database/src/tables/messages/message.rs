@@ -959,7 +959,7 @@ impl Message {
     /// Calling this hits the database, so it is expensive and should
     /// only get invoked when needed.
     ///
-    /// This column contains data used by iMessage app balloons.
+    /// This column contains data used by [`HandwrittenMessage`s](crate::message_types::handwriting::HandwrittenMessage).
     pub fn raw_payload_data(&self, db: &Connection) -> Option<Vec<u8>> {
         let mut buf = Vec::new();
         self.get_blob(db, MESSAGE_PAYLOAD)?
