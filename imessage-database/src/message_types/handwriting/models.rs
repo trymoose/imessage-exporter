@@ -2,7 +2,6 @@
 [Handwritten](https://support.apple.com/en-us/HT206894) messages are animated doodles or messages sent in your own handwriting.
 */
 
-use std::cmp::{max, min};
 use std::fmt::Write;
 use std::io::Cursor;
 
@@ -21,16 +20,16 @@ use protobuf::Message;
 pub struct HandwrittenMessage {
     pub id: String,
     pub created_at: i64,
-    pub height: i16,
-    pub width: i16,
+    pub height: u16,
+    pub width: u16,
     pub strokes: Vec<Vec<Point>>,
 }
 
 /// Represents a point along a handwritten line.
 #[derive(Debug, PartialEq, Eq)]
 pub struct Point {
-    pub x: i16,
-    pub y: i16,
+    pub x: u16,
+    pub y: u16,
 }
 
 impl HandwrittenMessage {
@@ -38,15 +37,15 @@ impl HandwrittenMessage {
     pub fn from_payload(payload: &[u8]) -> Result<Self, HandwritingError> {
         let msg =
             BaseMessage::parse_from_bytes(payload).map_err(HandwritingError::ProtobufError)?;
-        let hw = parse_dimensions(&msg)?;
+        let (width, height) = parse_dimensions(&msg)?;
         let strokes = parse_strokes(&msg)?;
-        let maxes = get_max_dimension(&strokes);
+        let (max_x, max_y) = get_max_dimension(&strokes);
         Ok(Self {
             id: msg.ID.to_string(),
             created_at: msg.CreatedAt,
-            height: hw.1 + 5,
-            width: hw.0 + 5,
-            strokes: fit_strokes(&strokes, hw.1, hw.0, maxes.0, maxes.1),
+            height: height + 5,
+            width: width + 5,
+            strokes: fit_strokes(&strokes, height, width, max_x, max_y),
         })
     }
 
@@ -56,10 +55,10 @@ impl HandwrittenMessage {
         svg.push('\n');
         svg.push_str(format!(r#"<svg width="{}" height="{}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">"#, self.width, self.height).as_str());
         svg.push('\n');
-        svg.push_str(format!("<title>{}</title>\n", self.id).as_str());
+        svg.push_str(&format!("<title>{}</title>\n", self.id));
         svg.push_str("<metadata>\n");
-        svg.push_str(format!("<id>{}</id>\n", self.id).as_str());
-        svg.push_str(format!("<createdAt>{}</createdAt>\n", self.created_at).as_str());
+        svg.push_str(&format!("<id>{}</id>\n", self.id));
+        svg.push_str(&format!("<createdAt>{}</createdAt>\n", self.created_at));
         svg.push_str("</metadata>\n");
         generate_strokes(&mut svg, &self.strokes);
         svg.push_str("</svg>\n");
@@ -69,12 +68,12 @@ impl HandwrittenMessage {
     /// Renders the handwriting as an ascii graphic with a maximum height.
     pub fn render_ascii(&self, max_height: usize) -> String {
         // Create a blank canvas filled with spaces
-        let h = min(max_height, self.height as usize);
+        let h = max_height.min(self.height as usize);
         let w = ((self.width as usize) * h) / (self.height as usize);
         let mut canvas = vec![vec![' '; w]; h];
 
         // Plot the lines on the canvas
-        fit_strokes(&self.strokes, w as i16, h as i16, self.height, self.width)
+        fit_strokes(&self.strokes, w as u16, h as u16, self.height, self.width)
             .iter()
             .for_each(|line| {
                 line.windows(2).for_each(|window| {
@@ -147,10 +146,10 @@ fn generate_strokes(svg: &mut String, strokes: &[Vec<Point>]) {
 /// Converts all points from a canvas of `max_x` by `max_y` to a canvas of `height` and `width`.
 fn fit_strokes(
     strokes: &[Vec<Point>],
-    height: i16,
-    width: i16,
-    max_x: i16,
-    max_y: i16,
+    height: u16,
+    width: u16,
+    max_x: u16,
+    max_y: u16,
 ) -> Vec<Vec<Point>> {
     strokes
         .iter()
@@ -168,21 +167,18 @@ fn fit_strokes(
 }
 
 /// Resize converts `v` from a coordinate where `max_v` is the current height/width and `box_size` is the wanted height/width.
-fn resize(v: i16, box_size: i16, max_v: i16) -> i16 {
-    (v as i64 * box_size as i64 / max_v as i64) as i16
+fn resize(v: u16, box_size: u16, max_v: u16) -> u16 {
+    (v as i64 * box_size as i64 / max_v as i64) as u16
 }
 
 /// Iterates through each point in each stroke and extracts the maximum `x` and `y` values.
-fn get_max_dimension(strokes: &[Vec<Point>]) -> (i16, i16) {
-    let mut x = 0;
-    let mut y = 0;
-    strokes.iter().for_each(|stroke| {
-        stroke.iter().for_each(|point| {
-            x = max(x, point.x);
-            y = max(y, point.y);
-        });
-    });
-    (x, y)
+fn get_max_dimension(strokes: &[Vec<Point>]) -> (u16, u16) {
+    strokes
+        .iter()
+        .flat_map(|stroke| stroke.iter())
+        .fold((0, 0), |(max_x, max_y), point| {
+            (max_x.max(point.x), max_y.max(point.y))
+        })
 }
 
 /// Parses raw stroke data into an array of strokes.
@@ -208,8 +204,8 @@ fn parse_strokes(msg: &BaseMessage) -> Result<Vec<Vec<Point>>, HandwritingError>
 
         let mut stroke = vec![];
         (0..num_points).try_for_each(|_| -> Result<(), HandwritingError> {
-            let x = bytes2i16(data[idx], data[idx + 1])?;
-            let y = bytes2i16(data[idx + 2], data[idx + 3])?;
+            let x = parse_coordinates(data[idx], data[idx + 1]);
+            let y = parse_coordinates(data[idx + 2], data[idx + 3]);
             idx += 8;
             stroke.push(Point { x, y });
             Ok(())
@@ -258,20 +254,20 @@ fn decompress_strokes(msg: &BaseMessage) -> Result<Vec<u8>, HandwritingError> {
 }
 
 /// Parses the drawing size from the protobuf message.
-fn parse_dimensions(msg: &BaseMessage) -> Result<(i16, i16), HandwritingError> {
+fn parse_dimensions(msg: &BaseMessage) -> Result<(u16, u16), HandwritingError> {
     let rect = &msg.Handwriting.Frame;
     if rect.len() != 8 {
         return Err(HandwritingError::InvalidFrameSize(rect.len()));
     }
-    Ok((bytes2i16(rect[4], rect[5])?, bytes2i16(rect[6], rect[7])?))
+    Ok((
+        parse_coordinates(rect[4], rect[5]),
+        parse_coordinates(rect[6], rect[7]),
+    ))
 }
 
-/// Converts coordinate bytes to an i16.
-fn bytes2i16(b1: u8, b2: u8) -> Result<i16, HandwritingError> {
-    let mut int16 = i16::from_le_bytes([b1, b2]);
-    let uint16 = (int16 as u16) ^ 0x8000;
-    int16 = uint16 as i16;
-    Ok(int16)
+/// Converts coordinate bytes to an u16.
+fn parse_coordinates(b1: u8, b2: u8) -> u16 {
+    u16::from_le_bytes([b1, b2]) ^ 0x8000
 }
 
 #[cfg(test)]
