@@ -665,12 +665,12 @@ impl<'a> Writer<'a> for HTML<'a> {
 
                         return Ok(out_s);
                     }
-                } else if let Some(payload) = message.raw_payload_data(&self.config.db) {
+                } else if message.is_handwriting() {
                     // Handwritten messages use a different payload type
-                    if matches!(balloon, CustomBalloon::Handwriting) {
+                    if let Some(payload) = message.raw_payload_data(&self.config.db) {
                         return match HandwrittenMessage::from_payload(&payload) {
                             Ok(bubble) => Ok(self.format_handwriting(&bubble, message)),
-                            Err(why) => Err(why),
+                            Err(why) => Err(PlistParseError::HandwritingError(why)),
                         };
                     }
                 }

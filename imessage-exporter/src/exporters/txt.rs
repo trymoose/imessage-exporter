@@ -459,12 +459,12 @@ impl<'a> Writer<'a> for TXT<'a> {
                     if let Some(text) = &message.text {
                         return Ok(text.to_string());
                     }
-                } else if let Some(payload) = message.raw_payload_data(&self.config.db) {
+                } else if message.is_handwriting() {
                     // Handwritten messages use a different payload type
-                    if matches!(balloon, CustomBalloon::Handwriting) {
+                    if let Some(payload) = message.raw_payload_data(&self.config.db) {
                         return match HandwrittenMessage::from_payload(&payload) {
                             Ok(bubble) => Ok(self.format_handwriting(&bubble, indent)),
-                            Err(why) => Err(why),
+                            Err(why) => Err(PlistParseError::HandwritingError(why)),
                         };
                     }
                 }
