@@ -42,6 +42,7 @@ impl AttachmentManager {
         }
     }
 
+    /// Handle a handwriting message, writing it to an SVG file
     pub fn handle_handwriting(
         &self,
         handwriting: &HandwrittenMessage,

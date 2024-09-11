@@ -819,8 +819,8 @@ impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
             .map(|filepath| format!("{indent}{filepath}"))
             .unwrap_or_else(|| {
                 balloon
-                    .render_ascii()
-                    .replace("\n", format!("{indent}\n").as_str())
+                    .render_ascii(40)
+                    .replace("\n", &format!("{indent}\n"))
             })
     }
 

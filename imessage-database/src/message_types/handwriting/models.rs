@@ -66,9 +66,9 @@ impl HandwrittenMessage {
     }
 
     /// Renders the handwriting as an ascii graphic with a maximum height of 40.
-    pub fn render_ascii(&self) -> String {
+    pub fn render_ascii(&self, max_height: usize) -> String {
         // Create a blank canvas filled with spaces
-        let h = min(40, self.height) as usize;
+        let h = min(max_height, self.height as usize);
         let w = ((self.width as usize) * h) / (self.height as usize);
         let mut canvas = vec![vec![' '; w]; h];
 
@@ -2487,6 +2487,28 @@ mod tests {
         let mut expected_data = File::open(expected_path).unwrap();
         expected_data.read_to_string(&mut expected).unwrap();
 
-        assert_eq!(balloon.render_ascii(), expected);
+        assert_eq!(balloon.render_ascii(40), expected);
+    }
+
+    #[test]
+    fn test_parse_handwritten_as_ascii_half() {
+        let protobuf_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/handwriting.bin");
+        let mut proto_data = File::open(protobuf_path).unwrap();
+        let mut data = vec![];
+        proto_data.read_to_end(&mut data).unwrap();
+        let balloon = HandwrittenMessage::from_payload(&data).unwrap();
+
+        let mut expected = String::new();
+        let expected_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/handwriting_half.ascii");
+        let mut expected_data = File::open(expected_path).unwrap();
+        expected_data.read_to_string(&mut expected).unwrap();
+
+        assert_eq!(balloon.render_ascii(20), expected);
     }
 }
