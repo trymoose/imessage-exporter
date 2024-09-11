@@ -19,9 +19,11 @@ use protobuf::Message;
 #[derive(Debug, PartialEq, Eq)]
 pub struct HandwrittenMessage {
     pub id: String,
+    /// Timestamp for when the handwritten message was created, stored as a unix timestamp with an epoch of `2001-01-01 00:00:00` in the local time zone
     pub created_at: i64,
     pub height: u16,
     pub width: u16,
+    /// Collection of strokes that make up the handwritten image
     pub strokes: Vec<Vec<Point>>,
 }
 
@@ -33,7 +35,7 @@ pub struct Point {
 }
 
 impl HandwrittenMessage {
-    /// Converts a raw byte payload from the database into a handwriting image.
+    /// Converts a raw byte payload from the database into a [`HandwrittenMessage`].
     pub fn from_payload(payload: &[u8]) -> Result<Self, HandwritingError> {
         let msg =
             BaseMessage::parse_from_bytes(payload).map_err(HandwritingError::ProtobufError)?;
@@ -53,7 +55,7 @@ impl HandwrittenMessage {
     pub fn render_svg(&self) -> String {
         let mut svg = String::new();
         svg.push('\n');
-        svg.push_str(format!(r#"<svg width="{}" height="{}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">"#, self.width, self.height).as_str());
+        svg.push_str(format!(r#"<svg viewBox="0 0 {} {}" preserveAspectRatio="xMidYMid meet" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">"#, self.width, self.height).as_str());
         svg.push('\n');
         svg.push_str(&format!("<title>{}</title>\n", self.id));
         svg.push_str("<metadata>\n");
