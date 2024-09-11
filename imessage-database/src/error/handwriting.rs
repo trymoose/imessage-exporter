@@ -1,5 +1,5 @@
 /*!
- Errors that can happen when parsing `typedstream` data. This module is for the new `typedstream` deserializer.
+ Errors that can happen when parsing `handwriting` data.
 */
 
 use std::fmt::{Display, Formatter, Result};
@@ -15,6 +15,7 @@ pub enum HandwritingError {
     ConversionError,
     DecompressedNotSet,
     InvalidDecompressedLength(usize, usize),
+    ResizeError(std::num::TryFromIntError),
 }
 
 impl Display for HandwritingError {
@@ -35,6 +36,9 @@ impl Display for HandwritingError {
             }
             HandwritingError::InvalidDecompressedLength(expected, got) => {
                 write!(fmt, "expected decompressed length of {expected}, got {got}")
+            }
+            HandwritingError::ResizeError(why) => {
+                write!(fmt, "failed to resize handwriting coordinates: {why}")
             }
         }
     }
