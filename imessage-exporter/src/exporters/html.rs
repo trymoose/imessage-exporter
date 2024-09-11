@@ -881,14 +881,22 @@ impl<'a> Writer<'a> for HTML<'a> {
 }
 
 impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
-    fn format_url(&self, balloon: &URLMessage, _: &Message) -> String {
+    fn format_url(&self, balloon: &URLMessage, message: &Message) -> String {
         let mut out_s = String::new();
 
         // Make the whole bubble clickable
+        let mut close_url = false;
         if let Some(url) = balloon.get_url() {
             out_s.push_str("<a href=\"");
             out_s.push_str(url);
             out_s.push_str("\">");
+            close_url = true;
+        } else if let Some(text) = &message.text {
+            // Fallback if the balloon data does not contain the URL
+            out_s.push_str("<a href=\"");
+            out_s.push_str(text);
+            out_s.push_str("\">");
+            close_url = true;
         }
 
         // Header section
@@ -912,6 +920,11 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
         } else if let Some(url) = balloon.get_url() {
             out_s.push_str("<div class=\"name\">");
             out_s.push_str(url);
+            out_s.push_str("</div>");
+        } else if let Some(text) = &message.text {
+            // Fallback if the balloon data does not contain the URL
+            out_s.push_str("<div class=\"name\">");
+            out_s.push_str(text);
             out_s.push_str("</div>");
         }
 
@@ -941,7 +954,7 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
         }
 
         // End the link
-        if balloon.get_url().is_some() {
+        if close_url {
             out_s.push_str("</a>");
         }
         out_s
