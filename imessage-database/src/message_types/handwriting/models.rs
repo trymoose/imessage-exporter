@@ -197,7 +197,7 @@ fn parse_strokes(msg: &BaseMessage) -> Result<Vec<Vec<Point>>, HandwritingError>
             return Err(HandwritingError::InvalidStrokesLength(idx + 1, length));
         }
 
-        let num_points = i16::from_le_bytes([data[idx], data[idx + 1]]) as usize;
+        let num_points = u16::from_le_bytes([data[idx], data[idx + 1]]) as usize;
         idx += 2;
         if idx + (num_points * 8) > length {
             return Err(HandwritingError::InvalidStrokesLength(
@@ -225,7 +225,6 @@ fn decompress_strokes(msg: &BaseMessage) -> Result<Vec<u8>, HandwritingError> {
         Compression::None => msg.Handwriting.Strokes.clone(),
         Compression::XZ => {
             let mut cursor = Cursor::new(&msg.Handwriting.Strokes);
-            // let mut decoder = XzDecoder::new(cursor);
             let mut buf = Vec::new();
             lzma_rs::xz_decompress(&mut cursor, &mut buf).map_err(HandwritingError::XZError)?;
             buf
@@ -2664,6 +2663,6 @@ mod tests {
         let mut expected_data = File::open(expected_path).unwrap();
         expected_data.read_to_string(&mut expected).unwrap();
 
-        assert_eq!(balloon.render_ascii(20), expected);
+        assert_eq!(balloon.render_svg(), expected);
     }
 }
