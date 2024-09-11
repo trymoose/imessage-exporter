@@ -7,7 +7,7 @@ use std::fmt::Write;
 use std::io::Cursor;
 
 use crate::{
-    error::{handwriting::HandwritingError, plist::PlistParseError},
+    error::handwriting::HandwritingError,
     message_types::handwriting::handwriting_proto::{BaseMessage, Compression},
 };
 
@@ -34,10 +34,9 @@ pub struct Point {
 
 impl HandwrittenMessage {
     /// Converts a raw byte payload from the database into a handwriting image.
-    pub fn from_payload(payload: &[u8]) -> Result<Self, PlistParseError> {
-        let msg = BaseMessage::parse_from_bytes(payload)
-            .map_err(HandwritingError::ProtobufError)
-            .map_err(PlistParseError::HandwritingError)?;
+    pub fn from_payload(payload: &[u8]) -> Result<Self, HandwritingError> {
+        let msg =
+            BaseMessage::parse_from_bytes(payload).map_err(HandwritingError::ProtobufError)?;
         let hw = parse_dimensions(&msg)?;
         let strokes = parse_strokes(&msg)?;
         let maxes = get_max_dimension(&strokes);
@@ -53,7 +52,6 @@ impl HandwrittenMessage {
     /// Renders the handwriting as an svg graphic.
     pub fn render_svg(&self) -> String {
         let mut svg = String::new();
-        // svg.push_str(r#"<?xml version="1.0"?>"#);
         svg.push('\n');
         svg.push_str(format!(r#"<svg width="{}" height="{}" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">"#, self.width, self.height).as_str());
         svg.push('\n');
@@ -75,26 +73,28 @@ impl HandwrittenMessage {
         let mut canvas = vec![vec![' '; w]; h];
 
         // Plot the lines on the canvas
-        for line in &fit_strokes(&self.strokes, w as i16, h as i16, self.height, self.width) {
-            for i in 0..line.len() - 1 {
-                draw_line(&mut canvas, &line[i], &line[i + 1]);
-            }
-        }
+        fit_strokes(&self.strokes, w as i16, h as i16, self.height, self.width)
+            .iter()
+            .for_each(|line| {
+                line.windows(2).for_each(|window| {
+                    draw_line(&mut canvas, &window[0], &window[1]);
+                });
+            });
 
         // Convert the canvas to a string
-        let mut output = String::new();
-        for row in canvas {
-            for &ch in &row {
+        let mut output = String::with_capacity(h * (w + 1));
+        canvas.into_iter().for_each(|row| {
+            row.iter().for_each(|&ch| {
                 let _ = write!(output, "{}", ch);
-            }
+            });
             output.push('\n');
-        }
+        });
 
         output
     }
 }
 
-///  Draws a line on a 2d character grid using Bresenham's line algorithm.
+/// Draws a line on a 2d character grid using Bresenham's line algorithm.
 fn draw_line(canvas: &mut [Vec<char>], start: &Point, end: &Point) {
     let mut x_curr = start.x as i64;
     let mut y_curr = start.y as i64;
@@ -131,16 +131,16 @@ fn draw_point(canvas: &mut [Vec<char>], x: i64, y: i64) {
 }
 
 /// Generates svg lines from an array of strokes.
-fn generate_strokes(svg: &mut String, strokes: &Vec<Vec<Point>>) {
-    for stroke in strokes {
+fn generate_strokes(svg: &mut String, strokes: &[Vec<Point>]) {
+    strokes.iter().for_each(|stroke| {
         let mut points = Vec::new();
-        for point in stroke {
+        stroke.iter().for_each(|point| {
             points.push(format!("{},{}", point.x, point.y));
-        }
+        });
         let line = points.join(" ");
         svg.push_str(format!(r#"<polyline points="{}" fill="none" stroke="black" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" />"#, line).as_str());
         svg.push('\n');
-    }
+    });
 }
 
 /// Converts all points from a canvas of `max_x` by `max_y` to a canvas of `height` and `width`.
@@ -175,17 +175,17 @@ fn resize(v: i16, box_size: i16, max_v: i16) -> i16 {
 fn get_max_dimension(strokes: &[Vec<Point>]) -> (i16, i16) {
     let mut x = 0;
     let mut y = 0;
-    for stroke in strokes.iter() {
-        for point in stroke.iter() {
+    strokes.iter().for_each(|stroke| {
+        stroke.iter().for_each(|point| {
             x = max(x, point.x);
             y = max(y, point.y);
-        }
-    }
+        });
+    });
     (x, y)
 }
 
 /// Parses raw stroke data into an array of strokes.
-fn parse_strokes(msg: &BaseMessage) -> Result<Vec<Vec<Point>>, PlistParseError> {
+fn parse_strokes(msg: &BaseMessage) -> Result<Vec<Vec<Point>>, HandwritingError> {
     let data = decompress_strokes(msg)?;
 
     let mut strokes = vec![];
@@ -193,48 +193,44 @@ fn parse_strokes(msg: &BaseMessage) -> Result<Vec<Vec<Point>>, PlistParseError> 
     let length = data.len();
     while idx < length {
         if idx + 1 >= length {
-            return Err(PlistParseError::HandwritingError(
-                HandwritingError::InvalidStrokesLength(idx + 1, length),
-            ));
+            return Err(HandwritingError::InvalidStrokesLength(idx + 1, length));
         }
 
         let num_points = i16::from_le_bytes([data[idx], data[idx + 1]]) as usize;
         idx += 2;
         if idx + (num_points * 8) > length {
-            return Err(PlistParseError::HandwritingError(
-                HandwritingError::InvalidStrokesLength(idx + (num_points * 8), length),
+            return Err(HandwritingError::InvalidStrokesLength(
+                idx + (num_points * 8),
+                length,
             ));
         }
 
         let mut stroke = vec![];
-        for _ in 0..num_points {
+        (0..num_points).try_for_each(|_| -> Result<(), HandwritingError> {
             let x = bytes2i16(data[idx], data[idx + 1])?;
             let y = bytes2i16(data[idx + 2], data[idx + 3])?;
             idx += 8;
             stroke.push(Point { x, y });
-        }
+            Ok(())
+        })?;
         strokes.push(stroke);
     }
     Ok(strokes)
 }
 
 /// Decompresses raw stroke data and verifies length.
-fn decompress_strokes(msg: &BaseMessage) -> Result<Vec<u8>, PlistParseError> {
+fn decompress_strokes(msg: &BaseMessage) -> Result<Vec<u8>, HandwritingError> {
     let data = match msg.Handwriting.Compression.enum_value_or_default() {
         Compression::None => msg.Handwriting.Strokes.clone(),
         Compression::XZ => {
             let mut cursor = Cursor::new(&msg.Handwriting.Strokes);
             // let mut decoder = XzDecoder::new(cursor);
             let mut buf = Vec::new();
-            lzma_rs::xz_decompress(&mut cursor, &mut buf)
-                .map_err(HandwritingError::XZError)
-                .map_err(PlistParseError::HandwritingError)?;
+            lzma_rs::xz_decompress(&mut cursor, &mut buf).map_err(HandwritingError::XZError)?;
             buf
         }
         Compression::Unknown => {
-            return Err(PlistParseError::HandwritingError(
-                HandwritingError::CompressionUnknown,
-            ));
+            return Err(HandwritingError::CompressionUnknown);
         }
     };
 
@@ -242,43 +238,36 @@ fn decompress_strokes(msg: &BaseMessage) -> Result<Vec<u8>, PlistParseError> {
         Compression::None => data.len(),
         Compression::XZ => {
             if let Some(decompress_size) = msg.Handwriting.DecompressedLength {
-                usize::try_from(decompress_size).map_err(|_| {
-                    PlistParseError::HandwritingError(HandwritingError::ConversionError)
-                })?
+                usize::try_from(decompress_size).map_err(|_| HandwritingError::ConversionError)?
             } else {
-                return Err(PlistParseError::HandwritingError(
-                    HandwritingError::DecompressedNotSet,
-                ));
+                return Err(HandwritingError::DecompressedNotSet);
             }
         }
         Compression::Unknown => {
-            return Err(PlistParseError::HandwritingError(
-                HandwritingError::CompressionUnknown,
-            ));
+            return Err(HandwritingError::CompressionUnknown);
         }
     };
 
     if length != data.len() {
-        return Err(PlistParseError::HandwritingError(
-            HandwritingError::InvalidDecompressedLength(length, data.len()),
+        return Err(HandwritingError::InvalidDecompressedLength(
+            length,
+            data.len(),
         ));
     }
     Ok(data)
 }
 
 /// Parses the drawing size from the protobuf message.
-fn parse_dimensions(msg: &BaseMessage) -> Result<(i16, i16), PlistParseError> {
+fn parse_dimensions(msg: &BaseMessage) -> Result<(i16, i16), HandwritingError> {
     let rect = &msg.Handwriting.Frame;
     if rect.len() != 8 {
-        return Err(PlistParseError::HandwritingError(
-            HandwritingError::InvalidFrameSize(rect.len()),
-        ));
+        return Err(HandwritingError::InvalidFrameSize(rect.len()));
     }
     Ok((bytes2i16(rect[4], rect[5])?, bytes2i16(rect[6], rect[7])?))
 }
 
 /// Converts coordinate bytes to an i16.
-fn bytes2i16(b1: u8, b2: u8) -> Result<i16, PlistParseError> {
+fn bytes2i16(b1: u8, b2: u8) -> Result<i16, HandwritingError> {
     let mut int16 = i16::from_le_bytes([b1, b2]);
     let uint16 = (int16 as u16) ^ 0x8000;
     int16 = uint16 as i16;
@@ -2477,5 +2466,27 @@ mod tests {
         };
 
         assert_eq!(balloon, expected);
+    }
+
+    #[test]
+    fn test_parse_handwritten_as_ascii() {
+        let protobuf_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/handwriting.bin");
+        let mut proto_data = File::open(protobuf_path).unwrap();
+        let mut data = vec![];
+        proto_data.read_to_end(&mut data).unwrap();
+        let balloon = HandwrittenMessage::from_payload(&data).unwrap();
+
+        let mut expected = String::new();
+        let expected_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/handwriting.ascii");
+        let mut expected_data = File::open(expected_path).unwrap();
+        expected_data.read_to_string(&mut expected).unwrap();
+
+        assert_eq!(balloon.render_ascii(), expected);
     }
 }
