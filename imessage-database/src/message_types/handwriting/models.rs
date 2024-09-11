@@ -1,4 +1,4 @@
-/*
+/*!
 [Handwritten](https://support.apple.com/en-us/HT206894) messages are animated doodles or messages sent in your own handwriting.
 */
 
@@ -13,7 +13,8 @@ use crate::{
 
 use protobuf::Message;
 
-/// Parser for [handwritten](https://support.apple.com/en-us/HT206894) iMessages
+/// Parser for [handwritten](https://support.apple.com/en-us/HT206894) iMessages.
+///
 /// This message type is not documented by Apple, but represents messages displayed as
 /// `com.apple.Handwriting.HandwritingProvider`.
 #[derive(Debug, PartialEq, Eq)]
@@ -49,7 +50,7 @@ impl HandwrittenMessage {
         })
     }
 
-    /// Renders the handwriting as an svg graphic.
+    /// Renders the handwriting as an `svg` graphic.
     pub fn render_svg(&self) -> String {
         let mut svg = String::new();
         svg.push('\n');
@@ -65,7 +66,7 @@ impl HandwrittenMessage {
         svg
     }
 
-    /// Renders the handwriting as an ascii graphic with a maximum height of 40.
+    /// Renders the handwriting as an ascii graphic with a maximum height.
     pub fn render_ascii(&self, max_height: usize) -> String {
         // Create a blank canvas filled with spaces
         let h = min(max_height, self.height as usize);
@@ -168,7 +169,7 @@ fn fit_strokes(
 
 /// Resize converts `v` from a coordinate where `max_v` is the current height/width and `box_size` is the wanted height/width.
 fn resize(v: i16, box_size: i16, max_v: i16) -> i16 {
-    i16::try_from((i64::from(v) * i64::from(box_size)) / i64::from(max_v)).unwrap()
+    (v as i64 * box_size as i64 / max_v as i64) as i16
 }
 
 /// Iterates through each point in each stroke and extracts the maximum `x` and `y` values.
@@ -2506,6 +2507,160 @@ mod tests {
             .unwrap()
             .as_path()
             .join("test_data/handwritten_message/handwriting_half.ascii");
+        let mut expected_data = File::open(expected_path).unwrap();
+        expected_data.read_to_string(&mut expected).unwrap();
+
+        assert_eq!(balloon.render_ascii(20), expected);
+    }
+
+    #[test]
+    fn test_parse_handwritten_as_ascii_old() {
+        let protobuf_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/test.bin");
+        let mut proto_data = File::open(protobuf_path).unwrap();
+        let mut data = vec![];
+        proto_data.read_to_end(&mut data).unwrap();
+        let balloon = HandwrittenMessage::from_payload(&data).unwrap();
+
+        let mut expected = String::new();
+        let expected_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/test.ascii");
+        let mut expected_data = File::open(expected_path).unwrap();
+        expected_data.read_to_string(&mut expected).unwrap();
+
+        assert_eq!(balloon.render_ascii(20), expected);
+    }
+
+    #[test]
+    fn test_parse_handwritten_as_ascii_builtin() {
+        let protobuf_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/hello.bin");
+        let mut proto_data = File::open(protobuf_path).unwrap();
+        let mut data = vec![];
+        proto_data.read_to_end(&mut data).unwrap();
+        let balloon = HandwrittenMessage::from_payload(&data).unwrap();
+
+        let mut expected = String::new();
+        let expected_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/hello.ascii");
+        let mut expected_data = File::open(expected_path).unwrap();
+        expected_data.read_to_string(&mut expected).unwrap();
+
+        assert_eq!(balloon.render_ascii(20), expected);
+    }
+
+    #[test]
+    fn test_parse_handwritten_as_ascii_pollock() {
+        let protobuf_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/pollock.bin");
+        let mut proto_data = File::open(protobuf_path).unwrap();
+        let mut data = vec![];
+        proto_data.read_to_end(&mut data).unwrap();
+        let balloon = HandwrittenMessage::from_payload(&data).unwrap();
+
+        let mut expected = String::new();
+        let expected_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/pollock.ascii");
+        let mut expected_data = File::open(expected_path).unwrap();
+        expected_data.read_to_string(&mut expected).unwrap();
+
+        assert_eq!(balloon.render_ascii(20), expected);
+    }
+
+    #[test]
+    fn test_parse_handwritten_as_svg() {
+        let protobuf_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/handwriting.bin");
+        let mut proto_data = File::open(protobuf_path).unwrap();
+        let mut data = vec![];
+        proto_data.read_to_end(&mut data).unwrap();
+        let balloon = HandwrittenMessage::from_payload(&data).unwrap();
+
+        let mut expected = String::new();
+        let expected_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/handwriting.svg");
+        let mut expected_data = File::open(expected_path).unwrap();
+        expected_data.read_to_string(&mut expected).unwrap();
+
+        assert_eq!(balloon.render_svg(), expected);
+    }
+
+    #[test]
+    fn test_parse_handwritten_as_svg_old() {
+        let protobuf_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/test.bin");
+        let mut proto_data = File::open(protobuf_path).unwrap();
+        let mut data = vec![];
+        proto_data.read_to_end(&mut data).unwrap();
+        let balloon = HandwrittenMessage::from_payload(&data).unwrap();
+
+        let mut expected = String::new();
+        let expected_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/test.svg");
+        let mut expected_data = File::open(expected_path).unwrap();
+        expected_data.read_to_string(&mut expected).unwrap();
+
+        assert_eq!(balloon.render_svg(), expected);
+    }
+
+    #[test]
+    fn test_parse_handwritten_as_svg_builtin() {
+        let protobuf_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/hello.bin");
+        let mut proto_data = File::open(protobuf_path).unwrap();
+        let mut data = vec![];
+        proto_data.read_to_end(&mut data).unwrap();
+        let balloon = HandwrittenMessage::from_payload(&data).unwrap();
+
+        let mut expected = String::new();
+        let expected_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/hello.svg");
+        let mut expected_data = File::open(expected_path).unwrap();
+        expected_data.read_to_string(&mut expected).unwrap();
+
+        assert_eq!(balloon.render_svg(), expected);
+    }
+
+    #[test]
+    fn test_parse_handwritten_as_svg_pollock() {
+        let protobuf_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/pollock.bin");
+        let mut proto_data = File::open(protobuf_path).unwrap();
+        let mut data = vec![];
+        proto_data.read_to_end(&mut data).unwrap();
+        let balloon = HandwrittenMessage::from_payload(&data).unwrap();
+
+        let mut expected = String::new();
+        let expected_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/handwritten_message/pollock.svg");
         let mut expected_data = File::open(expected_path).unwrap();
         expected_data.read_to_string(&mut expected).unwrap();
 
