@@ -3,7 +3,7 @@
 */
 
 use rusqlite::{Connection, Error, Result, Row, Statement};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeSet, HashMap};
 
 use crate::{
     error::table::TableError,
@@ -97,7 +97,7 @@ impl Deduplicate for Handle {
     ///
     /// This returns a new hashmap that maps the real handle ID to a new deduplicated unique handle ID
     /// that represents a single handle for all of the deduplicate handles.
-    /// 
+    ///
     /// Assuming no new handles have been written to the database, deduplicated data is deterministic across runs.
     fn dedupe(duplicated_data: &HashMap<i32, Self::T>) -> HashMap<i32, i32> {
         let mut deduplicated_participants: HashMap<i32, i32> = HashMap::new();
@@ -182,7 +182,7 @@ impl Handle {
     /// that represents all of the copies, so any handle ID will always map to the same string
     /// for a given chat participant
     fn get_person_id_map(db: &Connection) -> Result<HashMap<i32, String>, TableError> {
-        let mut person_to_id: HashMap<String, HashSet<String>> = HashMap::new();
+        let mut person_to_id: HashMap<String, BTreeSet<String>> = HashMap::new();
         let mut row_to_id: HashMap<i32, String> = HashMap::new();
         let mut row_data: Vec<(String, i32, String)> = vec![];
 
@@ -222,7 +222,7 @@ impl Handle {
                 if let Some(set) = person_to_id.get_mut(person_centric_id) {
                     set.insert(id.to_owned());
                 } else {
-                    let mut set = HashSet::new();
+                    let mut set = BTreeSet::new();
                     set.insert(id.to_owned());
                     person_to_id.insert(person_centric_id.to_owned(), set);
                 }
