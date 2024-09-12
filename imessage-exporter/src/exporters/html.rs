@@ -617,7 +617,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                     let parsed = parse_plist(&payload)?;
                     let bubble = URLMessage::get_url_message_override(&parsed)?;
                     match bubble {
-                        URLOverride::Normal(balloon) => self.format_url(&balloon, message),
+                        URLOverride::Normal(balloon) => self.format_url(message, &balloon, message),
                         URLOverride::AppleMusic(balloon) => self.format_music(&balloon, message),
                         URLOverride::Collaboration(balloon) => {
                             self.format_collaboration(&balloon, message)
@@ -881,7 +881,7 @@ impl<'a> Writer<'a> for HTML<'a> {
 }
 
 impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
-    fn format_url(&self, balloon: &URLMessage, message: &Message) -> String {
+    fn format_url(&self, msg: &Message, balloon: &URLMessage, _: &Message) -> String {
         let mut out_s = String::new();
 
         // Make the whole bubble clickable
@@ -891,7 +891,7 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
             out_s.push_str(url);
             out_s.push_str("\">");
             close_url = true;
-        } else if let Some(text) = &message.text {
+        } else if let Some(text) = &msg.text {
             // Fallback if the balloon data does not contain the URL
             out_s.push_str("<a href=\"");
             out_s.push_str(text);
@@ -921,7 +921,7 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
             out_s.push_str("<div class=\"name\">");
             out_s.push_str(url);
             out_s.push_str("</div>");
-        } else if let Some(text) = &message.text {
+        } else if let Some(text) = &msg.text {
             // Fallback if the balloon data does not contain the URL
             out_s.push_str("<div class=\"name\">");
             out_s.push_str(text);
@@ -2292,7 +2292,7 @@ mod balloon_format_tests {
             placeholder: false,
         };
 
-        let expected = exporter.format_url(&balloon, &blank());
+        let expected = exporter.format_url(&blank(), &balloon, &blank());
         let actual = "<a href=\"url\"><div class=\"app_header\"><img src=\"images\" loading=\"lazy\", onerror=\"this.style.display='none'\"><div class=\"name\">site_name</div></div><div class=\"app_footer\"><div class=\"caption\">title</div><div class=\"subcaption\">summary</div></div></a>";
 
         assert_eq!(expected, actual);
@@ -2318,7 +2318,7 @@ mod balloon_format_tests {
             placeholder: false,
         };
 
-        let expected = exporter.format_url(&balloon, &blank());
+        let expected = exporter.format_url(&blank(), &balloon, &blank());
         let actual = "<a href=\"url\"><div class=\"app_header\"><img src=\"images\" onerror=\"this.style.display='none'\"><div class=\"name\">site_name</div></div><div class=\"app_footer\"><div class=\"caption\">title</div><div class=\"subcaption\">summary</div></div></a>";
 
         assert_eq!(expected, actual);

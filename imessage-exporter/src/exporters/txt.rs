@@ -425,7 +425,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                     let parsed = parse_plist(&payload)?;
                     let bubble = URLMessage::get_url_message_override(&parsed)?;
                     match bubble {
-                        URLOverride::Normal(balloon) => self.format_url(&balloon, indent),
+                        URLOverride::Normal(balloon) => self.format_url(message, &balloon, indent),
                         URLOverride::AppleMusic(balloon) => self.format_music(&balloon, indent),
                         URLOverride::Collaboration(balloon) => {
                             self.format_collaboration(&balloon, indent)
@@ -661,11 +661,13 @@ impl<'a> Writer<'a> for TXT<'a> {
 }
 
 impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
-    fn format_url(&self, balloon: &URLMessage, indent: &str) -> String {
+    fn format_url(&self, msg: &Message, balloon: &URLMessage, indent: &str) -> String {
         let mut out_s = String::new();
 
         if let Some(url) = balloon.get_url() {
             self.add_line(&mut out_s, url, indent);
+        } else if let Some(text) = &msg.text {
+            self.add_line(&mut out_s, text, indent);
         }
 
         if let Some(title) = balloon.title {
@@ -1694,7 +1696,7 @@ mod tests {
 mod balloon_format_tests {
     use std::env::set_var;
 
-    use super::tests::{fake_config, fake_options};
+    use super::tests::{blank, fake_config, fake_options};
     use crate::{exporters::exporter::BalloonFormatter, Exporter, TXT};
     use imessage_database::message_types::{
         app::AppMessage,
@@ -1724,7 +1726,7 @@ mod balloon_format_tests {
             placeholder: false,
         };
 
-        let expected = exporter.format_url(&balloon, "");
+        let expected = exporter.format_url(&blank(), &balloon, "");
         let actual = "url\ntitle\nsummary";
 
         assert_eq!(expected, actual);
