@@ -1,7 +1,6 @@
 use std::{
     fmt::Display,
-    fs,
-    fs::{copy, create_dir_all, metadata},
+    fs::{copy, create_dir_all, metadata, write},
     path::{Path, PathBuf},
 };
 
@@ -75,7 +74,7 @@ impl AttachmentManager {
             }
 
             // Attempt the svg render
-            if let Err(why) = fs::write(to.to_str()?, handwriting.render_svg()) {
+            if let Err(why) = write(to.to_str()?, handwriting.render_svg()) {
                 eprintln!("Unable to write to {to:?}: {why}");
             };
 
@@ -119,7 +118,7 @@ impl AttachmentManager {
             let sub_dir = config.conversation_attachment_path(message.chat_id);
             to.push(sub_dir);
 
-            // Add a random filename
+            // Add a stable filename
             to.push(attachment.rowid.to_string());
 
             // Set the new file's extension to the original one
