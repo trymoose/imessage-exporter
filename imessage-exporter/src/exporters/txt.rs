@@ -419,6 +419,16 @@ impl<'a> Writer<'a> for TXT<'a> {
         if let Variant::App(balloon) = message.variant() {
             let mut app_bubble = String::new();
 
+            // Handwritten messages use a different payload type, so check that first
+            if message.is_handwriting() {
+                if let Some(payload) = message.raw_payload_data(&self.config.db) {
+                    return match HandwrittenMessage::from_payload(&payload) {
+                        Ok(bubble) => Ok(self.format_handwriting(message, &bubble, indent)),
+                        Err(why) => Err(PlistParseError::HandwritingError(why)),
+                    };
+                }
+            }
+
             if let Some(payload) = message.payload_data(&self.config.db) {
                 // Handle URL messages separately since they are a special case
                 let res = if message.is_url() {
@@ -461,14 +471,6 @@ impl<'a> Writer<'a> for TXT<'a> {
                 if message.is_url() {
                     if let Some(text) = &message.text {
                         return Ok(text.to_string());
-                    }
-                } else if message.is_handwriting() {
-                    // Handwritten messages use a different payload type
-                    if let Some(payload) = message.raw_payload_data(&self.config.db) {
-                        return match HandwrittenMessage::from_payload(&payload) {
-                            Ok(bubble) => Ok(self.format_handwriting(message, &bubble, indent)),
-                            Err(why) => Err(PlistParseError::HandwritingError(why)),
-                        };
                     }
                 }
                 return Err(PlistParseError::NoPayload);
