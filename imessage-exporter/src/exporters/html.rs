@@ -669,7 +669,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                     // Handwritten messages use a different payload type
                     if let Some(payload) = message.raw_payload_data(&self.config.db) {
                         return match HandwrittenMessage::from_payload(&payload) {
-                            Ok(bubble) => Ok(self.format_handwriting(&bubble, message)),
+                            Ok(bubble) => Ok(self.format_handwriting(message, &bubble, message)),
                             Err(why) => Err(PlistParseError::HandwritingError(why)),
                         };
                     }
@@ -1208,7 +1208,7 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
         out_s
     }
 
-    fn format_handwriting(&self, balloon: &HandwrittenMessage, _: &Message) -> String {
+    fn format_handwriting(&self, _: &Message, balloon: &HandwrittenMessage, _: &Message) -> String {
         // svg can be embedded directly into the html
         balloon.render_svg()
     }
