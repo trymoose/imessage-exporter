@@ -124,6 +124,10 @@ impl AttachmentManager {
 
             // Set the new file's extension to the original one
             to.set_extension(attachment.extension()?);
+            if to.exists() {
+                attachment.copied_path = Some(to);
+                return Some(());
+            }
 
             match self {
                 AttachmentManager::Compatible => match &config.converter {
