@@ -319,7 +319,7 @@ mod tests {
     use crate::message_types::handwriting::models::{HandwrittenMessage, Point};
     use std::env::current_dir;
     use std::fs::File;
-    use std::io::{Read, Write};
+    use std::io::Read;
 
     #[test]
     fn test_parse_handwritten_from_payload() {
