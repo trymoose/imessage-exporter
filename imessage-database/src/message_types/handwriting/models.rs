@@ -159,7 +159,8 @@ fn generate_strokes(svg: &mut String, strokes: &[Vec<Point>]) {
     });
 }
 
-fn group_points(stroke: &Vec<Point>) -> Vec<(u16, Vec<&Point>)> {
+/// Group points along a stroke together by width
+fn group_points(stroke: &[Point]) -> Vec<(u16, Vec<&Point>)> {
     let mut groups = vec![];
     let mut curr = stroke[0].width;
     let mut segment = vec![];
