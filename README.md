@@ -42,6 +42,7 @@ This crate supports every iMessage feature as of macOS 14.6.1 (23G93) and iOS 17
 - URL Previews
 - App Integrations
 - Edited messages
+- Handwritten messages
 
 See more detail about supported features [here](docs/features.md).
 

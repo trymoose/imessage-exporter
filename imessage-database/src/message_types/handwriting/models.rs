@@ -51,7 +51,7 @@ impl HandwrittenMessage {
         })
     }
 
-    /// Renders the handwriting as an `svg` graphic.
+    /// Renders the handwriting message as an `svg` graphic.
     pub fn render_svg(&self) -> String {
         let mut svg = String::new();
         svg.push('\n');
@@ -67,7 +67,7 @@ impl HandwrittenMessage {
         svg
     }
 
-    /// Renders the handwriting as an ascii graphic with a maximum height.
+    /// Renders the handwriting message as an ASCII graphic with a maximum height.
     pub fn render_ascii(&self, max_height: usize) -> String {
         // Create a blank canvas filled with spaces
         let h = max_height.min(self.height as usize);
@@ -155,7 +155,8 @@ fn fit_strokes(
     strokes
         .iter()
         .map(|stroke| -> Vec<Point> {
-            stroke.iter()
+            stroke
+                .iter()
                 .map(|point| -> Point {
                     Point {
                         x: resize(point.x, width, max_x),

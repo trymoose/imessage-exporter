@@ -504,23 +504,23 @@ impl Message {
         self.thread_originator_guid.is_some()
     }
 
-    /// `true` if the message renames a thread, else `false`
+    /// `true` if the message is an [`Announcement`], else `false`
     pub fn is_announcement(&self) -> bool {
         self.group_title.is_some() || self.group_action_type != 0 || self.is_fully_unsent()
     }
 
-    /// `true` if the message is a reaction to another message, else `false`
+    /// `true` if the message is a [`Reaction`] to another message, else `false`
     pub fn is_reaction(&self) -> bool {
         matches!(self.variant(), Variant::Reaction(..))
             | (self.is_sticker() && self.associated_message_guid.is_some())
     }
 
-    /// `true` if the message is sticker, else `false`
+    /// `true` if the message is a sticker, else `false`
     pub fn is_sticker(&self) -> bool {
         matches!(self.variant(), Variant::Sticker(_))
     }
 
-    /// `true` if the message has an expressive presentation, else `false`
+    /// `true` if the message has an [`Expressive`], else `false`
     pub fn is_expressive(&self) -> bool {
         self.expressive_send_style_id.is_some()
     }
@@ -535,7 +535,7 @@ impl Message {
         matches!(self.variant(), Variant::App(CustomBalloon::Handwriting))
     }
 
-    /// `true` if the message was edited, else `false`
+    /// `true` if the message was [`Edited`](crate::message_types::edited), else `false`
     pub fn is_edited(&self) -> bool {
         self.date_edited != 0
     }
@@ -599,7 +599,7 @@ impl Message {
     /// Messages that have expired from this restoration process are permanently deleted and
     /// cannot be recovered.
     ///
-    /// Note: This is not the same as an [`Unsent`](crate::message_types::edited::EditStatus::Unsent) message
+    /// Note: This is not the same as an [`Unsent`](crate::message_types::edited::EditStatus::Unsent) message.
     pub fn is_deleted(&self) -> bool {
         self.deleted_from.is_some()
     }
