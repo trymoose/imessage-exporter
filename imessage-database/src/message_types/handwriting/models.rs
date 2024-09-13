@@ -146,15 +146,41 @@ fn draw_point(canvas: &mut [Vec<char>], x: i64, y: i64) {
 /// Generates svg lines from an array of strokes.
 fn generate_strokes(svg: &mut String, strokes: &[Vec<Point>]) {
     strokes.iter().for_each(|stroke| {
-        let mut points = String::with_capacity(80 * (stroke.len() - 1));
-        for (index, point) in stroke.iter().enumerate() {
-            if let Some(next_point) = stroke.get(index + 1) {
-                points.push_str(format!(r#"<line class="line" x1="{}" y1="{}" x2="{}" y2="{}" stroke-width="{}" />"#, point.x, point.y, next_point.x, next_point.y, point.width).as_str());
-                points.push('\n');
-            }
-        }
-        svg.push_str(points.as_str());
+        let mut segments = String::with_capacity(80 * (stroke.len() - 1));
+        group_points(stroke).iter().for_each(|(width, points)| {
+            let mut points_svg = String::with_capacity(points.len() * 3);
+            points.iter().for_each(|point| {
+                points_svg.push_str(&format!(" {},{}", point.x, point.y));
+            });
+            segments.push_str(format!(r#"<polyline class="line" points="{}" stroke-width="{}" />"#, points_svg.trim_start(), width).as_str());
+            segments.push('\n');
+        });
+        svg.push_str(segments.as_str());
     });
+}
+
+fn group_points(stroke: &Vec<Point>) -> Vec<(u16, Vec<&Point>)> {
+    let mut groups = vec![];
+    let mut curr = stroke[0].width;
+    let mut segment = vec![];
+
+    stroke.iter().for_each(|point| {
+        segment.push(point);
+        if curr != point.width {
+            if segment.len() == 1 {
+                segment.push(point);
+            }
+            groups.push((curr, segment.clone()));
+            segment = vec![point];
+            curr = point.width;
+        }
+    });
+
+    if !segment.is_empty() {
+        segment.push(segment[segment.len()-1]);
+        groups.push((curr, segment));
+    }
+    groups
 }
 
 /// Converts all points from a canvas of `max_x` by `max_y` to a canvas of `height` and `width`.
@@ -293,7 +319,7 @@ mod tests {
     use crate::message_types::handwriting::models::{HandwrittenMessage, Point};
     use std::env::current_dir;
     use std::fs::File;
-    use std::io::{Read};
+    use std::io::{Read, Write};
 
     #[test]
     fn test_parse_handwritten_from_payload() {
