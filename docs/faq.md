@@ -78,6 +78,8 @@ Messages removed by deleting an entire conversation or by deleting a single mess
 
 Messages that have expired from this restoration process are permanently deleted and cannot be recovered.
 
+In some instances, deleted messages are removed from the `chat_message_join` table but not from the `messages` table. These messages will populate in `Orphaned.html` or `Orphaned.txt`.
+
 ***
 
 #### How fast is `imessage-exporter`?

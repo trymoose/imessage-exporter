@@ -78,7 +78,7 @@ pub(super) trait Writer<'a> {
 /// Defines behavior for formatting custom balloons to the desired output format
 pub(super) trait BalloonFormatter<T> {
     /// Format a URL message
-    fn format_url(&self, balloon: &URLMessage, indent: T) -> String;
+    fn format_url(&self, msg: &Message, balloon: &URLMessage, indent: T) -> String;
     /// Format an Apple Music message
     fn format_music(&self, balloon: &MusicMessage, indent: T) -> String;
     /// Format a Rich Collaboration message
@@ -88,7 +88,7 @@ pub(super) trait BalloonFormatter<T> {
     /// Format a shared location message
     fn format_placemark(&self, balloon: &PlacemarkMessage, indent: T) -> String;
     /// Format a handwritten note message
-    fn format_handwriting(&self, balloon: &HandwrittenMessage, indent: T) -> String;
+    fn format_handwriting(&self, msg: &Message, balloon: &HandwrittenMessage, indent: T) -> String;
     /// Format an Apple Pay message
     fn format_apple_pay(&self, balloon: &AppMessage, indent: T) -> String;
     /// Format a Fitness message

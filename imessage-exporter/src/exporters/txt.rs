@@ -6,10 +6,14 @@ use std::{
     },
     fs::File,
     io::{BufWriter, Write},
+    path::PathBuf,
 };
 
 use crate::{
-    app::{error::RuntimeError, progress::build_progress_bar_export, runtime::Config},
+    app::{
+        attachment_manager::AttachmentManager, error::RuntimeError,
+        progress::build_progress_bar_export, runtime::Config,
+    },
     exporters::exporter::{BalloonFormatter, Exporter, Writer},
 };
 
@@ -415,9 +419,14 @@ impl<'a> Writer<'a> for TXT<'a> {
         if let Variant::App(balloon) = message.variant() {
             let mut app_bubble = String::new();
 
-            // Handwritten messages use a different payload type, so handle that first
-            if matches!(balloon, CustomBalloon::Handwriting) {
-                return Ok(self.format_handwriting(&HandwrittenMessage::new(), indent));
+            // Handwritten messages use a different payload type, so check that first
+            if message.is_handwriting() {
+                if let Some(payload) = message.raw_payload_data(&self.config.db) {
+                    return match HandwrittenMessage::from_payload(&payload) {
+                        Ok(bubble) => Ok(self.format_handwriting(message, &bubble, indent)),
+                        Err(why) => Err(PlistParseError::HandwritingError(why)),
+                    };
+                }
             }
 
             if let Some(payload) = message.payload_data(&self.config.db) {
@@ -426,7 +435,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                     let parsed = parse_plist(&payload)?;
                     let bubble = URLMessage::get_url_message_override(&parsed)?;
                     match bubble {
-                        URLOverride::Normal(balloon) => self.format_url(&balloon, indent),
+                        URLOverride::Normal(balloon) => self.format_url(message, &balloon, indent),
                         URLOverride::AppleMusic(balloon) => self.format_music(&balloon, indent),
                         URLOverride::Collaboration(balloon) => {
                             self.format_collaboration(&balloon, indent)
@@ -654,11 +663,13 @@ impl<'a> Writer<'a> for TXT<'a> {
 }
 
 impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
-    fn format_url(&self, balloon: &URLMessage, indent: &str) -> String {
+    fn format_url(&self, msg: &Message, balloon: &URLMessage, indent: &str) -> String {
         let mut out_s = String::new();
 
         if let Some(url) = balloon.get_url() {
             self.add_line(&mut out_s, url, indent);
+        } else if let Some(text) = &msg.text {
+            self.add_line(&mut out_s, text, indent);
         }
 
         if let Some(title) = balloon.title {
@@ -802,8 +813,33 @@ impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
         out_s.strip_suffix('\n').unwrap_or(&out_s).to_string()
     }
 
-    fn format_handwriting(&self, _: &HandwrittenMessage, indent: &str) -> String {
-        format!("{indent}Handwritten messages are not yet supported!")
+    fn format_handwriting(
+        &self,
+        msg: &Message,
+        balloon: &HandwrittenMessage,
+        indent: &str,
+    ) -> String {
+        match self.config.options.attachment_manager {
+            AttachmentManager::Disabled => balloon
+                .render_ascii(40)
+                .replace("\n", &format!("{indent}\n")),
+            AttachmentManager::Compatible | AttachmentManager::Efficient => self
+                .config
+                .options
+                .attachment_manager
+                .handle_handwriting(msg, balloon, self.config)
+                .map(|filepath| {
+                    self.config
+                        .relative_path(PathBuf::from(&filepath))
+                        .unwrap_or(filepath.display().to_string())
+                })
+                .map(|filepath| format!("{indent}{filepath}"))
+                .unwrap_or_else(|| {
+                    balloon
+                        .render_ascii(40)
+                        .replace("\n", &format!("{indent}\n"))
+                }),
+        }
     }
 
     fn format_apple_pay(&self, balloon: &AppMessage, indent: &str) -> String {
@@ -1662,7 +1698,7 @@ mod tests {
 mod balloon_format_tests {
     use std::env::set_var;
 
-    use super::tests::{fake_config, fake_options};
+    use super::tests::{blank, fake_config, fake_options};
     use crate::{exporters::exporter::BalloonFormatter, Exporter, TXT};
     use imessage_database::message_types::{
         app::AppMessage,
@@ -1692,7 +1728,7 @@ mod balloon_format_tests {
             placeholder: false,
         };
 
-        let expected = exporter.format_url(&balloon, "");
+        let expected = exporter.format_url(&blank(), &balloon, "");
         let actual = "url\ntitle\nsummary";
 
         assert_eq!(expected, actual);

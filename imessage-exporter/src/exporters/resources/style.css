@@ -12,6 +12,12 @@ xmp {
 	margin: 0px;
 }
 
+svg {
+	width: 100vw;
+	max-width: 100%;
+	height: auto;
+}
+
 a[href^="#"] {
 	text-decoration: none;
 	color: darkblue;

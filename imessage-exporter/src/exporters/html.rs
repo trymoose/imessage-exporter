@@ -612,9 +612,14 @@ impl<'a> Writer<'a> for HTML<'a> {
         if let Variant::App(balloon) = message.variant() {
             let mut app_bubble = String::new();
 
-            // Handwritten messages use a different payload type, so handle that first
-            if matches!(balloon, CustomBalloon::Handwriting) {
-                return Ok(self.format_handwriting(&HandwrittenMessage::new(), message));
+            // Handwritten messages use a different payload type, so check that first
+            if message.is_handwriting() {
+                if let Some(payload) = message.raw_payload_data(&self.config.db) {
+                    return match HandwrittenMessage::from_payload(&payload) {
+                        Ok(bubble) => Ok(self.format_handwriting(message, &bubble, message)),
+                        Err(why) => Err(PlistParseError::HandwritingError(why)),
+                    };
+                }
             }
 
             if let Some(payload) = message.payload_data(&self.config.db) {
@@ -622,7 +627,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                     let parsed = parse_plist(&payload)?;
                     let bubble = URLMessage::get_url_message_override(&parsed)?;
                     match bubble {
-                        URLOverride::Normal(balloon) => self.format_url(&balloon, message),
+                        URLOverride::Normal(balloon) => self.format_url(message, &balloon, message),
                         URLOverride::AppleMusic(balloon) => self.format_music(&balloon, message),
                         URLOverride::Collaboration(balloon) => {
                             self.format_collaboration(&balloon, message)
@@ -878,14 +883,22 @@ impl<'a> Writer<'a> for HTML<'a> {
 }
 
 impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
-    fn format_url(&self, balloon: &URLMessage, _: &Message) -> String {
+    fn format_url(&self, msg: &Message, balloon: &URLMessage, _: &Message) -> String {
         let mut out_s = String::new();
 
         // Make the whole bubble clickable
+        let mut close_url = false;
         if let Some(url) = balloon.get_url() {
             out_s.push_str("<a href=\"");
             out_s.push_str(url);
             out_s.push_str("\">");
+            close_url = true;
+        } else if let Some(text) = &msg.text {
+            // Fallback if the balloon data does not contain the URL
+            out_s.push_str("<a href=\"");
+            out_s.push_str(text);
+            out_s.push_str("\">");
+            close_url = true;
         }
 
         // Header section
@@ -909,6 +922,11 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
         } else if let Some(url) = balloon.get_url() {
             out_s.push_str("<div class=\"name\">");
             out_s.push_str(url);
+            out_s.push_str("</div>");
+        } else if let Some(text) = &msg.text {
+            // Fallback if the balloon data does not contain the URL
+            out_s.push_str("<div class=\"name\">");
+            out_s.push_str(text);
             out_s.push_str("</div>");
         }
 
@@ -938,7 +956,7 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
         }
 
         // End the link
-        if balloon.get_url().is_some() {
+        if close_url {
             out_s.push_str("</a>");
         }
         out_s
@@ -1192,8 +1210,9 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
         out_s
     }
 
-    fn format_handwriting(&self, _: &HandwrittenMessage, _: &Message) -> String {
-        String::from("Handwritten messages are not yet supported!")
+    fn format_handwriting(&self, _: &Message, balloon: &HandwrittenMessage, _: &Message) -> String {
+        // svg can be embedded directly into the html
+        balloon.render_svg()
     }
 
     fn format_apple_pay(&self, balloon: &AppMessage, _: &Message) -> String {
@@ -2275,7 +2294,7 @@ mod balloon_format_tests {
             placeholder: false,
         };
 
-        let expected = exporter.format_url(&balloon, &blank());
+        let expected = exporter.format_url(&blank(), &balloon, &blank());
         let actual = "<a href=\"url\"><div class=\"app_header\"><img src=\"images\" loading=\"lazy\", onerror=\"this.style.display='none'\"><div class=\"name\">site_name</div></div><div class=\"app_footer\"><div class=\"caption\">title</div><div class=\"subcaption\">summary</div></div></a>";
 
         assert_eq!(expected, actual);
@@ -2301,7 +2320,7 @@ mod balloon_format_tests {
             placeholder: false,
         };
 
-        let expected = exporter.format_url(&balloon, &blank());
+        let expected = exporter.format_url(&blank(), &balloon, &blank());
         let actual = "<a href=\"url\"><div class=\"app_header\"><img src=\"images\" onerror=\"this.style.display='none'\"><div class=\"name\">site_name</div></div><div class=\"app_footer\"><div class=\"caption\">title</div><div class=\"subcaption\">summary</div></div></a>";
 
         assert_eq!(expected, actual);

@@ -504,23 +504,23 @@ impl Message {
         self.thread_originator_guid.is_some()
     }
 
-    /// `true` if the message renames a thread, else `false`
+    /// `true` if the message is an [`Announcement`], else `false`
     pub fn is_announcement(&self) -> bool {
         self.group_title.is_some() || self.group_action_type != 0 || self.is_fully_unsent()
     }
 
-    /// `true` if the message is a reaction to another message, else `false`
+    /// `true` if the message is a [`Reaction`] to another message, else `false`
     pub fn is_reaction(&self) -> bool {
         matches!(self.variant(), Variant::Reaction(..))
             | (self.is_sticker() && self.associated_message_guid.is_some())
     }
 
-    /// `true` if the message is sticker, else `false`
+    /// `true` if the message is a sticker, else `false`
     pub fn is_sticker(&self) -> bool {
         matches!(self.variant(), Variant::Sticker(_))
     }
 
-    /// `true` if the message has an expressive presentation, else `false`
+    /// `true` if the message has an [`Expressive`], else `false`
     pub fn is_expressive(&self) -> bool {
         self.expressive_send_style_id.is_some()
     }
@@ -530,7 +530,12 @@ impl Message {
         matches!(self.variant(), Variant::App(CustomBalloon::URL))
     }
 
-    /// `true` if the message was edited, else `false`
+    /// `true` if the message is a [`HandwrittenMessage`](crate::message_types::handwriting::models::HandwrittenMessage), else `false`
+    pub fn is_handwriting(&self) -> bool {
+        matches!(self.variant(), Variant::App(CustomBalloon::Handwriting))
+    }
+
+    /// `true` if the message was [`Edited`](crate::message_types::edited), else `false`
     pub fn is_edited(&self) -> bool {
         self.date_edited != 0
     }
@@ -594,7 +599,7 @@ impl Message {
     /// Messages that have expired from this restoration process are permanently deleted and
     /// cannot be recovered.
     ///
-    /// Note: This is not the same as an [`Unsent`](crate::message_types::edited::EditStatus::Unsent) message
+    /// Note: This is not the same as an [`Unsent`](crate::message_types::edited::EditStatus::Unsent) message.
     pub fn is_deleted(&self) -> bool {
         self.deleted_from.is_some()
     }
@@ -947,6 +952,20 @@ impl Message {
     /// This column contains data used by iMessage app balloons.
     pub fn payload_data(&self, db: &Connection) -> Option<Value> {
         Value::from_reader(self.get_blob(db, MESSAGE_PAYLOAD)?).ok()
+    }
+
+    /// Get a message's raw data from the `payload_data` BLOB column
+    ///
+    /// Calling this hits the database, so it is expensive and should
+    /// only get invoked when needed.
+    ///
+    /// This column contains data used by [`HandwrittenMessage`s](crate::message_types::handwriting::HandwrittenMessage).
+    pub fn raw_payload_data(&self, db: &Connection) -> Option<Vec<u8>> {
+        let mut buf = Vec::new();
+        self.get_blob(db, MESSAGE_PAYLOAD)?
+            .read_to_end(&mut buf)
+            .ok()?;
+        Some(buf)
     }
 
     /// Get a message's plist from the `message_summary_info` BLOB column
