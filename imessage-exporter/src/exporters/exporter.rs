@@ -15,7 +15,7 @@ use imessage_database::{
     },
     tables::{attachment::Attachment, messages::Message},
 };
-
+use imessage_database::message_types::digital_touch::models::DigitalTouchMessage;
 use crate::app::{error::RuntimeError, runtime::Config};
 
 /// Defines behavior for iterating over messages from the iMessage database and managing export files
@@ -89,6 +89,8 @@ pub(super) trait BalloonFormatter<T> {
     fn format_placemark(&self, balloon: &PlacemarkMessage, indent: T) -> String;
     /// Format a handwritten note message
     fn format_handwriting(&self, msg: &Message, balloon: &HandwrittenMessage, indent: T) -> String;
+    /// Format a digital touch note message
+    fn format_digital_touch(&self, msg: &Message, balloon: &DigitalTouchMessage, indent: T) -> String;
     /// Format an Apple Pay message
     fn format_apple_pay(&self, balloon: &AppMessage, indent: T) -> String;
     /// Format a Fitness message

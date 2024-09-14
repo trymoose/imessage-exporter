@@ -5,6 +5,7 @@
 use crate::error::handwriting::HandwritingError;
 use crate::error::streamtyped::StreamTypedError;
 use std::fmt::{Display, Formatter, Result};
+use crate::error::digital_touch::DigitalTouchError;
 
 /// Errors that can happen when parsing the plist data stored in the `payload_data` field
 #[derive(Debug)]
@@ -19,6 +20,7 @@ pub enum PlistParseError {
     InvalidEditedMessage(String),
     StreamTypedError(StreamTypedError),
     HandwritingError(HandwritingError),
+    DigitalTouchError(DigitalTouchError),
 }
 
 impl Display for PlistParseError {
@@ -48,6 +50,7 @@ impl Display for PlistParseError {
             }
             PlistParseError::StreamTypedError(why) => write!(fmt, "{why}"),
             PlistParseError::HandwritingError(why) => write!(fmt, "{why}"),
+            PlistParseError::DigitalTouchError(why) => write!(fmt, "{why}"),
         }
     }
 }

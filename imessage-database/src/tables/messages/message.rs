@@ -535,6 +535,11 @@ impl Message {
         matches!(self.variant(), Variant::App(CustomBalloon::Handwriting))
     }
 
+    /// `true` if the message is a [`DigitalTouchMessage`](crate::message_types::digital_touch::models::DigitalTouchMessage), else `false`
+    pub fn is_digital_touch(&self) -> bool {
+        matches!(self.variant(), Variant::App(CustomBalloon::DigitalTouch))
+    }
+
     /// `true` if the message was [`Edited`](crate::message_types::edited), else `false`
     pub fn is_edited(&self) -> bool {
         self.date_edited != 0
@@ -854,6 +859,9 @@ impl Message {
                         "com.apple.Handwriting.HandwritingProvider" => {
                             Variant::App(CustomBalloon::Handwriting)
                         }
+                        "com.apple.DigitalTouchBalloonProvider" => {
+                            Variant::App(CustomBalloon::DigitalTouch)
+                        }
                         "com.apple.PassbookUIService.PeerPaymentMessagesExtension" => {
                             Variant::App(CustomBalloon::ApplePay)
                         }
@@ -959,7 +967,7 @@ impl Message {
     /// Calling this hits the database, so it is expensive and should
     /// only get invoked when needed.
     ///
-    /// This column contains data used by [`HandwrittenMessage`s](crate::message_types::handwriting::HandwrittenMessage).
+    /// This column contains data used by [`HandwrittenMessage`s](crate::message_types::handwriting::HandwrittenMessage) and [`DigitalTouchMessage`s](crate::message_types::digital_touch::DigitalTouchMessage).
     pub fn raw_payload_data(&self, db: &Connection) -> Option<Vec<u8>> {
         let mut buf = Vec::new();
         self.get_blob(db, MESSAGE_PAYLOAD)?

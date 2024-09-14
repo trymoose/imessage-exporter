@@ -8,6 +8,7 @@ pub mod collaboration;
 pub mod edited;
 pub mod expressives;
 pub mod handwriting;
+pub mod digital_touch;
 pub mod music;
 pub mod placemark;
 pub mod sticker;

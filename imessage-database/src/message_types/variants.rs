@@ -64,6 +64,8 @@ pub enum CustomBalloon<'a> {
     URL,
     /// Handwritten animated messages
     Handwriting,
+    /// Digital touch animated messages
+    DigitalTouch,
     /// Apple Pay (one of Sent, Requested, Received)
     ApplePay,
     /// Fitness.app messages

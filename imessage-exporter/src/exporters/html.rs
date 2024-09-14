@@ -41,6 +41,7 @@ use imessage_database::{
         plist::parse_plist,
     },
 };
+use imessage_database::message_types::digital_touch::models::DigitalTouchMessage;
 
 const HEADER: &str = "<html>\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
 const FOOTER: &str = "</body></html>";
@@ -620,6 +621,13 @@ impl<'a> Writer<'a> for HTML<'a> {
                         Err(why) => Err(PlistParseError::HandwritingError(why)),
                     };
                 }
+            } else if message.is_digital_touch() {
+                if let Some(payload) = message.raw_payload_data(&self.config.db) {
+                    return match DigitalTouchMessage::from_payload(&payload) {
+                        Ok(bubble) => Ok(self.format_digital_touch(message, &bubble, message)),
+                        Err(why) => Err(PlistParseError::DigitalTouchError(why)),
+                    }
+                }
             }
 
             if let Some(payload) = message.payload_data(&self.config.db) {
@@ -650,6 +658,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                             CustomBalloon::CheckIn => self.format_check_in(&bubble, message),
                             CustomBalloon::FindMy => self.format_find_my(&bubble, message),
                             CustomBalloon::Handwriting => unreachable!(),
+                            CustomBalloon::DigitalTouch => unreachable!(),
                             CustomBalloon::URL => unreachable!(),
                         },
                         Err(why) => return Err(why),
@@ -1213,6 +1222,10 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
     fn format_handwriting(&self, _: &Message, balloon: &HandwrittenMessage, _: &Message) -> String {
         // svg can be embedded directly into the html
         balloon.render_svg()
+    }
+
+    fn format_digital_touch(&self, _: &Message, balloon: &DigitalTouchMessage, _: &Message) -> String {
+        todo!()
     }
 
     fn format_apple_pay(&self, balloon: &AppMessage, _: &Message) -> String {
