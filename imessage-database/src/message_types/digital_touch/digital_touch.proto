@@ -1,0 +1,19 @@
+syntax = 'proto3';
+package digital_touch;
+
+message BaseMessage {
+  TouchKind TouchKind = 1;
+  bytes TouchPayload = 3;
+  string ID = 5;
+}
+
+enum TouchKind {
+  Unknown = 0;
+  Tap = 1;
+}
+
+message TapMessage {
+  bytes Delays = 2;
+  bytes Location = 3;
+  bytes Color = 4;
+}

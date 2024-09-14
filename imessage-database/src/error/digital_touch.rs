@@ -8,6 +8,8 @@ use std::fmt::{Display, Formatter, Result};
 #[derive(Debug)]
 pub enum DigitalTouchError {
     ProtobufError(protobuf::Error),
+    UnknownDigitalTouchKind(i32),
+    TapArraysDoNotMatch(usize, usize, usize),
 }
 
 impl Display for DigitalTouchError {
@@ -15,6 +17,12 @@ impl Display for DigitalTouchError {
         match self {
             DigitalTouchError::ProtobufError(why) => {
                 write!(fmt, "failed to parse handwriting protobuf: {why}")
+            }
+            DigitalTouchError::UnknownDigitalTouchKind(kind) => {
+                write!(fmt, "unknown digital touch kind: {kind}")
+            }
+            DigitalTouchError::TapArraysDoNotMatch(delays, point, color) => {
+                write!(fmt, "length of arrays do not match: delays({delays}) != points({point}) != colors({color})")
             }
         }
     }

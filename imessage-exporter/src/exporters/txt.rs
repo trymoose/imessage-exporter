@@ -17,6 +17,7 @@ use crate::{
     exporters::exporter::{BalloonFormatter, Exporter, Writer},
 };
 
+use imessage_database::message_types::digital_touch::models::DigitalTouchMessage;
 use imessage_database::{
     error::{plist::PlistParseError, table::TableError},
     message_types::{
@@ -42,8 +43,8 @@ use imessage_database::{
         plist::parse_plist,
     },
 };
-use imessage_database::error::plist::PlistParseError::DigitalTouchError;
-use imessage_database::message_types::digital_touch::models::DigitalTouchMessage;
+use imessage_database::message_types::digital_touch::tap::DigitalTouchTap;
+use crate::exporters::exporter::DigitalTouchFormatter;
 
 pub struct TXT<'a> {
     /// Data that is setup from the application's runtime
@@ -853,7 +854,24 @@ impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
     }
 
     fn format_digital_touch(&self, msg: &Message, balloon: &DigitalTouchMessage, indent: &'a str) -> String {
-        todo!()
+        match self.config.options.attachment_manager {
+            AttachmentManager::Disabled => None,
+            AttachmentManager::Compatible | AttachmentManager::Efficient => self
+                .config
+                .options
+                .attachment_manager
+                .handle_digital_touch(msg, balloon, self.config)
+                .map(|filepath| {
+                    self.config
+                        .relative_path(PathBuf::from(&filepath))
+                        .unwrap_or(filepath.display().to_string())
+                })
+                .map(|filepath| format!("{indent}{filepath}")),
+        }.unwrap_or_else(|| {
+            match balloon {
+                DigitalTouchMessage::Tap(taps) => self.format_taps(taps),
+            }
+        })
     }
 
     fn format_apple_pay(&self, balloon: &AppMessage, indent: &str) -> String {
@@ -2213,5 +2231,21 @@ mod edited_tests {
         let expected = "May 17, 2022  5:29:42 PM You unsent a message!\n\n";
 
         assert_eq!(actual, expected);
+    }
+}
+
+impl<'a> DigitalTouchFormatter for TXT<'a> {
+    fn format_taps(&self, taps: &DigitalTouchTap) -> String {
+        let mut output = String::new();
+        output.push_str("Digital Touch: Taps\n");
+        output.push_str(format!("ID: {}\n", taps.id).as_str());
+        taps.taps.iter().for_each(|tap| {
+            let x = tap.x;
+            let y = tap.y;
+            let (r, g, b, a) = tap.color.tuple();
+            let delay = tap.ms_delay;
+            output.push_str(format!("x y: ({x}, {y}) color: 0x{r:02x}{g:02x}{b:02x}{a:02x} delay: {delay}ms\n").as_str());
+        });
+        output
     }
 }

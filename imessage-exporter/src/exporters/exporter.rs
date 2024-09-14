@@ -16,6 +16,7 @@ use imessage_database::{
     tables::{attachment::Attachment, messages::Message},
 };
 use imessage_database::message_types::digital_touch::models::DigitalTouchMessage;
+use imessage_database::message_types::digital_touch::tap::DigitalTouchTap;
 use crate::app::{error::RuntimeError, runtime::Config};
 
 /// Defines behavior for iterating over messages from the iMessage database and managing export files
@@ -124,4 +125,8 @@ pub(super) trait TextEffectFormatter {
     fn format_styles(&self, text: &str, styles: &[Style]) -> String;
     /// Format [`Animated`](imessage_database::message_types::text_effects::TextEffect::Animated) message text
     fn format_animated(&self, text: &str, animation: &Animation) -> String;
+}
+
+pub(super) trait DigitalTouchFormatter {
+    fn format_taps(&self, taps: &DigitalTouchTap) -> String;
 }

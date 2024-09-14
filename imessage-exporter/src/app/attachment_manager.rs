@@ -16,6 +16,7 @@ use imessage_database::tables::{
 };
 
 use filetime::{set_file_times, FileTime};
+use imessage_database::message_types::digital_touch::DigitalTouchMessage;
 
 /// Represents different ways the app can interact with attachment data
 #[derive(Debug, PartialEq, Eq)]
@@ -39,12 +40,34 @@ impl AttachmentManager {
         }
     }
 
+    /// Handle a digital touch message, optionally writing it to an SVG file
+    pub fn handle_digital_touch(
+        &self,
+        message: &Message,
+        dt: &DigitalTouchMessage,
+        config: &Config,
+    ) -> Option<PathBuf> {
+        match dt {
+            DigitalTouchMessage::Tap( taps) => self.write_svg_file(message, config, &taps.id, taps.render_svg().as_bytes()),
+        }
+    }
+
     /// Handle a handwriting message, optionally writing it to an SVG file
     pub fn handle_handwriting(
         &self,
         message: &Message,
         handwriting: &HandwrittenMessage,
         config: &Config,
+    ) -> Option<PathBuf> {
+        self.write_svg_file(message, config, &handwriting.id, handwriting.render_svg().as_bytes())
+    }
+
+    fn write_svg_file(
+        &self,
+        message: &Message,
+        config: &Config,
+        id: &String,
+        data: &[u8],
     ) -> Option<PathBuf> {
         if !matches!(self, AttachmentManager::Disabled) {
             // Create a path to copy the file to
@@ -56,7 +79,7 @@ impl AttachmentManager {
 
             // Add the filename
             // Each handwriting has a unique id, so cache then all in the same place
-            to.push(&handwriting.id);
+            to.push(&id);
 
             // Set the new file's extension to svg
             to.set_extension("svg");
@@ -74,7 +97,7 @@ impl AttachmentManager {
             }
 
             // Attempt the svg render
-            if let Err(why) = write(to.to_str()?, handwriting.render_svg()) {
+            if let Err(why) = write(to.to_str()?, data) {
                 eprintln!("Unable to write to {to:?}: {why}");
             };
 
