@@ -15,6 +15,7 @@ use imessage_database::{
     },
     tables::{attachment::Attachment, messages::Message},
 };
+use imessage_database::message_types::digital_touch::drawing::DigitalTouchDrawing;
 use imessage_database::message_types::digital_touch::models::DigitalTouchMessage;
 use imessage_database::message_types::digital_touch::tap::DigitalTouchTap;
 use crate::app::{error::RuntimeError, runtime::Config};
@@ -128,5 +129,6 @@ pub(super) trait TextEffectFormatter {
 }
 
 pub(super) trait DigitalTouchFormatter {
-    fn format_taps(&self, taps: &DigitalTouchTap) -> String;
+    fn format_digital_touch_taps(&self, taps: &DigitalTouchTap) -> String;
+    fn format_digital_touch_drawing(&self, strokes: &DigitalTouchDrawing) -> String;
 }

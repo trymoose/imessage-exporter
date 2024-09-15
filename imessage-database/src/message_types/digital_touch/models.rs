@@ -4,6 +4,7 @@ use crate::{
     message_types::digital_touch::digital_touch_proto::{BaseMessage, TouchKind},
 };
 use protobuf::Message;
+use crate::message_types::digital_touch::drawing::DigitalTouchDrawing;
 
 /// Parser for [digital touch](https://support.apple.com/guide/ipod-touch/send-a-digital-touch-effect-iph3fadba219/ios) iMessages.
 ///
@@ -12,8 +13,14 @@ use protobuf::Message;
 #[derive(Debug, PartialEq, Eq)]
 pub enum DigitalTouchMessage {
     Tap(DigitalTouchTap),
+    Drawing(DigitalTouchDrawing),
 }
 
+#[derive(Debug, PartialEq, Clone, Eq)]
+pub struct Point {
+    pub x: u16,
+    pub y: u16,
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Color {
@@ -24,6 +31,14 @@ pub struct Color {
 }
 
 impl Color {
+    pub fn new(r: u8, g: u8, b: u8, a: u8) -> Self {
+        Self { r, g, b, a }
+    }
+
+    pub fn from_bytes(buf: &[u8]) -> Color {
+        Color::new(buf[0], buf[1], buf[2], buf[3])
+    }
+
     pub fn tuple(&self) -> (u8, u8, u8, u8) {
         (self.r, self.g, self.b, self.a)
     }
@@ -36,10 +51,9 @@ impl DigitalTouchMessage {
             BaseMessage::parse_from_bytes(payload).map_err(DigitalTouchError::ProtobufError)?;
 
         match msg.TouchKind.enum_value_or_default() {
-            TouchKind::Unknown => {
-                Err(DigitalTouchError::UnknownDigitalTouchKind(msg.TouchKind.value()))
-            }
-            TouchKind::Tap => DigitalTouchTap::from_payload(&msg)
+            TouchKind::Unknown => Err(DigitalTouchError::UnknownDigitalTouchKind(msg.TouchKind.value())),
+            TouchKind::Tap => DigitalTouchTap::from_payload(&msg),
+            TouchKind::Drawing => DigitalTouchDrawing::from_payload(&msg),
         }
     }
 }

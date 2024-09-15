@@ -10,10 +10,17 @@ message BaseMessage {
 enum TouchKind {
   Unknown = 0;
   Tap = 1;
+  Drawing = 4;
 }
 
 message TapMessage {
   bytes Delays = 2;
   bytes Location = 3;
   bytes Color = 4;
+}
+
+message DrawingMessage {
+  int64 StrokesCount = 1;
+  bytes Strokes = 2;
+  bytes Colors = 3;
 }

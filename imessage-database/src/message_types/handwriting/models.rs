@@ -11,6 +11,7 @@ use crate::{
 };
 
 use protobuf::Message;
+use crate::util::ascii_canvas::AsciiCanvas;
 
 /// Parser for [handwritten](https://support.apple.com/en-us/HT206894) iMessages.
 ///
@@ -82,7 +83,7 @@ impl HandwrittenMessage {
         // Create a blank canvas filled with spaces
         let h = max_height.min(self.height as usize);
         let w = ((self.width as usize) * h) / (self.height as usize);
-        let mut canvas = vec![vec![' '; w]; h];
+        let mut canvas = AsciiCanvas::new(w, h);
 
         // Plot the lines on the canvas
         // Width is only used when drawing the line on an SVG
@@ -90,56 +91,14 @@ impl HandwrittenMessage {
             .iter()
             .for_each(|line| {
                 line.windows(2).for_each(|window| {
-                    draw_line(&mut canvas, &window[0], &window[1]);
+                    canvas.draw_line(window[0].x, window[0].y, window[1].x, window[1].y);
                 });
             });
 
         // Convert the canvas to a string
         let mut output = String::with_capacity(h * (w + 1));
-        canvas.into_iter().for_each(|row| {
-            row.iter().for_each(|&ch| {
-                let _ = write!(output, "{}", ch);
-            });
-            output.push('\n');
-        });
-
+        let _ = write!(output, "{}", canvas);
         output
-    }
-}
-
-/// Draws a line on a 2d character grid using Bresenham's line algorithm.
-fn draw_line(canvas: &mut [Vec<char>], start: &Point, end: &Point) {
-    let mut x_curr = start.x as i64;
-    let mut y_curr = start.y as i64;
-    let x_end = end.x as i64;
-    let y_end = end.y as i64;
-
-    let dx = (x_end - x_curr).abs();
-    let dy = -(y_end - y_curr).abs();
-    let sx = if x_curr < x_end { 1 } else { -1 };
-    let sy = if y_curr < y_end { 1 } else { -1 };
-    let mut err = dx + dy;
-
-    while x_curr != x_end || y_curr != y_end {
-        draw_point(canvas, x_curr, y_curr);
-        let e2 = 2 * err;
-        if e2 >= dy {
-            err += dy;
-            x_curr += sx;
-        }
-        if e2 <= dx {
-            err += dx;
-            y_curr += sy;
-        }
-    }
-
-    draw_point(canvas, x_end, y_end)
-}
-
-/// Draws a point on a 2d character grid.
-fn draw_point(canvas: &mut [Vec<char>], x: i64, y: i64) {
-    if x >= 0 && x < canvas[0].len() as i64 && y >= 0 && y < canvas.len() as i64 {
-        canvas[y as usize][x as usize] = '*';
     }
 }
 

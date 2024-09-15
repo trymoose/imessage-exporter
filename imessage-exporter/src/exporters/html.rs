@@ -1230,7 +1230,8 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
         svg.push_str(r#"<div style="background-color: black; transform: scale(1); width: 300px; height: 300px;" onclick="this.querySelectorAll('animate').forEach(function (element) { element.endElement(); const off = Number(element.getAttribute('begin').slice(0, -2))/1000; element.beginElementAt(off); })">"#);
 
         svg.push_str(match balloon {
-            DigitalTouchMessage::Tap(taps) => taps.render_svg(),
+            DigitalTouchMessage::Tap(taps) => taps.render_svg(250),
+            DigitalTouchMessage::Drawing(drawing) => drawing.render_svg(250),
         }.as_str());
 
         svg.push_str("</div>\n");

@@ -2,10 +2,7 @@ use protobuf::Message;
 use crate::error::digital_touch::DigitalTouchError;
 use crate::message_types::digital_touch::digital_touch_proto::{BaseMessage, TapMessage};
 use crate::message_types::digital_touch::DigitalTouchMessage;
-use crate::message_types::digital_touch::models::Color;
-
-const TAP_SVG_HEADER: &str = r#"<svg viewBox="0 0 250 250" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-"#;
+use crate::message_types::digital_touch::models::{Color, Point};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DigitalTouchTap {
@@ -15,8 +12,7 @@ pub struct DigitalTouchTap {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TapPoint {
-    pub x: u16,
-    pub y: u16,
+    pub point: Point,
     pub color: Color,
     pub ms_delay: u16,
 }
@@ -39,8 +35,9 @@ impl DigitalTouchTap {
         }))
     }
 
-    pub fn render_svg(&self) -> String {
-        let mut svg = String::from(TAP_SVG_HEADER);
+    pub fn render_svg(&self, size: usize) -> String {
+        let mut svg = String::from(format!(r#"<svg viewBox="0 0 {size} {size}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+"#));
         svg.push_str(format!("<title>{}</title>\n", self.id).as_str());
 
         let mut delay = 1;
@@ -57,8 +54,8 @@ impl DigitalTouchTap {
 fn render_svg_tap(index: usize, delay: u16, tap: &TapPoint) -> String {
     let (r, g, b, a) = tap.color.tuple();
 
-    let x =  (f64::from(tap.x) / f64::from(u16::MAX)) * 100.0;
-    let y =  (f64::from(tap.y) / f64::from(u16::MAX)) * 100.0;
+    let x =  (f64::from(tap.point.x) / f64::from(u16::MAX)) * 100.0;
+    let y =  (f64::from(tap.point.y) / f64::from(u16::MAX)) * 100.0;
 
     format!(r#"
 <circle cx="{x:.2}%" cy="{y:.2}%" fill="none" stroke-width="30" stroke="rgba({r}, {g}, {b}, {a})" >
@@ -72,12 +69,7 @@ fn decode_color_buf(buf: &[u8]) -> Vec<Color> {
     let mut colors = vec![];
     let mut idx = 0;
     while idx < buf.len() {
-        colors.push(Color{
-            r: buf[idx],
-            g: buf[idx+1],
-            b: buf[idx+2],
-            a: buf[idx+3],
-        });
+        colors.push(Color::from_bytes(&buf[idx..idx+4]));
         idx += 4;
     }
     colors
@@ -112,7 +104,7 @@ fn merge_tap_data(points: Vec<(u16, u16)>, delays: Vec<u16>, colors: Vec<Color>)
         let color = &colors[index];
         let (x, y) = points[index];
         taps.push(TapPoint{
-            x, y,
+            point: Point{ x, y },
             ms_delay: delays[index],
             color: color.clone(),
         });

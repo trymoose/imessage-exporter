@@ -43,6 +43,7 @@ use imessage_database::{
         plist::parse_plist,
     },
 };
+use imessage_database::message_types::digital_touch::drawing::DigitalTouchDrawing;
 use imessage_database::message_types::digital_touch::tap::DigitalTouchTap;
 use crate::exporters::exporter::DigitalTouchFormatter;
 
@@ -869,7 +870,8 @@ impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
                 .map(|filepath| format!("{indent}{filepath}")),
         }.unwrap_or_else(|| {
             match balloon {
-                DigitalTouchMessage::Tap(taps) => self.format_taps(taps),
+                DigitalTouchMessage::Tap(taps) => self.format_digital_touch_taps(taps),
+                DigitalTouchMessage::Drawing(strokes) => self.format_digital_touch_drawing(strokes)
             }
         })
     }
@@ -2235,17 +2237,25 @@ mod edited_tests {
 }
 
 impl<'a> DigitalTouchFormatter for TXT<'a> {
-    fn format_taps(&self, taps: &DigitalTouchTap) -> String {
+    fn format_digital_touch_taps(&self, taps: &DigitalTouchTap) -> String {
         let mut output = String::new();
         output.push_str("Digital Touch: Taps\n");
         output.push_str(format!("ID: {}\n", taps.id).as_str());
         taps.taps.iter().for_each(|tap| {
-            let x = tap.x;
-            let y = tap.y;
+            let x = tap.point.x;
+            let y = tap.point.y;
             let (r, g, b, a) = tap.color.tuple();
             let delay = tap.ms_delay;
             output.push_str(format!("x y: ({x}, {y}) color: 0x{r:02x}{g:02x}{b:02x}{a:02x} delay: {delay}ms\n").as_str());
         });
+        output
+    }
+
+    fn format_digital_touch_drawing(&self, strokes: &DigitalTouchDrawing) -> String {
+        let mut output = String::new();
+        output.push_str("Digital Touch: Taps\n");
+        output.push_str(format!("ID: {}\n", strokes.id).as_str());
+        output.push_str(strokes.render_ascii(40).as_str());
         output
     }
 }

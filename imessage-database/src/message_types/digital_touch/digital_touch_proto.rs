@@ -340,6 +340,164 @@ impl ::protobuf::reflect::ProtobufValue for TapMessage {
     type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
 }
 
+// @@protoc_insertion_point(message:digital_touch.DrawingMessage)
+#[derive(PartialEq,Clone,Default,Debug)]
+pub struct DrawingMessage {
+    // message fields
+    // @@protoc_insertion_point(field:digital_touch.DrawingMessage.StrokesCount)
+    pub StrokesCount: i64,
+    // @@protoc_insertion_point(field:digital_touch.DrawingMessage.Strokes)
+    pub Strokes: ::std::vec::Vec<u8>,
+    // @@protoc_insertion_point(field:digital_touch.DrawingMessage.Colors)
+    pub Colors: ::std::vec::Vec<u8>,
+    // special fields
+    // @@protoc_insertion_point(special_field:digital_touch.DrawingMessage.special_fields)
+    pub special_fields: ::protobuf::SpecialFields,
+}
+
+impl<'a> ::std::default::Default for &'a DrawingMessage {
+    fn default() -> &'a DrawingMessage {
+        <DrawingMessage as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl DrawingMessage {
+    pub fn new() -> DrawingMessage {
+        ::std::default::Default::default()
+    }
+
+    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
+        let mut fields = ::std::vec::Vec::with_capacity(3);
+        let mut oneofs = ::std::vec::Vec::with_capacity(0);
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "StrokesCount",
+            |m: &DrawingMessage| { &m.StrokesCount },
+            |m: &mut DrawingMessage| { &mut m.StrokesCount },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "Strokes",
+            |m: &DrawingMessage| { &m.Strokes },
+            |m: &mut DrawingMessage| { &mut m.Strokes },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "Colors",
+            |m: &DrawingMessage| { &m.Colors },
+            |m: &mut DrawingMessage| { &mut m.Colors },
+        ));
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<DrawingMessage>(
+            "DrawingMessage",
+            fields,
+            oneofs,
+        )
+    }
+}
+
+impl ::protobuf::Message for DrawingMessage {
+    const NAME: &'static str = "DrawingMessage";
+
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
+        while let Some(tag) = is.read_raw_tag_or_eof()? {
+            match tag {
+                8 => {
+                    self.StrokesCount = is.read_int64()?;
+                },
+                18 => {
+                    self.Strokes = is.read_bytes()?;
+                },
+                26 => {
+                    self.Colors = is.read_bytes()?;
+                },
+                tag => {
+                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u64 {
+        let mut my_size = 0;
+        if self.StrokesCount != 0 {
+            my_size += ::protobuf::rt::int64_size(1, self.StrokesCount);
+        }
+        if !self.Strokes.is_empty() {
+            my_size += ::protobuf::rt::bytes_size(2, &self.Strokes);
+        }
+        if !self.Colors.is_empty() {
+            my_size += ::protobuf::rt::bytes_size(3, &self.Colors);
+        }
+        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
+        self.special_fields.cached_size().set(my_size as u32);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        if self.StrokesCount != 0 {
+            os.write_int64(1, self.StrokesCount)?;
+        }
+        if !self.Strokes.is_empty() {
+            os.write_bytes(2, &self.Strokes)?;
+        }
+        if !self.Colors.is_empty() {
+            os.write_bytes(3, &self.Colors)?;
+        }
+        os.write_unknown_fields(self.special_fields.unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn special_fields(&self) -> &::protobuf::SpecialFields {
+        &self.special_fields
+    }
+
+    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
+        &mut self.special_fields
+    }
+
+    fn new() -> DrawingMessage {
+        DrawingMessage::new()
+    }
+
+    fn clear(&mut self) {
+        self.StrokesCount = 0;
+        self.Strokes.clear();
+        self.Colors.clear();
+        self.special_fields.clear();
+    }
+
+    fn default_instance() -> &'static DrawingMessage {
+        static instance: DrawingMessage = DrawingMessage {
+            StrokesCount: 0,
+            Strokes: ::std::vec::Vec::new(),
+            Colors: ::std::vec::Vec::new(),
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+        &instance
+    }
+}
+
+impl ::protobuf::MessageFull for DrawingMessage {
+    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
+        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("DrawingMessage").unwrap()).clone()
+    }
+}
+
+impl ::std::fmt::Display for DrawingMessage {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for DrawingMessage {
+    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
+}
+
 #[derive(Clone,Copy,PartialEq,Eq,Debug,Hash)]
 // @@protoc_insertion_point(enum:digital_touch.TouchKind)
 pub enum TouchKind {
@@ -347,6 +505,8 @@ pub enum TouchKind {
     Unknown = 0,
     // @@protoc_insertion_point(enum_value:digital_touch.TouchKind.Tap)
     Tap = 1,
+    // @@protoc_insertion_point(enum_value:digital_touch.TouchKind.Drawing)
+    Drawing = 4,
 }
 
 impl ::protobuf::Enum for TouchKind {
@@ -360,6 +520,7 @@ impl ::protobuf::Enum for TouchKind {
         match value {
             0 => ::std::option::Option::Some(TouchKind::Unknown),
             1 => ::std::option::Option::Some(TouchKind::Tap),
+            4 => ::std::option::Option::Some(TouchKind::Drawing),
             _ => ::std::option::Option::None
         }
     }
@@ -368,6 +529,7 @@ impl ::protobuf::Enum for TouchKind {
         match str {
             "Unknown" => ::std::option::Option::Some(TouchKind::Unknown),
             "Tap" => ::std::option::Option::Some(TouchKind::Tap),
+            "Drawing" => ::std::option::Option::Some(TouchKind::Drawing),
             _ => ::std::option::Option::None
         }
     }
@@ -375,6 +537,7 @@ impl ::protobuf::Enum for TouchKind {
     const VALUES: &'static [TouchKind] = &[
         TouchKind::Unknown,
         TouchKind::Tap,
+        TouchKind::Drawing,
     ];
 }
 
@@ -385,7 +548,11 @@ impl ::protobuf::EnumFull for TouchKind {
     }
 
     fn descriptor(&self) -> ::protobuf::reflect::EnumValueDescriptor {
-        let index = *self as usize;
+        let index = match self {
+            TouchKind::Unknown => 0,
+            TouchKind::Tap => 1,
+            TouchKind::Drawing => 2,
+        };
         Self::enum_descriptor().value_by_index(index)
     }
 }
@@ -409,8 +576,11 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     \x0cR\x0cTouchPayload\x12\x0e\n\x02ID\x18\x05\x20\x01(\tR\x02ID\"V\n\nTa\
     pMessage\x12\x16\n\x06Delays\x18\x02\x20\x01(\x0cR\x06Delays\x12\x1a\n\
     \x08Location\x18\x03\x20\x01(\x0cR\x08Location\x12\x14\n\x05Color\x18\
-    \x04\x20\x01(\x0cR\x05Color*!\n\tTouchKind\x12\x0b\n\x07Unknown\x10\0\
-    \x12\x07\n\x03Tap\x10\x01b\x06proto3\
+    \x04\x20\x01(\x0cR\x05Color\"f\n\x0eDrawingMessage\x12\"\n\x0cStrokesCou\
+    nt\x18\x01\x20\x01(\x03R\x0cStrokesCount\x12\x18\n\x07Strokes\x18\x02\
+    \x20\x01(\x0cR\x07Strokes\x12\x16\n\x06Colors\x18\x03\x20\x01(\x0cR\x06C\
+    olors*.\n\tTouchKind\x12\x0b\n\x07Unknown\x10\0\x12\x07\n\x03Tap\x10\x01\
+    \x12\x0b\n\x07Drawing\x10\x04b\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -428,9 +598,10 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
     file_descriptor.get(|| {
         let generated_file_descriptor = generated_file_descriptor_lazy.get(|| {
             let mut deps = ::std::vec::Vec::with_capacity(0);
-            let mut messages = ::std::vec::Vec::with_capacity(2);
+            let mut messages = ::std::vec::Vec::with_capacity(3);
             messages.push(BaseMessage::generated_message_descriptor_data());
             messages.push(TapMessage::generated_message_descriptor_data());
+            messages.push(DrawingMessage::generated_message_descriptor_data());
             let mut enums = ::std::vec::Vec::with_capacity(1);
             enums.push(TouchKind::generated_enum_descriptor_data());
             ::protobuf::reflect::GeneratedFileDescriptor::new_generated(
