@@ -1231,7 +1231,7 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
 
         svg.push_str(match balloon {
             DigitalTouchMessage::Tap(taps) => taps.render_svg(250),
-            DigitalTouchMessage::Drawing(drawing) => drawing.render_svg(250),
+            DigitalTouchMessage::Sketch(drawing) => drawing.render_svg(250),
         }.as_str());
 
         svg.push_str("</div>\n");

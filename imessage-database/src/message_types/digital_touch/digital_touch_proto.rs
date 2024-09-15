@@ -340,29 +340,29 @@ impl ::protobuf::reflect::ProtobufValue for TapMessage {
     type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
 }
 
-// @@protoc_insertion_point(message:digital_touch.DrawingMessage)
+// @@protoc_insertion_point(message:digital_touch.SketchMessage)
 #[derive(PartialEq,Clone,Default,Debug)]
-pub struct DrawingMessage {
+pub struct SketchMessage {
     // message fields
-    // @@protoc_insertion_point(field:digital_touch.DrawingMessage.StrokesCount)
+    // @@protoc_insertion_point(field:digital_touch.SketchMessage.StrokesCount)
     pub StrokesCount: i64,
-    // @@protoc_insertion_point(field:digital_touch.DrawingMessage.Strokes)
+    // @@protoc_insertion_point(field:digital_touch.SketchMessage.Strokes)
     pub Strokes: ::std::vec::Vec<u8>,
-    // @@protoc_insertion_point(field:digital_touch.DrawingMessage.Colors)
+    // @@protoc_insertion_point(field:digital_touch.SketchMessage.Colors)
     pub Colors: ::std::vec::Vec<u8>,
     // special fields
-    // @@protoc_insertion_point(special_field:digital_touch.DrawingMessage.special_fields)
+    // @@protoc_insertion_point(special_field:digital_touch.SketchMessage.special_fields)
     pub special_fields: ::protobuf::SpecialFields,
 }
 
-impl<'a> ::std::default::Default for &'a DrawingMessage {
-    fn default() -> &'a DrawingMessage {
-        <DrawingMessage as ::protobuf::Message>::default_instance()
+impl<'a> ::std::default::Default for &'a SketchMessage {
+    fn default() -> &'a SketchMessage {
+        <SketchMessage as ::protobuf::Message>::default_instance()
     }
 }
 
-impl DrawingMessage {
-    pub fn new() -> DrawingMessage {
+impl SketchMessage {
+    pub fn new() -> SketchMessage {
         ::std::default::Default::default()
     }
 
@@ -371,29 +371,29 @@ impl DrawingMessage {
         let mut oneofs = ::std::vec::Vec::with_capacity(0);
         fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
             "StrokesCount",
-            |m: &DrawingMessage| { &m.StrokesCount },
-            |m: &mut DrawingMessage| { &mut m.StrokesCount },
+            |m: &SketchMessage| { &m.StrokesCount },
+            |m: &mut SketchMessage| { &mut m.StrokesCount },
         ));
         fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
             "Strokes",
-            |m: &DrawingMessage| { &m.Strokes },
-            |m: &mut DrawingMessage| { &mut m.Strokes },
+            |m: &SketchMessage| { &m.Strokes },
+            |m: &mut SketchMessage| { &mut m.Strokes },
         ));
         fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
             "Colors",
-            |m: &DrawingMessage| { &m.Colors },
-            |m: &mut DrawingMessage| { &mut m.Colors },
+            |m: &SketchMessage| { &m.Colors },
+            |m: &mut SketchMessage| { &mut m.Colors },
         ));
-        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<DrawingMessage>(
-            "DrawingMessage",
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<SketchMessage>(
+            "SketchMessage",
             fields,
             oneofs,
         )
     }
 }
 
-impl ::protobuf::Message for DrawingMessage {
-    const NAME: &'static str = "DrawingMessage";
+impl ::protobuf::Message for SketchMessage {
+    const NAME: &'static str = "SketchMessage";
 
     fn is_initialized(&self) -> bool {
         true
@@ -459,8 +459,8 @@ impl ::protobuf::Message for DrawingMessage {
         &mut self.special_fields
     }
 
-    fn new() -> DrawingMessage {
-        DrawingMessage::new()
+    fn new() -> SketchMessage {
+        SketchMessage::new()
     }
 
     fn clear(&mut self) {
@@ -470,8 +470,8 @@ impl ::protobuf::Message for DrawingMessage {
         self.special_fields.clear();
     }
 
-    fn default_instance() -> &'static DrawingMessage {
-        static instance: DrawingMessage = DrawingMessage {
+    fn default_instance() -> &'static SketchMessage {
+        static instance: SketchMessage = SketchMessage {
             StrokesCount: 0,
             Strokes: ::std::vec::Vec::new(),
             Colors: ::std::vec::Vec::new(),
@@ -481,20 +481,20 @@ impl ::protobuf::Message for DrawingMessage {
     }
 }
 
-impl ::protobuf::MessageFull for DrawingMessage {
+impl ::protobuf::MessageFull for SketchMessage {
     fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
         static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
-        descriptor.get(|| file_descriptor().message_by_package_relative_name("DrawingMessage").unwrap()).clone()
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("SketchMessage").unwrap()).clone()
     }
 }
 
-impl ::std::fmt::Display for DrawingMessage {
+impl ::std::fmt::Display for SketchMessage {
     fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
         ::protobuf::text_format::fmt(self, f)
     }
 }
 
-impl ::protobuf::reflect::ProtobufValue for DrawingMessage {
+impl ::protobuf::reflect::ProtobufValue for SketchMessage {
     type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
 }
 
@@ -576,11 +576,11 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     \x0cR\x0cTouchPayload\x12\x0e\n\x02ID\x18\x05\x20\x01(\tR\x02ID\"V\n\nTa\
     pMessage\x12\x16\n\x06Delays\x18\x02\x20\x01(\x0cR\x06Delays\x12\x1a\n\
     \x08Location\x18\x03\x20\x01(\x0cR\x08Location\x12\x14\n\x05Color\x18\
-    \x04\x20\x01(\x0cR\x05Color\"f\n\x0eDrawingMessage\x12\"\n\x0cStrokesCou\
-    nt\x18\x01\x20\x01(\x03R\x0cStrokesCount\x12\x18\n\x07Strokes\x18\x02\
-    \x20\x01(\x0cR\x07Strokes\x12\x16\n\x06Colors\x18\x03\x20\x01(\x0cR\x06C\
-    olors*.\n\tTouchKind\x12\x0b\n\x07Unknown\x10\0\x12\x07\n\x03Tap\x10\x01\
-    \x12\x0b\n\x07Drawing\x10\x04b\x06proto3\
+    \x04\x20\x01(\x0cR\x05Color\"e\n\rSketchMessage\x12\"\n\x0cStrokesCount\
+    \x18\x01\x20\x01(\x03R\x0cStrokesCount\x12\x18\n\x07Strokes\x18\x02\x20\
+    \x01(\x0cR\x07Strokes\x12\x16\n\x06Colors\x18\x03\x20\x01(\x0cR\x06Color\
+    s*.\n\tTouchKind\x12\x0b\n\x07Unknown\x10\0\x12\x07\n\x03Tap\x10\x01\x12\
+    \x0b\n\x07Drawing\x10\x04b\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -601,7 +601,7 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
             let mut messages = ::std::vec::Vec::with_capacity(3);
             messages.push(BaseMessage::generated_message_descriptor_data());
             messages.push(TapMessage::generated_message_descriptor_data());
-            messages.push(DrawingMessage::generated_message_descriptor_data());
+            messages.push(SketchMessage::generated_message_descriptor_data());
             let mut enums = ::std::vec::Vec::with_capacity(1);
             enums.push(TouchKind::generated_enum_descriptor_data());
             ::protobuf::reflect::GeneratedFileDescriptor::new_generated(

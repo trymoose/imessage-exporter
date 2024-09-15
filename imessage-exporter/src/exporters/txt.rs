@@ -43,7 +43,7 @@ use imessage_database::{
         plist::parse_plist,
     },
 };
-use imessage_database::message_types::digital_touch::drawing::DigitalTouchDrawing;
+use imessage_database::message_types::digital_touch::sketch::DigitalTouchSketch;
 use imessage_database::message_types::digital_touch::tap::DigitalTouchTap;
 use crate::exporters::exporter::DigitalTouchFormatter;
 
@@ -871,7 +871,7 @@ impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
         }.unwrap_or_else(|| {
             match balloon {
                 DigitalTouchMessage::Tap(taps) => self.format_digital_touch_taps(taps),
-                DigitalTouchMessage::Drawing(strokes) => self.format_digital_touch_drawing(strokes)
+                DigitalTouchMessage::Sketch(strokes) => self.format_digital_touch_drawing(strokes)
             }
         })
     }
@@ -2251,7 +2251,7 @@ impl<'a> DigitalTouchFormatter for TXT<'a> {
         output
     }
 
-    fn format_digital_touch_drawing(&self, strokes: &DigitalTouchDrawing) -> String {
+    fn format_digital_touch_drawing(&self, strokes: &DigitalTouchSketch) -> String {
         let mut output = String::new();
         output.push_str("Digital Touch: Taps\n");
         output.push_str(format!("ID: {}\n", strokes.id).as_str());

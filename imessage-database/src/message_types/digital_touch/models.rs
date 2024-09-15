@@ -4,7 +4,7 @@ use crate::{
     message_types::digital_touch::digital_touch_proto::{BaseMessage, TouchKind},
 };
 use protobuf::Message;
-use crate::message_types::digital_touch::drawing::DigitalTouchDrawing;
+use crate::message_types::digital_touch::sketch::DigitalTouchSketch;
 
 /// Parser for [digital touch](https://support.apple.com/guide/ipod-touch/send-a-digital-touch-effect-iph3fadba219/ios) iMessages.
 ///
@@ -13,7 +13,7 @@ use crate::message_types::digital_touch::drawing::DigitalTouchDrawing;
 #[derive(Debug, PartialEq, Eq)]
 pub enum DigitalTouchMessage {
     Tap(DigitalTouchTap),
-    Drawing(DigitalTouchDrawing),
+    Sketch(DigitalTouchSketch),
 }
 
 #[derive(Debug, PartialEq, Clone, Eq)]
@@ -53,7 +53,7 @@ impl DigitalTouchMessage {
         match msg.TouchKind.enum_value_or_default() {
             TouchKind::Unknown => Err(DigitalTouchError::UnknownDigitalTouchKind(msg.TouchKind.value())),
             TouchKind::Tap => DigitalTouchTap::from_payload(&msg),
-            TouchKind::Drawing => DigitalTouchDrawing::from_payload(&msg),
+            TouchKind::Drawing => DigitalTouchSketch::from_payload(&msg),
         }
     }
 }

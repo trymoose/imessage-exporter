@@ -7,4 +7,4 @@ pub use models::DigitalTouchMessage;
 pub(crate) mod digital_touch_proto;
 pub mod models;
 pub mod tap;
-pub mod drawing;
+pub mod sketch;

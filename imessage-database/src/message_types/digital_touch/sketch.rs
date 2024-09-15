@@ -1,25 +1,25 @@
 use crate::error::digital_touch::DigitalTouchError;
-use crate::message_types::digital_touch::digital_touch_proto::{BaseMessage, DrawingMessage};
+use crate::message_types::digital_touch::digital_touch_proto::{BaseMessage, SketchMessage};
 use crate::message_types::digital_touch::models::{Color, Point};
 use crate::message_types::digital_touch::DigitalTouchMessage;
 use crate::util::ascii_canvas::AsciiCanvas;
 use protobuf::Message;
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct DigitalTouchDrawing {
+pub struct DigitalTouchSketch {
     pub id: String,
-    pub strokes: Vec<DrawingStroke>,
+    pub strokes: Vec<SketchStroke>,
 }
 
 #[derive(Debug, PartialEq, Eq)]
-pub struct DrawingStroke {
+pub struct SketchStroke {
     pub color: Color,
     pub points: Vec<Point>,
 }
 
-impl DigitalTouchDrawing {
+impl DigitalTouchSketch {
     pub(crate) fn from_payload(base_message: &BaseMessage) -> Result<DigitalTouchMessage, DigitalTouchError> {
-        let msg = DrawingMessage::parse_from_bytes(base_message.TouchPayload.as_slice()).map_err(DigitalTouchError::ProtobufError)?;
+        let msg = SketchMessage::parse_from_bytes(base_message.TouchPayload.as_slice()).map_err(DigitalTouchError::ProtobufError)?;
 
         let mut strokes = vec![];
         let mut index = 0;
@@ -37,10 +37,10 @@ impl DigitalTouchDrawing {
                 });
                 index += 4
             }
-            strokes.push(DrawingStroke{ color, points });
+            strokes.push(SketchStroke { color, points });
         }
 
-        Ok(DigitalTouchMessage::Drawing(DigitalTouchDrawing{
+        Ok(DigitalTouchMessage::Sketch(DigitalTouchSketch {
             id: base_message.ID.clone(),
             strokes,
         }))

@@ -19,7 +19,7 @@ message TapMessage {
   bytes Color = 4;
 }
 
-message DrawingMessage {
+message SketchMessage {
   int64 StrokesCount = 1;
   bytes Strokes = 2;
   bytes Colors = 3;
