@@ -8,3 +8,4 @@ pub(crate) mod digital_touch_proto;
 pub mod models;
 pub mod tap;
 pub mod sketch;
+pub mod kiss;

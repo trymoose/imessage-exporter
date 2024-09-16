@@ -11,6 +11,7 @@ enum TouchKind {
   Unknown = 0;
   Tap = 1;
   Drawing = 4;
+  Kiss = 7;
 }
 
 message TapMessage {
@@ -23,4 +24,10 @@ message SketchMessage {
   int64 StrokesCount = 1;
   bytes Strokes = 2;
   bytes Colors = 3;
+}
+
+message KissMessage {
+  bytes Delays = 1;
+  bytes Points = 2;
+  bytes Rotations = 3;
 }

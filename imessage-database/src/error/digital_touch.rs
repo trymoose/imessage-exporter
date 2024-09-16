@@ -10,6 +10,7 @@ pub enum DigitalTouchError {
     ProtobufError(protobuf::Error),
     UnknownDigitalTouchKind(i32),
     TapArraysDoNotMatch(usize, usize, usize),
+    KissArraysDoNotMatch(usize, usize, usize),
 }
 
 impl Display for DigitalTouchError {
@@ -23,6 +24,9 @@ impl Display for DigitalTouchError {
             }
             DigitalTouchError::TapArraysDoNotMatch(delays, point, color) => {
                 write!(fmt, "length of arrays do not match: delays({delays}) != points({point}) != colors({color})")
+            }
+            DigitalTouchError::KissArraysDoNotMatch(delays, point, rotation) => {
+                write!(fmt, "length of arrays do not match: delays({delays}) != points({point}) != rotations({rotation})")
             }
         }
     }

@@ -49,7 +49,8 @@ impl AttachmentManager {
     ) -> Option<PathBuf> {
         match dt {
             DigitalTouchMessage::Tap( taps) => self.write_svg_file(message, config, &taps.id, taps.render_svg(250).as_bytes()),
-            DigitalTouchMessage::Sketch(strokes) => self.write_svg_file(message, config, &strokes.id, strokes.render_svg(250).as_bytes())
+            DigitalTouchMessage::Sketch(strokes) => self.write_svg_file(message, config, &strokes.id, strokes.render_svg(250).as_bytes()),
+            DigitalTouchMessage::Kiss(kisses) => self.write_svg_file(message, config, &kisses.id, kisses.render_svg(250).as_bytes()),
         }
     }
 

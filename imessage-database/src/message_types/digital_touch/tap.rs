@@ -2,7 +2,7 @@ use protobuf::Message;
 use crate::error::digital_touch::DigitalTouchError;
 use crate::message_types::digital_touch::digital_touch_proto::{BaseMessage, TapMessage};
 use crate::message_types::digital_touch::DigitalTouchMessage;
-use crate::message_types::digital_touch::models::{Color, Point};
+use crate::message_types::digital_touch::models::{decode_bytes, Color, Point};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DigitalTouchTap {
@@ -66,48 +66,24 @@ fn render_svg_tap(index: usize, delay: u16, tap: &TapPoint) -> String {
 }
 
 fn decode_color_buf(buf: &[u8]) -> Vec<Color> {
-    let mut colors = vec![];
-    let mut idx = 0;
-    while idx < buf.len() {
-        colors.push(Color::from_bytes(&buf[idx..idx+4]));
-        idx += 4;
-    }
-    colors
+    decode_bytes(buf, 4, Color::from_bytes)
 }
 
 fn decode_point_buf(buf: &[u8]) -> Vec<(u16, u16)> {
-    let mut points = vec![];
-    let mut idx = 0;
-    while idx < buf.len() {
-        points.push((
-            u16::from_le_bytes([buf[idx], buf[idx+1]]),
-            u16::from_le_bytes([buf[idx+2], buf[idx+3]]),
-        ));
-        idx += 4;
-    }
-    points
+    decode_bytes(buf, 4, |buf| (
+        u16::from_le_bytes([buf[0], buf[1]]),
+        u16::from_le_bytes([buf[2], buf[3]]),
+    ))
 }
 
 fn decode_delay_buf(buf: &[u8]) -> Vec<u16> {
-    let mut delays = vec![];
-    let mut idx = 0;
-    while idx < buf.len() {
-        delays.push(u16::from_le_bytes([buf[idx], buf[idx+1]]));
-        idx += 2;
-    }
-    delays
+    decode_bytes(buf, 2, |buf| u16::from_le_bytes([buf[0], buf[1]]))
 }
 
 fn merge_tap_data(points: Vec<(u16, u16)>, delays: Vec<u16>, colors: Vec<Color>) -> Vec<TapPoint> {
-    let mut taps = vec![];
-    for index in 0..colors.len() {
-        let color = &colors[index];
-        let (x, y) = points[index];
-        taps.push(TapPoint{
-            point: Point{ x, y },
-            ms_delay: delays[index],
-            color: color.clone(),
-        });
-    }
-    taps
+    colors.iter().zip(delays).zip(points).map(|((color, delay), (x, y))| TapPoint{
+        point: Point { x, y },
+        color: color.clone(),
+        ms_delay: delay,
+    }).collect()
 }

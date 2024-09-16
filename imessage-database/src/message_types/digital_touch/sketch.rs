@@ -1,6 +1,6 @@
 use crate::error::digital_touch::DigitalTouchError;
 use crate::message_types::digital_touch::digital_touch_proto::{BaseMessage, SketchMessage};
-use crate::message_types::digital_touch::models::{Color, Point};
+use crate::message_types::digital_touch::models::{decode_bytes, Color, Point};
 use crate::message_types::digital_touch::DigitalTouchMessage;
 use crate::util::ascii_canvas::AsciiCanvas;
 use protobuf::Message;
@@ -21,23 +21,25 @@ impl DigitalTouchSketch {
     pub(crate) fn from_payload(base_message: &BaseMessage) -> Result<DigitalTouchMessage, DigitalTouchError> {
         let msg = SketchMessage::parse_from_bytes(base_message.TouchPayload.as_slice()).map_err(DigitalTouchError::ProtobufError)?;
 
+        let colors = decode_bytes(&msg.Colors, 4, Color::from_bytes);
+
         let mut strokes = vec![];
         let mut index = 0;
-        for stroke_num in 0..(msg.StrokesCount as usize) {
-            let color = Color::from_bytes(&msg.Colors[(stroke_num*4)..(stroke_num*4)+4]);
+        for stroke in 0..(msg.StrokesCount as usize) {
             index += 2;
             let point_count = u16::from_le_bytes([msg.Strokes[index], msg.Strokes[index+1]]);
             index += 2;
 
-            let mut points = vec![];
-            for _ in 0..point_count {
-                points.push(Point{
-                    x: u16::from_le_bytes([msg.Strokes[index], msg.Strokes[index+1]]),
-                    y: u16::from_le_bytes([msg.Strokes[index+2], msg.Strokes[index+3]]),
-                });
-                index += 4
-            }
-            strokes.push(SketchStroke { color, points });
+            strokes.push(SketchStroke{
+                color: colors[stroke].clone(),
+                points: decode_bytes(&msg.Strokes[index..(index + (point_count as usize * 4))], 4, |buf| {
+                    Point {
+                        x: u16::from_le_bytes([buf[0], buf[1]]),
+                        y: u16::from_le_bytes([buf[2], buf[3]]),
+                    }
+                }),
+            });
+            index += point_count as usize * 4;
         }
 
         Ok(DigitalTouchMessage::Sketch(DigitalTouchSketch {

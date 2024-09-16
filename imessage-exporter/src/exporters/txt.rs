@@ -43,6 +43,7 @@ use imessage_database::{
         plist::parse_plist,
     },
 };
+use imessage_database::message_types::digital_touch::kiss::DigitalTouchKiss;
 use imessage_database::message_types::digital_touch::sketch::DigitalTouchSketch;
 use imessage_database::message_types::digital_touch::tap::DigitalTouchTap;
 use crate::exporters::exporter::DigitalTouchFormatter;
@@ -871,7 +872,8 @@ impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
         }.unwrap_or_else(|| {
             match balloon {
                 DigitalTouchMessage::Tap(taps) => self.format_digital_touch_taps(taps),
-                DigitalTouchMessage::Sketch(strokes) => self.format_digital_touch_drawing(strokes)
+                DigitalTouchMessage::Sketch(strokes) => self.format_digital_touch_sketch(strokes),
+                DigitalTouchMessage::Kiss(kisses) => self.format_digital_touch_kiss(kisses),
             }
         })
     }
@@ -2251,7 +2253,21 @@ impl<'a> DigitalTouchFormatter for TXT<'a> {
         output
     }
 
-    fn format_digital_touch_drawing(&self, strokes: &DigitalTouchSketch) -> String {
+    fn format_digital_touch_kiss(&self, kiss: &DigitalTouchKiss) -> String {
+        let mut output = String::new();
+        output.push_str("Digital Touch: Taps\n");
+        output.push_str(format!("ID: {}\n", kiss.id).as_str());
+        kiss.kisses.iter().for_each(|kiss| {
+            let x = kiss.point.x;
+            let y = kiss.point.y;
+            let delay = kiss.ms_delay;
+            let rotation = kiss.get_degs();
+            output.push_str(format!("x y: ({x}, {y}) rotation: {rotation}degrees delay: {delay}ms\n").as_str());
+        });
+        output
+    }
+
+    fn format_digital_touch_sketch(&self, strokes: &DigitalTouchSketch) -> String {
         let mut output = String::new();
         output.push_str("Digital Touch: Taps\n");
         output.push_str(format!("ID: {}\n", strokes.id).as_str());

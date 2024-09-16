@@ -498,6 +498,164 @@ impl ::protobuf::reflect::ProtobufValue for SketchMessage {
     type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
 }
 
+// @@protoc_insertion_point(message:digital_touch.KissMessage)
+#[derive(PartialEq,Clone,Default,Debug)]
+pub struct KissMessage {
+    // message fields
+    // @@protoc_insertion_point(field:digital_touch.KissMessage.Delays)
+    pub Delays: ::std::vec::Vec<u8>,
+    // @@protoc_insertion_point(field:digital_touch.KissMessage.Points)
+    pub Points: ::std::vec::Vec<u8>,
+    // @@protoc_insertion_point(field:digital_touch.KissMessage.Rotations)
+    pub Rotations: ::std::vec::Vec<u8>,
+    // special fields
+    // @@protoc_insertion_point(special_field:digital_touch.KissMessage.special_fields)
+    pub special_fields: ::protobuf::SpecialFields,
+}
+
+impl<'a> ::std::default::Default for &'a KissMessage {
+    fn default() -> &'a KissMessage {
+        <KissMessage as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl KissMessage {
+    pub fn new() -> KissMessage {
+        ::std::default::Default::default()
+    }
+
+    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
+        let mut fields = ::std::vec::Vec::with_capacity(3);
+        let mut oneofs = ::std::vec::Vec::with_capacity(0);
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "Delays",
+            |m: &KissMessage| { &m.Delays },
+            |m: &mut KissMessage| { &mut m.Delays },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "Points",
+            |m: &KissMessage| { &m.Points },
+            |m: &mut KissMessage| { &mut m.Points },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "Rotations",
+            |m: &KissMessage| { &m.Rotations },
+            |m: &mut KissMessage| { &mut m.Rotations },
+        ));
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<KissMessage>(
+            "KissMessage",
+            fields,
+            oneofs,
+        )
+    }
+}
+
+impl ::protobuf::Message for KissMessage {
+    const NAME: &'static str = "KissMessage";
+
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
+        while let Some(tag) = is.read_raw_tag_or_eof()? {
+            match tag {
+                10 => {
+                    self.Delays = is.read_bytes()?;
+                },
+                18 => {
+                    self.Points = is.read_bytes()?;
+                },
+                26 => {
+                    self.Rotations = is.read_bytes()?;
+                },
+                tag => {
+                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u64 {
+        let mut my_size = 0;
+        if !self.Delays.is_empty() {
+            my_size += ::protobuf::rt::bytes_size(1, &self.Delays);
+        }
+        if !self.Points.is_empty() {
+            my_size += ::protobuf::rt::bytes_size(2, &self.Points);
+        }
+        if !self.Rotations.is_empty() {
+            my_size += ::protobuf::rt::bytes_size(3, &self.Rotations);
+        }
+        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
+        self.special_fields.cached_size().set(my_size as u32);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        if !self.Delays.is_empty() {
+            os.write_bytes(1, &self.Delays)?;
+        }
+        if !self.Points.is_empty() {
+            os.write_bytes(2, &self.Points)?;
+        }
+        if !self.Rotations.is_empty() {
+            os.write_bytes(3, &self.Rotations)?;
+        }
+        os.write_unknown_fields(self.special_fields.unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn special_fields(&self) -> &::protobuf::SpecialFields {
+        &self.special_fields
+    }
+
+    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
+        &mut self.special_fields
+    }
+
+    fn new() -> KissMessage {
+        KissMessage::new()
+    }
+
+    fn clear(&mut self) {
+        self.Delays.clear();
+        self.Points.clear();
+        self.Rotations.clear();
+        self.special_fields.clear();
+    }
+
+    fn default_instance() -> &'static KissMessage {
+        static instance: KissMessage = KissMessage {
+            Delays: ::std::vec::Vec::new(),
+            Points: ::std::vec::Vec::new(),
+            Rotations: ::std::vec::Vec::new(),
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+        &instance
+    }
+}
+
+impl ::protobuf::MessageFull for KissMessage {
+    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
+        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("KissMessage").unwrap()).clone()
+    }
+}
+
+impl ::std::fmt::Display for KissMessage {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for KissMessage {
+    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
+}
+
 #[derive(Clone,Copy,PartialEq,Eq,Debug,Hash)]
 // @@protoc_insertion_point(enum:digital_touch.TouchKind)
 pub enum TouchKind {
@@ -507,6 +665,8 @@ pub enum TouchKind {
     Tap = 1,
     // @@protoc_insertion_point(enum_value:digital_touch.TouchKind.Drawing)
     Drawing = 4,
+    // @@protoc_insertion_point(enum_value:digital_touch.TouchKind.Kiss)
+    Kiss = 7,
 }
 
 impl ::protobuf::Enum for TouchKind {
@@ -521,6 +681,7 @@ impl ::protobuf::Enum for TouchKind {
             0 => ::std::option::Option::Some(TouchKind::Unknown),
             1 => ::std::option::Option::Some(TouchKind::Tap),
             4 => ::std::option::Option::Some(TouchKind::Drawing),
+            7 => ::std::option::Option::Some(TouchKind::Kiss),
             _ => ::std::option::Option::None
         }
     }
@@ -530,6 +691,7 @@ impl ::protobuf::Enum for TouchKind {
             "Unknown" => ::std::option::Option::Some(TouchKind::Unknown),
             "Tap" => ::std::option::Option::Some(TouchKind::Tap),
             "Drawing" => ::std::option::Option::Some(TouchKind::Drawing),
+            "Kiss" => ::std::option::Option::Some(TouchKind::Kiss),
             _ => ::std::option::Option::None
         }
     }
@@ -538,6 +700,7 @@ impl ::protobuf::Enum for TouchKind {
         TouchKind::Unknown,
         TouchKind::Tap,
         TouchKind::Drawing,
+        TouchKind::Kiss,
     ];
 }
 
@@ -552,6 +715,7 @@ impl ::protobuf::EnumFull for TouchKind {
             TouchKind::Unknown => 0,
             TouchKind::Tap => 1,
             TouchKind::Drawing => 2,
+            TouchKind::Kiss => 3,
         };
         Self::enum_descriptor().value_by_index(index)
     }
@@ -579,8 +743,11 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     \x04\x20\x01(\x0cR\x05Color\"e\n\rSketchMessage\x12\"\n\x0cStrokesCount\
     \x18\x01\x20\x01(\x03R\x0cStrokesCount\x12\x18\n\x07Strokes\x18\x02\x20\
     \x01(\x0cR\x07Strokes\x12\x16\n\x06Colors\x18\x03\x20\x01(\x0cR\x06Color\
-    s*.\n\tTouchKind\x12\x0b\n\x07Unknown\x10\0\x12\x07\n\x03Tap\x10\x01\x12\
-    \x0b\n\x07Drawing\x10\x04b\x06proto3\
+    s\"[\n\x0bKissMessage\x12\x16\n\x06Delays\x18\x01\x20\x01(\x0cR\x06Delay\
+    s\x12\x16\n\x06Points\x18\x02\x20\x01(\x0cR\x06Points\x12\x1c\n\tRotatio\
+    ns\x18\x03\x20\x01(\x0cR\tRotations*8\n\tTouchKind\x12\x0b\n\x07Unknown\
+    \x10\0\x12\x07\n\x03Tap\x10\x01\x12\x0b\n\x07Drawing\x10\x04\x12\x08\n\
+    \x04Kiss\x10\x07b\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -598,10 +765,11 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
     file_descriptor.get(|| {
         let generated_file_descriptor = generated_file_descriptor_lazy.get(|| {
             let mut deps = ::std::vec::Vec::with_capacity(0);
-            let mut messages = ::std::vec::Vec::with_capacity(3);
+            let mut messages = ::std::vec::Vec::with_capacity(4);
             messages.push(BaseMessage::generated_message_descriptor_data());
             messages.push(TapMessage::generated_message_descriptor_data());
             messages.push(SketchMessage::generated_message_descriptor_data());
+            messages.push(KissMessage::generated_message_descriptor_data());
             let mut enums = ::std::vec::Vec::with_capacity(1);
             enums.push(TouchKind::generated_enum_descriptor_data());
             ::protobuf::reflect::GeneratedFileDescriptor::new_generated(

@@ -15,6 +15,7 @@ use imessage_database::{
     },
     tables::{attachment::Attachment, messages::Message},
 };
+use imessage_database::message_types::digital_touch::kiss::DigitalTouchKiss;
 use imessage_database::message_types::digital_touch::sketch::DigitalTouchSketch;
 use imessage_database::message_types::digital_touch::models::DigitalTouchMessage;
 use imessage_database::message_types::digital_touch::tap::DigitalTouchTap;
@@ -129,6 +130,11 @@ pub(super) trait TextEffectFormatter {
 }
 
 pub(super) trait DigitalTouchFormatter {
+    /// Format [`Tap`](imessage_database::message_types::digital_touch::DigitalTouchMessage::Tap) message text
     fn format_digital_touch_taps(&self, taps: &DigitalTouchTap) -> String;
-    fn format_digital_touch_drawing(&self, strokes: &DigitalTouchSketch) -> String;
+    /// Format [`Sketch`](imessage_database::message_types::digital_touch::DigitalTouchMessage::Sketch) message text
+    fn format_digital_touch_sketch(&self, sketch: &DigitalTouchSketch) -> String;
+    /// Format [`Kiss`](imessage_database::message_types::digital_touch::DigitalTouchMessage::Kiss) message text
+    fn format_digital_touch_kiss(&self, kiss: &DigitalTouchKiss) -> String;
+
 }

@@ -4,6 +4,7 @@ use crate::{
     message_types::digital_touch::digital_touch_proto::{BaseMessage, TouchKind},
 };
 use protobuf::Message;
+use crate::message_types::digital_touch::kiss::DigitalTouchKiss;
 use crate::message_types::digital_touch::sketch::DigitalTouchSketch;
 
 /// Parser for [digital touch](https://support.apple.com/guide/ipod-touch/send-a-digital-touch-effect-iph3fadba219/ios) iMessages.
@@ -14,6 +15,7 @@ use crate::message_types::digital_touch::sketch::DigitalTouchSketch;
 pub enum DigitalTouchMessage {
     Tap(DigitalTouchTap),
     Sketch(DigitalTouchSketch),
+    Kiss(DigitalTouchKiss),
 }
 
 #[derive(Debug, PartialEq, Clone, Eq)]
@@ -54,7 +56,17 @@ impl DigitalTouchMessage {
             TouchKind::Unknown => Err(DigitalTouchError::UnknownDigitalTouchKind(msg.TouchKind.value())),
             TouchKind::Tap => DigitalTouchTap::from_payload(&msg),
             TouchKind::Drawing => DigitalTouchSketch::from_payload(&msg),
+            TouchKind::Kiss => DigitalTouchKiss::from_payload(&msg),
         }
     }
 }
 
+pub fn decode_bytes<T>(b: &[u8], count: usize, parse_fn: impl Fn(&[u8]) -> T) -> Vec<T> {
+    let mut a = vec![];
+    let mut idx = 0;
+    while idx < b.len() {
+        a.push(parse_fn(&b[idx..idx+count]));
+        idx += count;
+    }
+    a
+}
