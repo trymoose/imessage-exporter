@@ -2,6 +2,8 @@
  Variants represent the different types of iMessages that exist in the `messages` table.
 */
 
+use std::fmt::Display;
+
 use plist::Value;
 
 use crate::{
@@ -37,7 +39,7 @@ use crate::{
 ///   - This means unliking an old message will make it look like the reaction was applied/removed at the
 ///     time of latest change; the history of reaction statuses is not kept
 #[derive(Debug)]
-pub enum Reaction {
+pub enum Reaction<'a> {
     /// Heart
     Loved,
     /// Thumbs up
@@ -50,6 +52,20 @@ pub enum Reaction {
     Emphasized,
     /// Question marks
     Questioned,
+    /// Custom emoji reactions
+    Emoji(Option<&'a str>),
+}
+
+impl<'a> Display for Reaction<'a> {
+    fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Reaction::Emoji(emoji) => match emoji {
+                Some(e) => write!(fmt, "{e}"),
+                None => write!(fmt, "Unknown emoji!"),
+            },
+            _ => write!(fmt, "{self:?}"),
+        }
+    }
 }
 
 /// Application Messages
@@ -73,7 +89,7 @@ pub enum CustomBalloon<'a> {
     /// [Check In](https://support.apple.com/guide/iphone/use-check-in-iphc143bb7e9/ios) messages
     CheckIn,
     /// Find My messages
-    FindMy
+    FindMy,
 }
 
 /// URL Message Types
@@ -117,7 +133,7 @@ pub enum Announcement<'a> {
 #[derive(Debug)]
 pub enum Variant<'a> {
     /// A reaction to another message
-    Reaction(usize, bool, Reaction),
+    Reaction(usize, bool, Reaction<'a>),
     /// A sticker message, either placed on another message or by itself
     Sticker(usize),
     /// Container for new or unknown messages
