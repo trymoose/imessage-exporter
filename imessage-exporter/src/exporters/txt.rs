@@ -1487,6 +1487,60 @@ mod tests {
     }
 
     #[test]
+    fn can_format_txt_reaction_custom_emoji() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let mut config = fake_config(options);
+        config
+            .participants
+            .insert(999999, "Sample Contact".to_string());
+        let exporter = TXT::new(&config).unwrap();
+
+        let mut message = blank();
+        // May 17, 2022  8:29:42 PM
+        message.date = 674526582885055488;
+        message.associated_message_type = Some(2006);
+        message.associated_message_guid = Some("fake_guid".to_string());
+        message.handle_id = Some(999999);
+        message.associated_message_emoji = Some("☕️".to_string());
+
+        let actual = exporter.format_reaction(&message).unwrap();
+        let expected = "☕️ by Sample Contact";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
+    fn can_format_txt_reaction_custom_sticker() {
+        // Set timezone to PST for consistent Local time
+        set_var("TZ", "PST");
+
+        // Create exporter
+        let options = fake_options();
+        let mut config = fake_config(options);
+        config
+            .participants
+            .insert(999999, "Sample Contact".to_string());
+        let exporter = TXT::new(&config).unwrap();
+
+        let mut message = blank();
+        // May 17, 2022  8:29:42 PM
+        message.date = 674526582885055488;
+        message.associated_message_type = Some(2007);
+        message.associated_message_guid = Some("fake_guid".to_string());
+        message.handle_id = Some(999999);
+        message.associated_message_emoji = Some("☕️".to_string());
+
+        let actual = exporter.format_reaction(&message).unwrap();
+        let expected = "Sticker from Sample Contact not found!";
+
+        assert_eq!(actual, expected);
+    }
+
+    #[test]
     fn can_format_txt_started_sharing_location_me() {
         // Set timezone to PST for consistent Local time
         set_var("TZ", "PST");
