@@ -88,6 +88,8 @@ pub struct Message {
     pub thread_originator_part: Option<String>,
     /// The date the message was most recently edited
     pub date_edited: i64,
+    /// If present, this is the emoji associated with a custom reaction
+    pub associated_message_emoji: Option<String>,
     /// The [`identifier`](crate::tables::chat::Chat::chat_identifier) of the chat the message belongs to
     pub chat_id: Option<i32>,
     /// The number of attached files included in the message
@@ -130,6 +132,7 @@ impl Table for Message {
             thread_originator_guid: row.get("thread_originator_guid").unwrap_or(None),
             thread_originator_part: row.get("thread_originator_part").unwrap_or(None),
             date_edited: row.get("date_edited").unwrap_or(0),
+            associated_message_emoji: row.get("associated_message_emoji").unwrap_or(None),
             chat_id: row.get("chat_id").unwrap_or(None),
             num_attachments: row.get("num_attachments")?,
             deleted_from: row.get("deleted_from").unwrap_or(None),
@@ -359,27 +362,24 @@ impl Cacheable for Message {
 impl Message {
     /// Generate the text of a message, deserializing it as [`typedstream`](crate::util::typedstream) (and falling back to [`streamtyped`]) data if necessary.
     pub fn generate_text<'a>(&'a mut self, db: &'a Connection) -> Result<&'a str, MessageError> {
-        if self.text.is_none() {
-            // Grab the body data from the table
-            if let Some(body) = self.attributed_body(db) {
-                // Attempt to deserialize the typedstream data
-                let mut typedstream = TypedStreamReader::from(&body);
-                self.components = typedstream.parse().ok();
+        // Grab the body data from the table
+        if let Some(body) = self.attributed_body(db) {
+            // Attempt to deserialize the typedstream data
+            let mut typedstream = TypedStreamReader::from(&body);
+            self.components = typedstream.parse().ok();
 
-                // If we deserialize the typedstream, use that data
-                self.text = self
-                    .components
-                    .as_ref()
-                    .and_then(|items| items.first())
-                    .and_then(|item| item.deserialize_as_nsstring())
-                    .map(String::from);
+            // If we deserialize the typedstream, use that data
+            self.text = self
+                .components
+                .as_ref()
+                .and_then(|items| items.first())
+                .and_then(|item| item.deserialize_as_nsstring())
+                .map(String::from);
 
-                // If the above parsing failed, fall back to the legacy parser instead
-                if self.text.is_none() {
-                    self.text = Some(
-                        streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?,
-                    );
-                }
+            // If the above parsing failed, fall back to the legacy parser instead
+            if self.text.is_none() {
+                self.text =
+                    Some(streamtyped::parse(body).map_err(MessageError::StreamTypedParseError)?);
             }
         }
 
@@ -421,7 +421,7 @@ impl Message {
     /// use imessage_database::tables::messages::models::{TextAttributes, BubbleComponent};
     ///  
     /// let result = vec![
-    ///     BubbleComponent::Attachment,
+    ///     BubbleComponent::Attachment(""),
     ///     BubbleComponent::Text(vec![TextAttributes::new(3, 24, TextEffect::Default)]), // `Check out this photo!`
     /// ];
     /// ```
@@ -883,12 +883,24 @@ impl Message {
                 2003 => Variant::Reaction(self.reaction_index(), true, Reaction::Laughed),
                 2004 => Variant::Reaction(self.reaction_index(), true, Reaction::Emphasized),
                 2005 => Variant::Reaction(self.reaction_index(), true, Reaction::Questioned),
+                2006 => Variant::Reaction(
+                    self.reaction_index(),
+                    true,
+                    Reaction::Emoji(self.associated_message_emoji.as_deref()),
+                ),
+                2007 => Variant::Sticker(self.reaction_index()),
                 3000 => Variant::Reaction(self.reaction_index(), false, Reaction::Loved),
                 3001 => Variant::Reaction(self.reaction_index(), false, Reaction::Liked),
                 3002 => Variant::Reaction(self.reaction_index(), false, Reaction::Disliked),
                 3003 => Variant::Reaction(self.reaction_index(), false, Reaction::Laughed),
                 3004 => Variant::Reaction(self.reaction_index(), false, Reaction::Emphasized),
                 3005 => Variant::Reaction(self.reaction_index(), false, Reaction::Questioned),
+                3006 => Variant::Reaction(
+                    self.reaction_index(),
+                    false,
+                    Reaction::Emoji(self.associated_message_emoji.as_deref()),
+                ),
+                3007 => Variant::Sticker(self.reaction_index()),
 
                 // Unknown
                 x => Variant::Unknown(x),
@@ -1077,6 +1089,7 @@ mod tests {
             thread_originator_guid: None,
             thread_originator_part: None,
             date_edited: 0,
+            associated_message_emoji: None,
             chat_id: None,
             num_attachments: 0,
             deleted_from: None,

@@ -263,7 +263,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                         }
                     }
                 }
-                BubbleComponent::Attachment => match attachments.get_mut(attachment_index) {
+                BubbleComponent::Attachment(_) => match attachments.get_mut(attachment_index) {
                     Some(attachment) => {
                         if attachment.is_sticker {
                             let result = self.format_sticker(attachment, message);
@@ -488,7 +488,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                     return Ok(String::new());
                 }
                 Ok(format!(
-                    "{:?} by {}",
+                    "{} by {}",
                     reaction,
                     self.config
                         .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id),
@@ -501,7 +501,7 @@ impl<'a> Writer<'a> for TXT<'a> {
                         .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id);
                 // Sticker messages have only one attachment, the sticker image
                 Ok(if let Some(sticker) = paths.get_mut(0) {
-                    self.format_sticker(sticker, msg)
+                    format!("{} from {who}", self.format_sticker(sticker, msg))
                 } else {
                     format!("Sticker from {who} not found!")
                 })
@@ -1069,6 +1069,7 @@ mod tests {
             thread_originator_part: None,
             date_edited: 0,
             chat_id: None,
+            associated_message_emoji: None,
             num_attachments: 0,
             deleted_from: None,
             num_replies: 0,

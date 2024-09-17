@@ -378,7 +378,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                         }
                     }
                 }
-                BubbleComponent::Attachment => {
+                BubbleComponent::Attachment(_) => {
                     match attachments.get_mut(attachment_index) {
                         Some(attachment) => {
                             if attachment.is_sticker {
@@ -691,7 +691,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                     return Ok(String::new());
                 }
                 Ok(format!(
-                    "<span class=\"reaction\"><b>{:?}</b> by {}</span>",
+                    "<span class=\"reaction\"><b>{}</b> by {}</span>",
                     reaction,
                     self.config
                         .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id),
@@ -704,7 +704,10 @@ impl<'a> Writer<'a> for HTML<'a> {
                         .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id);
                 // Sticker messages have only one attachment, the sticker image
                 Ok(match paths.get_mut(0) {
-                    Some(sticker) => self.format_sticker(sticker, msg),
+                    Some(sticker) => format!(
+                        "{} <div class=\"sticker_reaction\">&nbsp;by {who}</div>",
+                        self.format_sticker(sticker, msg)
+                    ),
                     None => {
                         format!("<span class=\"reaction\">Sticker from {who} not found!</span>")
                     }
@@ -1605,6 +1608,7 @@ mod tests {
             thread_originator_part: None,
             date_edited: 0,
             chat_id: None,
+            associated_message_emoji: None,
             num_attachments: 0,
             deleted_from: None,
             num_replies: 0,
