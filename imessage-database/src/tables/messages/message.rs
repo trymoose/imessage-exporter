@@ -402,11 +402,13 @@ impl Message {
     ///
     /// # Parsing
     ///
-    /// There are two different ways to parse this data
+    /// There are two different ways this crate will attempt to parse this data.
     ///
     /// ## Default parsing
     ///
-    /// Message body text can be formatted with a [`Vec`] of [`TextAttributes`](crate::tables::messages::models::TextAttributes).
+    /// In most cases, the message body will be deserialized using the [`typedstream`](crate::util::typedstream) deserializer.
+    ///
+    /// Note: message body text can be formatted with a [`Vec`] of [`TextAttributes`](crate::tables::messages::models::TextAttributes).
     ///
     /// An iMessage that contains body text like:
     ///
@@ -422,7 +424,7 @@ impl Message {
     ///  
     /// let result = vec![
     ///     BubbleComponent::Attachment(""),
-    ///     BubbleComponent::Text(vec![TextAttributes::new(3, 24, TextEffect::Default)]), // `Check out this photo!`
+    ///     BubbleComponent::Text(vec![TextAttributes::new(3, 24, TextEffect::Default)]),
     /// ];
     /// ```
     ///

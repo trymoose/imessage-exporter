@@ -38,6 +38,8 @@ use crate::{
 ///   - When messages drop the ROWIDs become non-sequential: the ID of the dropped message row is not reused
 ///   - This means unliking an old message will make it look like the reaction was applied/removed at the
 ///     time of latest change; the history of reaction statuses is not kept
+/// 
+/// The index specified by the prefix maps to the index of the body part given by [`Message::body()`](crate::tables::messages::Message::body).
 #[derive(Debug)]
 pub enum Reaction<'a> {
     /// Heart
@@ -133,8 +135,16 @@ pub enum Announcement<'a> {
 #[derive(Debug)]
 pub enum Variant<'a> {
     /// A reaction to another message
+    /// 
+    /// The `usize` indicates the index of the message the reaction is applied to.
+    /// 
+    /// The boolean indicates whether the reaction was applied (`true`) or removed (`false`).
     Reaction(usize, bool, Reaction<'a>),
     /// A sticker message, either placed on another message or by itself
+    ///
+    /// If the sticker is a reaction, the `usize` indicates the index of the message the reaction is applied to.
+    ///
+    /// If the sticker is a normal message, it is treated like an attachment, and the message's [`body()`](crate::tables::messages::Message::body) indicates the location.
     Sticker(usize),
     /// Container for new or unknown messages
     Unknown(i32),
