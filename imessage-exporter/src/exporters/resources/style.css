@@ -267,6 +267,7 @@ span.reactions {
 
 div.reactions img {
 	max-width: 5em;
+	padding-right: 1em;
 }
 
 div.reaction {
