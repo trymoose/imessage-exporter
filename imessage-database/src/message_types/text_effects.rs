@@ -12,25 +12,25 @@ pub enum TextEffect<'a> {
     /// Default, unstyled text
     Default,
     /// A [mentioned](https://support.apple.com/guide/messages/mention-a-person-icht306ee34b/mac) contact in the conversation
-    /// 
+    ///
     /// The embedded data contains information about the mentioned contact.
     Mention(&'a str),
     /// A clickable link, i.e. `https://`, `tel:`, `mailto:`, and others
-    /// 
+    ///
     /// The embedded data contains the url.
     Link(&'a str),
     /// A one-time code, i.e. from a 2FA message
     OTP,
     /// Traditional formatting styles
-    /// 
+    ///
     /// The embedded data contains the formatting styles applied to the range.
     Styles(Vec<Style>),
     /// Animation applied to the text
-    /// 
+    ///
     /// The embedded data contains the animation applied to the range.
     Animated(Animation),
     /// Conversions that can be applied to text
-    /// 
+    ///
     /// The embedded data contains the unit that the range represents.
     Conversion(Unit),
 }
@@ -76,4 +76,22 @@ pub enum Animation {
     Ripple,
     Bloom,
     Jitter,
+    Unknown(i64),
+}
+
+impl Animation {
+    pub fn from_id(value: i64) -> Self {
+        match value {
+            // In order of appearance in the text effects menu
+            5 => Self::Big,
+            11 => Self::Small,
+            9 => Self::Shake,
+            8 => Self::Nod,
+            12 => Self::Explode,
+            4 => Self::Ripple,
+            6 => Self::Bloom,
+            10 => Self::Jitter,
+            _ => Self::Unknown(value),
+        }
+    }
 }

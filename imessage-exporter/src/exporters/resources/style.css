@@ -275,6 +275,10 @@ div.tapback {
 	align-items: center;
 }
 
+span[class^="animation"] {
+	text-shadow: #000 0 0 10px;
+}
+
 div.sticker_effect {
 	opacity: 60%;
 }
