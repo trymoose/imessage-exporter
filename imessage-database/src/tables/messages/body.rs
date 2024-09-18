@@ -1,7 +1,7 @@
 use crate::{
     message_types::{
         edited::EditStatus,
-        text_effects::{TextEffect, Unit},
+        text_effects::{Animation, Style, TextEffect, Unit},
     },
     tables::messages::{
         models::{BubbleComponent, TextAttributes},
@@ -162,39 +162,25 @@ fn get_bubble_type<'a>(
     let range_start = get_char_idx(message.text.as_ref()?, start, char_indices);
     let range_end = get_char_idx(message.text.as_ref()?, end, char_indices);
     for (idx, key) in components.iter().enumerate() {
-        // In the future, we will detect TextEffects as well
-        if let Some(key_name) = key.deserialize_as_nsstring() {
+        if let Some(key_name) = key.as_nsstring() {
             match key_name {
                 "__kIMFileTransferGUIDAttributeName" => {
                     return Some(BubbleResult::New(BubbleComponent::Attachment(
-                        components
-                            .get(idx + 1)?
-                            .deserialize_as_nsstring()
-                            .unwrap_or(""),
+                        components.get(idx + 1)?.as_nsstring().unwrap_or(""),
                     )))
                 }
                 "__kIMMentionConfirmedMention" => {
                     return Some(BubbleResult::Continuation(TextAttributes::new(
                         range_start,
                         range_end,
-                        TextEffect::Mention(
-                            components
-                                .get(idx + 1)?
-                                .deserialize_as_nsstring()
-                                .unwrap_or(""),
-                        ),
+                        TextEffect::Mention(components.get(idx + 1)?.as_nsstring().unwrap_or("")),
                     )));
                 }
                 "__kIMLinkAttributeName" => {
                     return Some(BubbleResult::Continuation(TextAttributes::new(
                         range_start,
                         range_end,
-                        TextEffect::Link(
-                            components
-                                .get(idx + 2)?
-                                .deserialize_as_nsstring()
-                                .unwrap_or("#"),
-                        ),
+                        TextEffect::Link(components.get(idx + 2)?.as_nsstring().unwrap_or("#")),
                     )));
                 }
                 "__kIMOneTimeCodeAttributeName" => {
@@ -211,6 +197,26 @@ fn get_bubble_type<'a>(
                         TextEffect::Conversion(Unit::Timezone),
                     )));
                 }
+                // Any number of text styles can be applied to a message
+                "__kIMTextBoldAttributeName"
+                | "__kIMTextUnderlineAttributeName"
+                | "__kIMTextItalicAttributeName"
+                | "__kIMTextStrikethroughAttributeName" => {
+                    return Some(BubbleResult::Continuation(TextAttributes::new(
+                        range_start,
+                        range_end,
+                        TextEffect::Styles(resolve_styles(components)),
+                    )));
+                }
+                "__kIMTextEffectAttributeName" => {
+                    let text_effect_id = components.get(idx + 1)?.as_nsnumber().unwrap_or(&0);
+                    let effect = Animation::from_id(*text_effect_id);
+                    return Some(BubbleResult::Continuation(TextAttributes::new(
+                        range_start,
+                        range_end,
+                        TextEffect::Animated(effect),
+                    )));
+                }
                 _ => {}
             }
         }
@@ -220,6 +226,23 @@ fn get_bubble_type<'a>(
         range_end,
         TextEffect::Default,
     )))
+}
+
+/// Extract text styles from a range of key-value pairs
+fn resolve_styles(components: &[Archivable]) -> Vec<Style> {
+    let mut styles = vec![];
+    for key in components.iter() {
+        if let Some(key_name) = key.as_nsstring() {
+            match key_name {
+                "__kIMTextBoldAttributeName" => styles.push(Style::Bold),
+                "__kIMTextUnderlineAttributeName" => styles.push(Style::Underline),
+                "__kIMTextItalicAttributeName" => styles.push(Style::Italic),
+                "__kIMTextStrikethroughAttributeName" => styles.push(Style::Strikethrough),
+                _ => {}
+            }
+        }
+    }
+    styles
 }
 
 /// Fallback logic to parse the body from the message string content
@@ -274,7 +297,7 @@ mod typedstream_tests {
     use crate::{
         message_types::{
             edited::{EditStatus, EditedEvent, EditedMessage, EditedMessagePart},
-            text_effects::{TextEffect, Unit},
+            text_effects::{Animation, Style, TextEffect, Unit},
         },
         tables::messages::{
             body::parse_body_typedstream,
@@ -803,6 +826,131 @@ mod typedstream_tests {
         assert_eq!(
             parse_body_typedstream(&m).unwrap(),
             vec![BubbleComponent::Retracted,]
+        );
+    }
+
+    #[test]
+    fn can_get_message_body_text_styles() {
+        let mut m = blank();
+        m.text = Some("Bold underline italic strikethrough all four".to_string());
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/TextStyles");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        m.components = parser.parse().ok();
+
+        m.components
+            .as_ref()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .for_each(|(idx, item)| println!("\t{idx}: {item:?}"));
+
+        assert_eq!(
+            parse_body_typedstream(&m).unwrap(),
+            vec![BubbleComponent::Text(vec![
+                TextAttributes::new(0, 4, TextEffect::Styles(vec![Style::Bold])),
+                TextAttributes::new(4, 5, TextEffect::Default),
+                TextAttributes::new(5, 14, TextEffect::Styles(vec![Style::Underline])),
+                TextAttributes::new(14, 15, TextEffect::Default),
+                TextAttributes::new(15, 21, TextEffect::Styles(vec![Style::Italic])),
+                TextAttributes::new(21, 22, TextEffect::Default),
+                TextAttributes::new(22, 35, TextEffect::Styles(vec![Style::Strikethrough])),
+                TextAttributes::new(35, 40, TextEffect::Default),
+                TextAttributes::new(
+                    40,
+                    44,
+                    TextEffect::Styles(vec![
+                        Style::Bold,
+                        Style::Strikethrough,
+                        Style::Underline,
+                        Style::Italic
+                    ])
+                ),
+            ]),]
+        );
+    }
+
+    #[test]
+    fn can_get_message_body_text_effects() {
+        let mut m = blank();
+        m.text = Some("Big small shake nod explode ripple bloom jitter".to_string());
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/TextEffects");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        m.components = parser.parse().ok();
+
+        m.components
+            .as_ref()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .for_each(|(idx, item)| println!("\t{idx}: {item:?}"));
+
+        assert_eq!(
+            parse_body_typedstream(&m).unwrap(),
+            vec![BubbleComponent::Text(vec![
+                TextAttributes::new(0, 3, TextEffect::Animated(Animation::Big)),
+                TextAttributes::new(3, 4, TextEffect::Default),
+                TextAttributes::new(4, 10, TextEffect::Animated(Animation::Small)),
+                TextAttributes::new(10, 15, TextEffect::Animated(Animation::Shake)),
+                TextAttributes::new(15, 16, TextEffect::Default),
+                TextAttributes::new(16, 19, TextEffect::Animated(Animation::Nod)),
+                TextAttributes::new(19, 20, TextEffect::Default),
+                TextAttributes::new(20, 28, TextEffect::Animated(Animation::Explode)),
+                TextAttributes::new(28, 34, TextEffect::Animated(Animation::Ripple)),
+                TextAttributes::new(34, 35, TextEffect::Default),
+                TextAttributes::new(35, 40, TextEffect::Animated(Animation::Bloom)),
+                TextAttributes::new(40, 41, TextEffect::Default),
+                TextAttributes::new(41, 47, TextEffect::Animated(Animation::Jitter)),
+            ]),]
+        );
+    }
+
+    #[test]
+    fn can_get_message_body_text_effects_styles_mixed() {
+        let mut m = blank();
+        m.text = Some("Underline normal jitter normal".to_string());
+
+        let typedstream_path = current_dir()
+            .unwrap()
+            .as_path()
+            .join("test_data/typedstream/TextStylesMixed");
+        let mut file = File::open(typedstream_path).unwrap();
+        let mut bytes = vec![];
+        file.read_to_end(&mut bytes).unwrap();
+
+        let mut parser = TypedStreamReader::from(&bytes);
+        m.components = parser.parse().ok();
+
+        m.components
+            .as_ref()
+            .unwrap()
+            .iter()
+            .enumerate()
+            .for_each(|(idx, item)| println!("\t{idx}: {item:?}"));
+
+        assert_eq!(
+            parse_body_typedstream(&m).unwrap(),
+            vec![BubbleComponent::Text(vec![
+                TextAttributes::new(0, 9, TextEffect::Styles(vec![Style::Underline])),
+                TextAttributes::new(9, 17, TextEffect::Default),
+                TextAttributes::new(17, 23, TextEffect::Animated(Animation::Jitter)),
+                TextAttributes::new(23, 30, TextEffect::Default),
+            ]),]
         );
     }
 }
