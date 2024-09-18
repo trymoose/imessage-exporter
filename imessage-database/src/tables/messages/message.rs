@@ -373,7 +373,7 @@ impl Message {
                 .components
                 .as_ref()
                 .and_then(|items| items.first())
-                .and_then(|item| item.deserialize_as_nsstring())
+                .and_then(|item| item.as_nsstring())
                 .map(String::from);
 
             // If the above parsing failed, fall back to the legacy parser instead
