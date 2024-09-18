@@ -65,7 +65,6 @@ impl DigitalTouchHeartbeat {
                 ("values", "1.0; 2.0; 1.0".to_string()),
                 ("keyTimes", "0; 0.70; 1".to_string()),
                 ("dur", format!("{}ms", time_per_beat)),
-                // ("additive", "sum".to_string()),
                 ("repeatCount", format!("{beats_in_interval}")),
                 ("restart", "whenNotActive".to_string()),
             ]), None))),

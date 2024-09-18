@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::f64::consts::PI;
 use protobuf::Message;
@@ -67,15 +68,40 @@ fn render_svg_kiss(canvas: &mut SVGCanvas, delay: u16, kiss: &KissPoint) {
     let y =  canvas.fit_y(kiss.point.y as usize, u16::MAX as usize);
     let degs = kiss.get_degs();
 
-    let _ = writeln!(canvas, r#"<path transform="translate({x},{y}) rotate({degs})" d="
-    M -50,0
-    L -14,-25
-    A 20,20 0 0,0 13,-25
-    L 50,0
-    L -50,0
-    A 40,20 0 0,0 50,0
-    " fill="none" stroke="red" stroke-width="0" stroke-linecap="round" stroke-linejoin="round" opacity="0" >
-        <animate attributeName="opacity" values="0.0; 1.0; 0.0" keyTimes="0; 0.25; 1" dur="1.5s" begin="{delay}ms" repeatCount="1" restart="whenNotActive" />
-        <animate attributeName="stroke-width" values="0.0; 25.0; 0.0" keyTimes="0; 0.25; 1" dur="1.5s" begin="{delay}ms" repeatCount="1" restart="whenNotActive" />
-</path>"#);
+    canvas.write_elem("path", HashMap::from([
+        ("transform", format!("translate({x}, {y}) rotate({degs})")),
+        ("d", r#"
+M -50,0
+L -14,-25
+A 20,20 0 0,0 13,-25
+L 50,0
+L -50,0
+A 40,20 0 0,0 50,0
+"#.to_string()),
+        ("fill", "none".to_string()),
+        ("stroke", "red".to_string()),
+        ("stroke-width", "0".to_string()),
+        ("stroke-linecap", "round".to_string()),
+        ("stroke-linejoin", "round".to_string()),
+        ("opacity", "0".to_string())
+    ]), Some(vec![
+        SVGCanvas::generate_elem("animate", HashMap::from([
+            ("attributeName", "opacity".to_string()),
+            ("values", "0.0; 1.0; 0.0".to_string()),
+            ("keyTimes", "0; 0.25; 1".to_string()),
+            ("dur", "1.5s".to_string()),
+            ("begin", format!("{delay}ms")),
+            ("repeatCount", "1".to_string()),
+            ("restart", "whenNotActive".to_string()),
+        ]), None),
+        SVGCanvas::generate_elem("animate", HashMap::from([
+            ("attributeName", "stroke-width".to_string()),
+            ("values", "0.0; 25.0; 0.0".to_string()),
+            ("keyTimes", "0; 0.25; 1".to_string()),
+            ("dur", "1.5s".to_string()),
+            ("begin", format!("{delay}ms")),
+            ("repeatCount", "1".to_string()),
+            ("restart", "whenNotActive".to_string()),
+        ]), None),
+    ].join("\n")));
 }

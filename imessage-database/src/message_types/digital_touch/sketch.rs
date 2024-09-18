@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt::Write;
 use crate::error::digital_touch::DigitalTouchError;
 use crate::message_types::digital_touch::digital_touch_proto::{BaseMessage, SketchMessage};
@@ -52,14 +53,18 @@ impl DigitalTouchSketch {
 
     pub fn render_svg(&self, canvas: &mut SVGCanvas) {
         self.strokes.iter().for_each(|stroke| {
-            let mut points = String::new();
-            stroke.points.iter().for_each(|point| {
-                let x = canvas.fit_x(point.x as usize, u16::MAX as usize);
-                let y = canvas.fit_y(point.y as usize, u16::MAX as usize);
-                points.push_str(format!("{x},{y} ").as_str());
-            });
             let (r, g, b, a) = stroke.color.tuple();
-            let _ = writeln!(canvas, r#"<polyline points="{points}" stroke-width="10px" fill="none" stroke="rgba({r}, {g}, {b}, {a})" />"#);
+
+            canvas.write_elem("polyline", HashMap::from([
+                ("points", stroke.points.iter().map(|point| {
+                    let x = canvas.fit_x(point.x as usize, u16::MAX as usize);
+                    let y = canvas.fit_y(point.y as usize, u16::MAX as usize);
+                    format!("{x},{y}")
+                }).collect::<Vec<String>>().join(" ")),
+                ("stroke-width", "10px".to_string()),
+                ("fill", "none".to_string()),
+                ("stroke", format!("rgba({r}, {g}, {b}, {a})")),
+            ]), None);
         });
     }
 
