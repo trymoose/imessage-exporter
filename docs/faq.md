@@ -6,7 +6,7 @@ Ensure your terminal emulator has [full disk access](https://kb.synology.com/en-
 
 ***
 
-#### Are emojis, reactions, and other special message features preserved in the export?
+#### Are emojis,tapbacks (reactions), and other special message features preserved in the export?
 
 Yes, all iMessage features are supported. See [here](features.md) for more detail.
 

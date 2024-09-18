@@ -261,15 +261,16 @@ span.expressive {
 	opacity: 60%;
 }
 
-span.reactions {
+span.tapbacks {
 	opacity: 60%;
 }
 
-div.reactions img {
+div.tapbacks img {
 	max-width: 5em;
+	padding-right: 1em;
 }
 
-div.reaction {
+div.tapback {
 	display: flex;
 	align-items: center;
 }
