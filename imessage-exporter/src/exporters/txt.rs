@@ -43,6 +43,7 @@ use imessage_database::{
         plist::parse_plist,
     },
 };
+use imessage_database::message_types::digital_touch::heartbeat::DigitalTouchHeartbeat;
 use imessage_database::message_types::digital_touch::kiss::DigitalTouchKiss;
 use imessage_database::message_types::digital_touch::sketch::DigitalTouchSketch;
 use imessage_database::message_types::digital_touch::tap::DigitalTouchTap;
@@ -874,6 +875,7 @@ impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
                 DigitalTouchMessage::Tap(taps) => self.format_digital_touch_taps(taps),
                 DigitalTouchMessage::Sketch(strokes) => self.format_digital_touch_sketch(strokes),
                 DigitalTouchMessage::Kiss(kisses) => self.format_digital_touch_kiss(kisses),
+                DigitalTouchMessage::Heartbeat(beats) => self.format_digital_touch_heartbeat(beats),
             }
         })
     }
@@ -2272,6 +2274,15 @@ impl<'a> DigitalTouchFormatter for TXT<'a> {
         output.push_str("Digital Touch: Taps\n");
         output.push_str(format!("ID: {}\n", strokes.id).as_str());
         output.push_str(strokes.render_ascii(40).as_str());
+        output
+    }
+
+    fn format_digital_touch_heartbeat(&self, beat: &DigitalTouchHeartbeat) -> String {
+        let mut output = String::new();
+        output.push_str("Digital Touch: Heartbeats\n");
+        output.push_str(format!("ID: {}\n", beat.id).as_str());
+        output.push_str(format!("BPM: {}\n", beat.bpm).as_str());
+        output.push_str(format!("Duration: {}\n", beat.duration).as_str());
         output
     }
 }

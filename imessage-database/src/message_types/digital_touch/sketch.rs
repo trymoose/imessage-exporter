@@ -1,9 +1,11 @@
+use std::fmt::Write;
 use crate::error::digital_touch::DigitalTouchError;
 use crate::message_types::digital_touch::digital_touch_proto::{BaseMessage, SketchMessage};
 use crate::message_types::digital_touch::models::{decode_bytes, Color, Point};
 use crate::message_types::digital_touch::DigitalTouchMessage;
 use crate::util::ascii_canvas::AsciiCanvas;
 use protobuf::Message;
+use crate::util::svg_canvas::SVGCanvas;
 
 #[derive(Debug, PartialEq, Eq)]
 pub struct DigitalTouchSketch {
@@ -48,23 +50,17 @@ impl DigitalTouchSketch {
         }))
     }
 
-    pub fn render_svg(&self, size: usize) -> String {
-        let mut svg = String::from(format!(r#"<svg viewBox="0 0 {size} {size}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-"#));
-        svg.push_str(format!("<title>{}</title>\n", self.id).as_str());
-
+    pub fn render_svg(&self, canvas: &mut SVGCanvas) {
         self.strokes.iter().for_each(|stroke| {
             let mut points = String::new();
             stroke.points.iter().for_each(|point| {
-                points.push_str(format!("{},{} ", (point.x as u32 * size as u32) / u16::MAX as u32, (point.y as u32 * size as u32) / u16::MAX as u32).as_str());
+                let x = canvas.fit_x(point.x as usize, u16::MAX as usize);
+                let y = canvas.fit_y(point.y as usize, u16::MAX as usize);
+                points.push_str(format!("{x},{y} ").as_str());
             });
             let (r, g, b, a) = stroke.color.tuple();
-            svg.push_str(format!(r#"<polyline points="{points}" stroke-width="10px" fill="none" stroke="rgba({r}, {g}, {b}, {a})" />
-"#).as_str());
+            let _ = writeln!(canvas, r#"<polyline points="{points}" stroke-width="10px" fill="none" stroke="rgba({r}, {g}, {b}, {a})" />"#);
         });
-
-        svg.push_str("</svg>\n");
-        svg
     }
 
     pub fn render_ascii(&self, max_height: usize) -> String {

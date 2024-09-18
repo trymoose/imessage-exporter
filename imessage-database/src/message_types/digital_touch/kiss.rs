@@ -1,9 +1,11 @@
+use std::fmt::Write;
 use std::f64::consts::PI;
 use protobuf::Message;
 use crate::error::digital_touch::DigitalTouchError;
 use crate::message_types::digital_touch::digital_touch_proto::{BaseMessage, KissMessage};
 use crate::message_types::digital_touch::DigitalTouchMessage;
 use crate::message_types::digital_touch::models::{decode_bytes, Point};
+use crate::util::svg_canvas::SVGCanvas;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct DigitalTouchKiss {
@@ -43,19 +45,12 @@ impl DigitalTouchKiss {
         }))
     }
 
-    pub fn render_svg(&self, size: usize) -> String {
-        let mut svg = String::from(format!(r#"<svg viewBox="0 0 {size} {size}" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
-"#));
-        svg.push_str(format!("<title>{}</title>\n", self.id).as_str());
-
+    pub fn render_svg(&self, canvas: &mut SVGCanvas) {
         let mut delay = 1;
         self.kisses.iter().for_each(|kiss| {
             delay += kiss.ms_delay;
-            svg.push_str(render_svg_kiss(size, delay, kiss).as_str());
+            render_svg_kiss(canvas, delay, kiss);
         });
-
-        svg.push_str("</svg>\n");
-        svg
     }
 }
 
@@ -67,13 +62,12 @@ impl KissPoint {
     }
 }
 
-fn render_svg_kiss(size: usize, delay: u16, kiss: &KissPoint) -> String {
-    let x =  (kiss.point.x as usize * size) / u16::MAX as usize;
-    let y =  (kiss.point.y as usize * size) / u16::MAX as usize;
+fn render_svg_kiss(canvas: &mut SVGCanvas, delay: u16, kiss: &KissPoint) {
+    let x =  canvas.fit_x(kiss.point.x as usize, u16::MAX as usize);
+    let y =  canvas.fit_y(kiss.point.y as usize, u16::MAX as usize);
     let degs = kiss.get_degs();
 
-    format!(r#"
-<path transform="translate({x},{y}) rotate({degs})" d="
+    let _ = writeln!(canvas, r#"<path transform="translate({x},{y}) rotate({degs})" d="
     M -50,0
     L -14,-25
     A 20,20 0 0,0 13,-25
@@ -83,6 +77,5 @@ fn render_svg_kiss(size: usize, delay: u16, kiss: &KissPoint) -> String {
     " fill="none" stroke="red" stroke-width="0" stroke-linecap="round" stroke-linejoin="round" opacity="0" >
         <animate attributeName="opacity" values="0.0; 1.0; 0.0" keyTimes="0; 0.25; 1" dur="1.5s" begin="{delay}ms" repeatCount="1" restart="whenNotActive" />
         <animate attributeName="stroke-width" values="0.0; 25.0; 0.0" keyTimes="0; 0.25; 1" dur="1.5s" begin="{delay}ms" repeatCount="1" restart="whenNotActive" />
-</path>
-"#)
+</path>"#);
 }

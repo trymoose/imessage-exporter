@@ -12,6 +12,7 @@ use crate::{
 
 use protobuf::Message;
 use crate::util::ascii_canvas::AsciiCanvas;
+use crate::util::svg_canvas::SVGCanvas;
 
 /// Parser for [handwritten](https://support.apple.com/en-us/HT206894) iMessages.
 ///
@@ -55,27 +56,22 @@ impl HandwrittenMessage {
 
     /// Renders the handwriting message as an `svg` graphic.
     pub fn render_svg(&self) -> String {
-        let mut svg = String::new();
-        svg.push('\n');
-        svg.push_str(format!(r#"<svg viewBox="0 0 {} {}" preserveAspectRatio="xMidYMid meet" width="100%" height="100%" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">"#, self.width, self.height).as_str());
-        svg.push('\n');
-        svg.push_str(&format!("<title>{}</title>\n", self.id));
-        svg.push_str("<metadata>\n");
-        svg.push_str(&format!("<id>{}</id>\n", self.id));
-        svg.push_str(&format!("<createdAt>{}</createdAt>\n", self.created_at));
-        svg.push_str("</metadata>\n");
-        svg.push_str("<style>\n");
-        svg.push_str(r#"    .line {
+        let mut svg = SVGCanvas::new(self.width as usize, self.height as usize);
+        svg.set_title(self.id.clone());
+        let _ = writeln!(svg, r#"<metadata>
+<id>{}</id>
+<createdAt>{}</createdAt>
+</metadata>"#, self.id, self.created_at);
+        let _ = writeln!(svg, r#"<style>
+    .line {{
         fill: none;
         stroke: black;
         stroke-linecap: round;
         stroke-linejoin: round;
-    }
-"#);
-        svg.push_str("</style>\n");
+    }}
+</style>"#);
         generate_strokes(&mut svg, &self.strokes);
-        svg.push_str("</svg>\n");
-        svg
+        format!("{}", svg)
     }
 
     /// Renders the handwriting message as an ASCII graphic with a maximum height.
@@ -103,7 +99,7 @@ impl HandwrittenMessage {
 }
 
 /// Generates svg lines from an array of strokes.
-fn generate_strokes(svg: &mut String, strokes: &[Vec<Point>]) {
+fn generate_strokes(svg: &mut SVGCanvas, strokes: &[Vec<Point>]) {
     strokes.iter().for_each(|stroke| {
         let mut segments = String::with_capacity(80 * (stroke.len() - 1));
         group_points(stroke).iter().for_each(|(width, points)| {
@@ -114,7 +110,7 @@ fn generate_strokes(svg: &mut String, strokes: &[Vec<Point>]) {
             segments.push_str(format!(r#"<polyline class="line" points="{}" stroke-width="{}" />"#, points_svg.trim_start(), width).as_str());
             segments.push('\n');
         });
-        svg.push_str(segments.as_str());
+        let _ = writeln!(svg, "{}", segments);
     });
 }
 

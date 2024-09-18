@@ -9,3 +9,4 @@ pub mod models;
 pub mod tap;
 pub mod sketch;
 pub mod kiss;
+pub mod heartbeat;

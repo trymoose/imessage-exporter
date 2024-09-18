@@ -12,3 +12,4 @@ pub mod size;
 pub mod streamtyped;
 pub mod typedstream;
 pub mod ascii_canvas;
+pub mod svg_canvas;

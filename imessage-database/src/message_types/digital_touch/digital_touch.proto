@@ -10,7 +10,8 @@ message BaseMessage {
 enum TouchKind {
   Unknown = 0;
   Tap = 1;
-  Drawing = 4;
+  Heartbeat = 3; // Also broken heart
+  Sketch = 4;
   Kiss = 7;
 }
 
@@ -30,4 +31,10 @@ message KissMessage {
   bytes Delays = 1;
   bytes Points = 2;
   bytes Rotations = 3;
+}
+
+message HeartbeatMessage {
+  float BPM = 1;
+  uint64 Duration = 2;
+  float HeartBrokenAt = 6;
 }

@@ -42,6 +42,7 @@ use imessage_database::{
     },
 };
 use imessage_database::message_types::digital_touch::models::DigitalTouchMessage;
+use imessage_database::util::svg_canvas::SVGCanvas;
 
 const HEADER: &str = "<html>\n<head>\n<meta charset=\"UTF-8\">\n<meta name=\"viewport\" content=\"width=device-width, initial-scale=1\">";
 const FOOTER: &str = "</body></html>";
@@ -1227,16 +1228,18 @@ impl<'a> BalloonFormatter<&'a Message> for HTML<'a> {
     fn format_digital_touch(&self, _: &Message, balloon: &DigitalTouchMessage, _: &Message) -> String {
         let mut svg = String::new();
 
-        svg.push_str(r#"<div style="background-color: black; transform: scale(1); width: 300px; height: 300px;" onclick="this.querySelectorAll('animate').forEach(function (element) { element.endElement(); const off = Number(element.getAttribute('begin').slice(0, -2))/1000; element.beginElementAt(off); })">"#);
+        svg.push_str(r#"<div style="background-color: black; transform: scale(1); width: 255px; height: 340px;" onclick="this.querySelectorAll('animate, animateTransform').forEach(function (element) { element.endElement(); const off = Number(element.getAttribute('begin').slice(0, -2))/1000; element.beginElementAt(off); })">"#);
 
-        svg.push_str(match balloon {
-            DigitalTouchMessage::Tap(taps) => taps.render_svg(250),
-            DigitalTouchMessage::Sketch(drawing) => drawing.render_svg(250),
-            DigitalTouchMessage::Kiss(kisses) => kisses.render_svg(250),
-        }.as_str());
+        let mut canvas = SVGCanvas::new(255, 340);
+        match balloon {
+            DigitalTouchMessage::Tap(taps) => taps.render_svg(&mut canvas),
+            DigitalTouchMessage::Sketch(drawing) => drawing.render_svg(&mut canvas),
+            DigitalTouchMessage::Kiss(kisses) => kisses.render_svg(&mut canvas),
+            DigitalTouchMessage::Heartbeat(beats) => beats.render_svg(&mut canvas),
+        };
 
+        svg.push_str(format!("{}", canvas).as_str());
         svg.push_str("</div>\n");
-
         svg
     }
 

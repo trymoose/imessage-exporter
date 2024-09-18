@@ -656,6 +656,164 @@ impl ::protobuf::reflect::ProtobufValue for KissMessage {
     type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
 }
 
+// @@protoc_insertion_point(message:digital_touch.HeartbeatMessage)
+#[derive(PartialEq,Clone,Default,Debug)]
+pub struct HeartbeatMessage {
+    // message fields
+    // @@protoc_insertion_point(field:digital_touch.HeartbeatMessage.BPM)
+    pub BPM: f32,
+    // @@protoc_insertion_point(field:digital_touch.HeartbeatMessage.Duration)
+    pub Duration: u64,
+    // @@protoc_insertion_point(field:digital_touch.HeartbeatMessage.HeartBrokenAt)
+    pub HeartBrokenAt: f32,
+    // special fields
+    // @@protoc_insertion_point(special_field:digital_touch.HeartbeatMessage.special_fields)
+    pub special_fields: ::protobuf::SpecialFields,
+}
+
+impl<'a> ::std::default::Default for &'a HeartbeatMessage {
+    fn default() -> &'a HeartbeatMessage {
+        <HeartbeatMessage as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl HeartbeatMessage {
+    pub fn new() -> HeartbeatMessage {
+        ::std::default::Default::default()
+    }
+
+    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
+        let mut fields = ::std::vec::Vec::with_capacity(3);
+        let mut oneofs = ::std::vec::Vec::with_capacity(0);
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "BPM",
+            |m: &HeartbeatMessage| { &m.BPM },
+            |m: &mut HeartbeatMessage| { &mut m.BPM },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "Duration",
+            |m: &HeartbeatMessage| { &m.Duration },
+            |m: &mut HeartbeatMessage| { &mut m.Duration },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "HeartBrokenAt",
+            |m: &HeartbeatMessage| { &m.HeartBrokenAt },
+            |m: &mut HeartbeatMessage| { &mut m.HeartBrokenAt },
+        ));
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<HeartbeatMessage>(
+            "HeartbeatMessage",
+            fields,
+            oneofs,
+        )
+    }
+}
+
+impl ::protobuf::Message for HeartbeatMessage {
+    const NAME: &'static str = "HeartbeatMessage";
+
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
+        while let Some(tag) = is.read_raw_tag_or_eof()? {
+            match tag {
+                13 => {
+                    self.BPM = is.read_float()?;
+                },
+                16 => {
+                    self.Duration = is.read_uint64()?;
+                },
+                53 => {
+                    self.HeartBrokenAt = is.read_float()?;
+                },
+                tag => {
+                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u64 {
+        let mut my_size = 0;
+        if self.BPM != 0. {
+            my_size += 1 + 4;
+        }
+        if self.Duration != 0 {
+            my_size += ::protobuf::rt::uint64_size(2, self.Duration);
+        }
+        if self.HeartBrokenAt != 0. {
+            my_size += 1 + 4;
+        }
+        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
+        self.special_fields.cached_size().set(my_size as u32);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        if self.BPM != 0. {
+            os.write_float(1, self.BPM)?;
+        }
+        if self.Duration != 0 {
+            os.write_uint64(2, self.Duration)?;
+        }
+        if self.HeartBrokenAt != 0. {
+            os.write_float(6, self.HeartBrokenAt)?;
+        }
+        os.write_unknown_fields(self.special_fields.unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn special_fields(&self) -> &::protobuf::SpecialFields {
+        &self.special_fields
+    }
+
+    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
+        &mut self.special_fields
+    }
+
+    fn new() -> HeartbeatMessage {
+        HeartbeatMessage::new()
+    }
+
+    fn clear(&mut self) {
+        self.BPM = 0.;
+        self.Duration = 0;
+        self.HeartBrokenAt = 0.;
+        self.special_fields.clear();
+    }
+
+    fn default_instance() -> &'static HeartbeatMessage {
+        static instance: HeartbeatMessage = HeartbeatMessage {
+            BPM: 0.,
+            Duration: 0,
+            HeartBrokenAt: 0.,
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+        &instance
+    }
+}
+
+impl ::protobuf::MessageFull for HeartbeatMessage {
+    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
+        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("HeartbeatMessage").unwrap()).clone()
+    }
+}
+
+impl ::std::fmt::Display for HeartbeatMessage {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for HeartbeatMessage {
+    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
+}
+
 #[derive(Clone,Copy,PartialEq,Eq,Debug,Hash)]
 // @@protoc_insertion_point(enum:digital_touch.TouchKind)
 pub enum TouchKind {
@@ -663,8 +821,10 @@ pub enum TouchKind {
     Unknown = 0,
     // @@protoc_insertion_point(enum_value:digital_touch.TouchKind.Tap)
     Tap = 1,
-    // @@protoc_insertion_point(enum_value:digital_touch.TouchKind.Drawing)
-    Drawing = 4,
+    // @@protoc_insertion_point(enum_value:digital_touch.TouchKind.Heartbeat)
+    Heartbeat = 3,
+    // @@protoc_insertion_point(enum_value:digital_touch.TouchKind.Sketch)
+    Sketch = 4,
     // @@protoc_insertion_point(enum_value:digital_touch.TouchKind.Kiss)
     Kiss = 7,
 }
@@ -680,7 +840,8 @@ impl ::protobuf::Enum for TouchKind {
         match value {
             0 => ::std::option::Option::Some(TouchKind::Unknown),
             1 => ::std::option::Option::Some(TouchKind::Tap),
-            4 => ::std::option::Option::Some(TouchKind::Drawing),
+            3 => ::std::option::Option::Some(TouchKind::Heartbeat),
+            4 => ::std::option::Option::Some(TouchKind::Sketch),
             7 => ::std::option::Option::Some(TouchKind::Kiss),
             _ => ::std::option::Option::None
         }
@@ -690,7 +851,8 @@ impl ::protobuf::Enum for TouchKind {
         match str {
             "Unknown" => ::std::option::Option::Some(TouchKind::Unknown),
             "Tap" => ::std::option::Option::Some(TouchKind::Tap),
-            "Drawing" => ::std::option::Option::Some(TouchKind::Drawing),
+            "Heartbeat" => ::std::option::Option::Some(TouchKind::Heartbeat),
+            "Sketch" => ::std::option::Option::Some(TouchKind::Sketch),
             "Kiss" => ::std::option::Option::Some(TouchKind::Kiss),
             _ => ::std::option::Option::None
         }
@@ -699,7 +861,8 @@ impl ::protobuf::Enum for TouchKind {
     const VALUES: &'static [TouchKind] = &[
         TouchKind::Unknown,
         TouchKind::Tap,
-        TouchKind::Drawing,
+        TouchKind::Heartbeat,
+        TouchKind::Sketch,
         TouchKind::Kiss,
     ];
 }
@@ -714,8 +877,9 @@ impl ::protobuf::EnumFull for TouchKind {
         let index = match self {
             TouchKind::Unknown => 0,
             TouchKind::Tap => 1,
-            TouchKind::Drawing => 2,
-            TouchKind::Kiss => 3,
+            TouchKind::Heartbeat => 2,
+            TouchKind::Sketch => 3,
+            TouchKind::Kiss => 4,
         };
         Self::enum_descriptor().value_by_index(index)
     }
@@ -745,9 +909,12 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     \x01(\x0cR\x07Strokes\x12\x16\n\x06Colors\x18\x03\x20\x01(\x0cR\x06Color\
     s\"[\n\x0bKissMessage\x12\x16\n\x06Delays\x18\x01\x20\x01(\x0cR\x06Delay\
     s\x12\x16\n\x06Points\x18\x02\x20\x01(\x0cR\x06Points\x12\x1c\n\tRotatio\
-    ns\x18\x03\x20\x01(\x0cR\tRotations*8\n\tTouchKind\x12\x0b\n\x07Unknown\
-    \x10\0\x12\x07\n\x03Tap\x10\x01\x12\x0b\n\x07Drawing\x10\x04\x12\x08\n\
-    \x04Kiss\x10\x07b\x06proto3\
+    ns\x18\x03\x20\x01(\x0cR\tRotations\"f\n\x10HeartbeatMessage\x12\x10\n\
+    \x03BPM\x18\x01\x20\x01(\x02R\x03BPM\x12\x1a\n\x08Duration\x18\x02\x20\
+    \x01(\x04R\x08Duration\x12$\n\rHeartBrokenAt\x18\x06\x20\x01(\x02R\rHear\
+    tBrokenAt*F\n\tTouchKind\x12\x0b\n\x07Unknown\x10\0\x12\x07\n\x03Tap\x10\
+    \x01\x12\r\n\tHeartbeat\x10\x03\x12\n\n\x06Sketch\x10\x04\x12\x08\n\x04K\
+    iss\x10\x07b\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -765,11 +932,12 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
     file_descriptor.get(|| {
         let generated_file_descriptor = generated_file_descriptor_lazy.get(|| {
             let mut deps = ::std::vec::Vec::with_capacity(0);
-            let mut messages = ::std::vec::Vec::with_capacity(4);
+            let mut messages = ::std::vec::Vec::with_capacity(5);
             messages.push(BaseMessage::generated_message_descriptor_data());
             messages.push(TapMessage::generated_message_descriptor_data());
             messages.push(SketchMessage::generated_message_descriptor_data());
             messages.push(KissMessage::generated_message_descriptor_data());
+            messages.push(HeartbeatMessage::generated_message_descriptor_data());
             let mut enums = ::std::vec::Vec::with_capacity(1);
             enums.push(TouchKind::generated_enum_descriptor_data());
             ::protobuf::reflect::GeneratedFileDescriptor::new_generated(

@@ -17,6 +17,7 @@ use imessage_database::tables::{
 
 use filetime::{set_file_times, FileTime};
 use imessage_database::message_types::digital_touch::DigitalTouchMessage;
+use imessage_database::util::svg_canvas::SVGCanvas;
 
 /// Represents different ways the app can interact with attachment data
 #[derive(Debug, PartialEq, Eq)]
@@ -47,10 +48,32 @@ impl AttachmentManager {
         dt: &DigitalTouchMessage,
         config: &Config,
     ) -> Option<PathBuf> {
+        let mut canvas = SVGCanvas::square(250);
         match dt {
-            DigitalTouchMessage::Tap( taps) => self.write_svg_file(message, config, &taps.id, taps.render_svg(250).as_bytes()),
-            DigitalTouchMessage::Sketch(strokes) => self.write_svg_file(message, config, &strokes.id, strokes.render_svg(250).as_bytes()),
-            DigitalTouchMessage::Kiss(kisses) => self.write_svg_file(message, config, &kisses.id, kisses.render_svg(250).as_bytes()),
+            DigitalTouchMessage::Tap(taps) => {
+                let filename = taps.id.clone();
+                canvas.set_title(taps.id.clone());
+                taps.render_svg(&mut canvas);
+                self.write_svg_file(message, config, &filename, format!("{}", canvas).as_bytes())
+            },
+            DigitalTouchMessage::Sketch(strokes) => {
+                let filename = strokes.id.clone();
+                canvas.set_title(strokes.id.clone());
+                strokes.render_svg(&mut canvas);
+                self.write_svg_file(message, config, &filename, format!("{}", canvas).as_bytes())
+            },
+            DigitalTouchMessage::Kiss(kisses) => {
+                let filename = kisses.id.clone();
+                canvas.set_title(kisses.id.clone());
+                kisses.render_svg(&mut canvas);
+                self.write_svg_file(message, config, &filename, format!("{}", canvas).as_bytes())
+            },
+            DigitalTouchMessage::Heartbeat(beats) => {
+                let filename = beats.id.clone();
+                canvas.set_title(beats.id.clone());
+                beats.render_svg(&mut canvas);
+                self.write_svg_file(message, config, &filename, format!("{}", canvas).as_bytes())
+            },
         }
     }
 

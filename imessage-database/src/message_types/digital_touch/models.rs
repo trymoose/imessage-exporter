@@ -4,6 +4,7 @@ use crate::{
     message_types::digital_touch::digital_touch_proto::{BaseMessage, TouchKind},
 };
 use protobuf::Message;
+use crate::message_types::digital_touch::heartbeat::DigitalTouchHeartbeat;
 use crate::message_types::digital_touch::kiss::DigitalTouchKiss;
 use crate::message_types::digital_touch::sketch::DigitalTouchSketch;
 
@@ -16,6 +17,7 @@ pub enum DigitalTouchMessage {
     Tap(DigitalTouchTap),
     Sketch(DigitalTouchSketch),
     Kiss(DigitalTouchKiss),
+    Heartbeat(DigitalTouchHeartbeat),
 }
 
 #[derive(Debug, PartialEq, Clone, Eq)]
@@ -55,8 +57,9 @@ impl DigitalTouchMessage {
         match msg.TouchKind.enum_value_or_default() {
             TouchKind::Unknown => Err(DigitalTouchError::UnknownDigitalTouchKind(msg.TouchKind.value())),
             TouchKind::Tap => DigitalTouchTap::from_payload(&msg),
-            TouchKind::Drawing => DigitalTouchSketch::from_payload(&msg),
+            TouchKind::Sketch => DigitalTouchSketch::from_payload(&msg),
             TouchKind::Kiss => DigitalTouchKiss::from_payload(&msg),
+            TouchKind::Heartbeat => DigitalTouchHeartbeat::from_payload(&msg),
         }
     }
 }
