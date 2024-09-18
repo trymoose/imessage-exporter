@@ -62,7 +62,7 @@ pub struct Message {
     pub is_from_me: bool,
     /// `true` if the message was read by the recipient, else `false`
     pub is_read: bool,
-    /// Intermediate data for determining the [`variant`](crate::message_types::variants) of a message
+    /// Intermediate data for determining the [`Variant`] of a message
     pub item_type: i32,
     /// Optional handle for the recipient of a message that includes shared content
     pub other_handle: i32,
@@ -70,13 +70,13 @@ pub struct Message {
     pub share_status: bool,
     /// Boolean determining the direction shared data was sent; `false` indicates it was sent from the database owner, `true` indicates it was sent to the database owner
     pub share_direction: bool,
-    /// If the message updates the [`display_name`](crate::tables::chat::Chat::display_name) of the chat
+    /// If the message updates the [`display_name`](crate::tables::chat::Chat::display_name) of the chat, this field will be populated
     pub group_title: Option<String>,
     /// If the message modified for a group, this will be nonzero
     pub group_action_type: i32,
     /// The message GUID of a message associated with this one
     pub associated_message_guid: Option<String>,
-    /// Intermediate data for determining the [`variant`](crate::message_types::variants) of a message
+    /// Intermediate data for determining the [`Variant`] of a message
     pub associated_message_type: Option<i32>,
     /// The [bundle ID](https://developer.apple.com/help/app-store-connect/reference/app-bundle-information) of the app that generated the [`AppMessage`](crate::message_types::app::AppMessage)
     pub balloon_bundle_id: Option<String>,
