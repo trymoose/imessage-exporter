@@ -1323,7 +1323,7 @@ mod parser_tests {
     }
 
     #[test]
-    fn test_parse_custom_reaction() {
+    fn test_parse_custom_tapback() {
         let typedstream_path = current_dir()
             .unwrap()
             .as_path()

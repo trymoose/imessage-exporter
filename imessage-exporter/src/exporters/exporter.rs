@@ -35,7 +35,7 @@ pub trait Exporter<'a> {
 
 /// Defines behavior for formatting message instances to the desired output format
 pub(super) trait Writer<'a> {
-    /// Format a message, including its reactions and replies
+    /// Format a message, including its tapbacks and replies
     fn format_message(&self, msg: &Message, indent: usize) -> Result<String, TableError>;
     /// Format an attachment, possibly by reading the disk
     fn format_attachment(
@@ -52,8 +52,8 @@ pub(super) trait Writer<'a> {
         attachments: &mut Vec<Attachment>,
         indent: &str,
     ) -> Result<String, PlistParseError>;
-    /// Format a reaction (displayed under a message)
-    fn format_reaction(&self, msg: &Message) -> Result<String, TableError>;
+    /// Format a tapback (displayed under a message)
+    fn format_tapback(&self, msg: &Message) -> Result<String, TableError>;
     /// Format an expressive message
     fn format_expressive(&self, msg: &'a Message) -> &'a str;
     /// Format an announcement message

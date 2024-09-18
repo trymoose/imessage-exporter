@@ -36,7 +36,7 @@ This crate supports every iMessage feature as of macOS 14.6.1 (23G93) and iOS 17
 - Replies/Threads
 - Attachments
 - Expressives
-- Reactions
+- Tapbacks
 - Stickers
 - Apple Pay
 - URL Previews

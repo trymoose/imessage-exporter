@@ -13,7 +13,7 @@ use crate::{
     message_types::{
         edited::{EditStatus, EditedMessage},
         expressives::{BubbleEffect, Expressive, ScreenEffect},
-        variants::{Announcement, BalloonProvider, CustomBalloon, Reaction, Variant},
+        variants::{Announcement, BalloonProvider, CustomBalloon, Tapback, Variant},
     },
     tables::{
         messages::{
@@ -88,7 +88,7 @@ pub struct Message {
     pub thread_originator_part: Option<String>,
     /// The date the message was most recently edited
     pub date_edited: i64,
-    /// If present, this is the emoji associated with a custom reaction
+    /// If present, this is the emoji associated with a custom emoji tapback
     pub associated_message_emoji: Option<String>,
     /// The [`identifier`](crate::tables::chat::Chat::chat_identifier) of the chat the message belongs to
     pub chat_id: Option<i32>,
@@ -291,7 +291,7 @@ impl Diagnostic for Message {
 impl Cacheable for Message {
     type K = String;
     type V = HashMap<usize, Vec<Self>>;
-    /// Used for reactions that do not exist in a foreign key table
+    /// Used for tapbacks that do not exist in a foreign key table
     ///
     /// Builds a map like:
     ///
@@ -304,7 +304,7 @@ impl Cacheable for Message {
     /// }
     /// ```
     ///
-    /// Where the `0` and `1` are the reaction indexes in the body of the message mapped by `message_guid`
+    /// Where the `0` and `1` are the tapback indexes in the body of the message mapped by `message_guid`
     fn cache(db: &Connection) -> Result<HashMap<Self::K, Self::V>, TableError> {
         // Create cache for user IDs
         let mut map: HashMap<Self::K, Self::V> = HashMap::new();
@@ -330,23 +330,23 @@ impl Cacheable for Message {
                 .map_err(TableError::Messages)?;
 
             // Iterate over the messages and update the map
-            for reaction in messages {
-                let reaction = Self::extract(reaction)?;
-                if reaction.is_reaction() {
-                    if let Some((idx, reaction_target_guid)) = reaction.clean_associated_guid() {
-                        match map.get_mut(reaction_target_guid) {
-                            Some(reactions) => match reactions.get_mut(&idx) {
-                                Some(reactions_vec) => {
-                                    reactions_vec.push(reaction);
+            for message in messages {
+                let message = Self::extract(message)?;
+                if message.is_tapback() {
+                    if let Some((idx, tapback_target_guid)) = message.clean_associated_guid() {
+                        match map.get_mut(tapback_target_guid) {
+                            Some(tapbacks) => match tapbacks.get_mut(&idx) {
+                                Some(tapbacks_vec) => {
+                                    tapbacks_vec.push(message);
                                 }
                                 None => {
-                                    reactions.insert(idx, vec![reaction]);
+                                    tapbacks.insert(idx, vec![message]);
                                 }
                             },
                             None => {
                                 map.insert(
-                                    reaction_target_guid.to_string(),
-                                    HashMap::from([(idx, vec![reaction])]),
+                                    tapback_target_guid.to_string(),
+                                    HashMap::from([(idx, vec![message])]),
                                 );
                             }
                         }
@@ -511,9 +511,9 @@ impl Message {
         self.group_title.is_some() || self.group_action_type != 0 || self.is_fully_unsent()
     }
 
-    /// `true` if the message is a [`Reaction`] to another message, else `false`
-    pub fn is_reaction(&self) -> bool {
-        matches!(self.variant(), Variant::Reaction(..))
+    /// `true` if the message is a [`Tapback`] to another message, else `false`
+    pub fn is_tapback(&self) -> bool {
+        matches!(self.variant(), Variant::Tapback(..))
             | (self.is_sticker() && self.associated_message_guid.is_some())
     }
 
@@ -706,7 +706,7 @@ impl Message {
             )).map_err(TableError::Messages)?))
     }
 
-    /// See [`Reaction`] for details on this data.
+    /// See [`Tapback`] for details on this data.
     fn clean_associated_guid(&self) -> Option<(usize, &str)> {
         if let Some(guid) = &self.associated_message_guid {
             if guid.starts_with("p:") {
@@ -724,8 +724,8 @@ impl Message {
         None
     }
 
-    /// Parse the index of a reaction from it's associated GUID field
-    fn reaction_index(&self) -> usize {
+    /// Parse the index of a tapback from it's associated GUID field
+    fn tapback_index(&self) -> usize {
         match self.clean_associated_guid() {
             Some((x, _)) => x,
             None => 0,
@@ -733,13 +733,13 @@ impl Message {
     }
 
     /// Build a `HashMap` of message component index to messages that react to that component
-    pub fn get_reactions(
+    pub fn get_tapbacks(
         &self,
         db: &Connection,
-        reactions: &HashMap<String, Vec<String>>,
+        tapbacks: &HashMap<String, Vec<String>>,
     ) -> Result<HashMap<usize, Vec<Self>>, TableError> {
         let mut out_h: HashMap<usize, Vec<Self>> = HashMap::new();
-        if let Some(rxs) = reactions.get(&self.guid) {
+        if let Some(rxs) = tapbacks.get(&self.guid) {
             let filter: Vec<String> = rxs.iter().map(|guid| format!("\"{guid}\"")).collect();
             // Create query
             let mut statement = db.prepare(&format!(
@@ -765,7 +765,7 @@ impl Message {
 
             for message in messages {
                 let msg = Message::extract(message)?;
-                if let Variant::Reaction(idx, _, _) | Variant::Sticker(idx) = msg.variant() {
+                if let Variant::Tapback(idx, _, _) | Variant::Sticker(idx) = msg.variant() {
                     match out_h.get_mut(&idx) {
                         Some(body_part) => body_part.push(msg),
                         None => {
@@ -876,33 +876,33 @@ impl Message {
                 },
 
                 // Stickers overlaid on messages
-                1000 => Variant::Sticker(self.reaction_index()),
+                1000 => Variant::Sticker(self.tapback_index()),
 
-                // Reactions
-                2000 => Variant::Reaction(self.reaction_index(), true, Reaction::Loved),
-                2001 => Variant::Reaction(self.reaction_index(), true, Reaction::Liked),
-                2002 => Variant::Reaction(self.reaction_index(), true, Reaction::Disliked),
-                2003 => Variant::Reaction(self.reaction_index(), true, Reaction::Laughed),
-                2004 => Variant::Reaction(self.reaction_index(), true, Reaction::Emphasized),
-                2005 => Variant::Reaction(self.reaction_index(), true, Reaction::Questioned),
-                2006 => Variant::Reaction(
-                    self.reaction_index(),
+                // Tapbacks
+                2000 => Variant::Tapback(self.tapback_index(), true, Tapback::Loved),
+                2001 => Variant::Tapback(self.tapback_index(), true, Tapback::Liked),
+                2002 => Variant::Tapback(self.tapback_index(), true, Tapback::Disliked),
+                2003 => Variant::Tapback(self.tapback_index(), true, Tapback::Laughed),
+                2004 => Variant::Tapback(self.tapback_index(), true, Tapback::Emphasized),
+                2005 => Variant::Tapback(self.tapback_index(), true, Tapback::Questioned),
+                2006 => Variant::Tapback(
+                    self.tapback_index(),
                     true,
-                    Reaction::Emoji(self.associated_message_emoji.as_deref()),
+                    Tapback::Emoji(self.associated_message_emoji.as_deref()),
                 ),
-                2007 => Variant::Sticker(self.reaction_index()),
-                3000 => Variant::Reaction(self.reaction_index(), false, Reaction::Loved),
-                3001 => Variant::Reaction(self.reaction_index(), false, Reaction::Liked),
-                3002 => Variant::Reaction(self.reaction_index(), false, Reaction::Disliked),
-                3003 => Variant::Reaction(self.reaction_index(), false, Reaction::Laughed),
-                3004 => Variant::Reaction(self.reaction_index(), false, Reaction::Emphasized),
-                3005 => Variant::Reaction(self.reaction_index(), false, Reaction::Questioned),
-                3006 => Variant::Reaction(
-                    self.reaction_index(),
+                2007 => Variant::Sticker(self.tapback_index()),
+                3000 => Variant::Tapback(self.tapback_index(), false, Tapback::Loved),
+                3001 => Variant::Tapback(self.tapback_index(), false, Tapback::Liked),
+                3002 => Variant::Tapback(self.tapback_index(), false, Tapback::Disliked),
+                3003 => Variant::Tapback(self.tapback_index(), false, Tapback::Laughed),
+                3004 => Variant::Tapback(self.tapback_index(), false, Tapback::Emphasized),
+                3005 => Variant::Tapback(self.tapback_index(), false, Tapback::Questioned),
+                3006 => Variant::Tapback(
+                    self.tapback_index(),
                     false,
-                    Reaction::Emoji(self.associated_message_emoji.as_deref()),
+                    Tapback::Emoji(self.associated_message_emoji.as_deref()),
                 ),
-                3007 => Variant::Sticker(self.reaction_index()),
+                3007 => Variant::Sticker(self.tapback_index()),
 
                 // Unknown
                 x => Variant::Unknown(x),

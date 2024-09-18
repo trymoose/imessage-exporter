@@ -121,8 +121,8 @@ impl<'a> Exporter<'a> for HTML<'a> {
                 let announcement = self.format_announcement(&msg);
                 HTML::write_to_file(self.get_or_create_file(&msg)?, &announcement)?;
             }
-            // Message replies and reactions are rendered in context, so no need to render them separately
-            else if !msg.is_reaction() {
+            // Message replies and tapbacks are rendered in context, so no need to render them separately
+            else if !msg.is_tapback() {
                 let message = self
                     .format_message(&msg, 0)
                     .map_err(RuntimeError::DatabaseError)?;
@@ -461,34 +461,34 @@ impl<'a> Writer<'a> for HTML<'a> {
                 );
             }
 
-            // Handle Reactions
-            if let Some(reactions_map) = self.config.reactions.get(&message.guid) {
-                if let Some(reactions) = reactions_map.get(&idx) {
-                    let mut formatted_reactions = String::new();
+            // Handle Tapbacks
+            if let Some(tapbacks_map) = self.config.tapbacks.get(&message.guid) {
+                if let Some(tapbacks) = tapbacks_map.get(&idx) {
+                    let mut formatted_tapbacks = String::new();
 
-                    reactions
+                    tapbacks
                         .iter()
-                        .try_for_each(|reaction| -> Result<(), TableError> {
-                            let formatted = self.format_reaction(reaction)?;
+                        .try_for_each(|tapback| -> Result<(), TableError> {
+                            let formatted = self.format_tapback(tapback)?;
                             if !formatted.is_empty() {
                                 self.add_line(
-                                    &mut formatted_reactions,
-                                    &self.format_reaction(reaction)?,
-                                    "<div class=\"reaction\">",
+                                    &mut formatted_tapbacks,
+                                    &self.format_tapback(tapback)?,
+                                    "<div class=\"tapback\">",
                                     "</div>",
                                 );
                             }
                             Ok(())
                         })?;
 
-                    if !formatted_reactions.is_empty() {
+                    if !formatted_tapbacks.is_empty() {
                         self.add_line(
                             &mut formatted_message,
-                            "<hr><p>Reactions:</p>",
-                            "<div class=\"reactions\">",
+                            "<hr><p>Tapbacks:</p>",
+                            "<div class=\"tapbacks\">",
                             "",
                         );
-                        self.add_line(&mut formatted_message, &formatted_reactions, "", "");
+                        self.add_line(&mut formatted_message, &formatted_tapbacks, "", "");
                     }
                     self.add_line(&mut formatted_message, "</div>", "", "");
                 }
@@ -501,7 +501,7 @@ impl<'a> Writer<'a> for HTML<'a> {
                     .iter_mut()
                     .try_for_each(|reply| -> Result<(), TableError> {
                         let _ = reply.generate_text(&self.config.db);
-                        if !reply.is_reaction() {
+                        if !reply.is_tapback() {
                             // Set indent to 1 so we know this is a recursive call
                             self.add_line(
                                 &mut formatted_message,
@@ -684,15 +684,15 @@ impl<'a> Writer<'a> for HTML<'a> {
         }
     }
 
-    fn format_reaction(&self, msg: &Message) -> Result<String, TableError> {
+    fn format_tapback(&self, msg: &Message) -> Result<String, TableError> {
         match msg.variant() {
-            Variant::Reaction(_, added, reaction) => {
+            Variant::Tapback(_, added, tapback) => {
                 if !added {
                     return Ok(String::new());
                 }
                 Ok(format!(
-                    "<span class=\"reaction\"><b>{}</b> by {}</span>",
-                    reaction,
+                    "<span class=\"tapback\"><b>{}</b> by {}</span>",
+                    tapback,
                     self.config
                         .who(msg.handle_id, msg.is_from_me(), &msg.destination_caller_id),
                 ))
@@ -705,11 +705,11 @@ impl<'a> Writer<'a> for HTML<'a> {
                 // Sticker messages have only one attachment, the sticker image
                 Ok(match paths.get_mut(0) {
                     Some(sticker) => format!(
-                        "{} <div class=\"sticker_reaction\">&nbsp;by {who}</div>",
+                        "{} <div class=\"sticker_tapback\">&nbsp;by {who}</div>",
                         self.format_sticker(sticker, msg)
                     ),
                     None => {
-                        format!("<span class=\"reaction\">Sticker from {who} not found!</span>")
+                        format!("<span class=\"tapback\">Sticker from {who} not found!</span>")
                     }
                 })
             }
@@ -1642,7 +1642,7 @@ mod tests {
             chatroom_participants: HashMap::new(),
             participants: HashMap::new(),
             real_participants: HashMap::new(),
-            reactions: HashMap::new(),
+            tapbacks: HashMap::new(),
             options,
             offset: get_offset(),
             db,
@@ -2013,7 +2013,7 @@ mod tests {
     }
 
     #[test]
-    fn can_format_html_reaction_me() {
+    fn can_format_html_tapback_me() {
         // Set timezone to PST for consistent Local time
         set_var("TZ", "PST");
 
@@ -2030,14 +2030,14 @@ mod tests {
         message.associated_message_type = Some(2000);
         message.associated_message_guid = Some("fake_guid".to_string());
 
-        let actual = exporter.format_reaction(&message).unwrap();
-        let expected = "<span class=\"reaction\"><b>Loved</b> by Me</span>";
+        let actual = exporter.format_tapback(&message).unwrap();
+        let expected = "<span class=\"tapback\"><b>Loved</b> by Me</span>";
 
         assert_eq!(actual, expected);
     }
 
     #[test]
-    fn can_format_html_reaction_them() {
+    fn can_format_html_tapback_them() {
         // Set timezone to PST for consistent Local time
         set_var("TZ", "PST");
 
@@ -2056,14 +2056,14 @@ mod tests {
         message.associated_message_guid = Some("fake_guid".to_string());
         message.handle_id = Some(999999);
 
-        let actual = exporter.format_reaction(&message).unwrap();
-        let expected = "<span class=\"reaction\"><b>Loved</b> by Sample Contact</span>";
+        let actual = exporter.format_tapback(&message).unwrap();
+        let expected = "<span class=\"tapback\"><b>Loved</b> by Sample Contact</span>";
 
         assert_eq!(actual, expected);
     }
 
     #[test]
-    fn can_format_html_reaction_custom_emoji() {
+    fn can_format_html_tapback_custom_emoji() {
         // Set timezone to PST for consistent Local time
         set_var("TZ", "PST");
 
@@ -2083,15 +2083,15 @@ mod tests {
         message.handle_id = Some(999999);
         message.associated_message_emoji = Some("☕️".to_string());
 
-        let actual = exporter.format_reaction(&message).unwrap();
+        let actual = exporter.format_tapback(&message).unwrap();
         // The result contains `&nbsp;`
-        let expected = "<span class=\"reaction\"><b>☕\u{fe0f}</b> by Sample Contact</span>";
+        let expected = "<span class=\"tapback\"><b>☕\u{fe0f}</b> by Sample Contact</span>";
 
         assert_eq!(actual, expected);
     }
 
     #[test]
-    fn can_format_html_reaction_custom_sticker() {
+    fn can_format_html_tapback_custom_sticker() {
         // Set timezone to PST for consistent Local time
         set_var("TZ", "PST");
 
@@ -2111,8 +2111,8 @@ mod tests {
         message.handle_id = Some(999999);
         message.associated_message_emoji = Some("☕️".to_string());
 
-        let actual = exporter.format_reaction(&message).unwrap();
-        let expected = "<span class=\"reaction\">Sticker from Sample Contact not found!</span>";
+        let actual = exporter.format_tapback(&message).unwrap();
+        let expected = "<span class=\"tapback\">Sticker from Sample Contact not found!</span>";
 
         assert_eq!(actual, expected);
     }

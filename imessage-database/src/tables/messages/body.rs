@@ -116,7 +116,7 @@ fn get_range(component: &Archivable) -> Option<(&i64, &u64)> {
     None
 }
 
-/// Given the attributedBody range idxes, get the substring from the Rust representations `char_indices()`
+/// Given the attributedBody range indexes, get the substring from the Rust representations `char_indices()`
 fn get_char_idx(text: &str, idx: usize, char_indices: &[usize]) -> usize {
     char_indices.get(idx).map_or(text.len(), |i| *i)
 }
@@ -759,7 +759,7 @@ mod typedstream_tests {
     }
 
     #[test]
-    fn can_get_message_body_custom_reaction() {
+    fn can_get_message_body_custom_tapback() {
         let mut m = blank();
         m.text = Some("".to_string());
 

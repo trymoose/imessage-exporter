@@ -14,9 +14,9 @@ use crate::{
     },
 };
 
-/// # Reactions to iMessages
+/// # Tapbacks
 ///
-/// Reactions (tapbacks) look like normal messages in the database. Only the latest reaction
+/// [Tapbacks](https://support.apple.com/guide/messages/react-with-tapbacks-icht504f698a/mac) look like normal messages in the database. Only the latest tapback
 /// is stored. For example:
 ///
 /// - user receives message -> user likes message
@@ -25,14 +25,14 @@ use crate::{
 ///   - This will create a message and a like message
 ///   - but that like message will get dropped when the unlike message arrives
 ///   - When messages drop the ROWIDs become non-sequential: the ID of the dropped message row is not reused
-///   - This means unliking an old message will make it look like the reaction was applied/removed at the
-///     time of latest change; the history of reaction statuses is not kept
+///   - This means unliking an old message will make it look like the tapback was applied/removed at the
+///     time of latest change; the history of tapback statuses is not kept
 ///
 /// ## Technical detail
 ///
 /// The index specified by the prefix maps to the index of the body part given by [`Message::body()`](crate::tables::messages::Message::body).
 ///
-/// - `bp:` GUID prefix for bubble message reactions (url previews, apps, etc).
+/// - `bp:` GUID prefix for bubble message tapbacks (url previews, apps, etc).
 /// - `p:0/` GUID prefix for normal messages (body text, attachments).
 ///
 /// If a message has 3 attachments followed by some text:
@@ -43,7 +43,7 @@ use crate::{
 ///
 /// In this example, a Like on `p:2/` is a like on the third image.
 #[derive(Debug)]
-pub enum Reaction<'a> {
+pub enum Tapback<'a> {
     /// Heart
     Loved,
     /// Thumbs up
@@ -56,14 +56,14 @@ pub enum Reaction<'a> {
     Emphasized,
     /// Question marks
     Questioned,
-    /// Custom emoji reactions
+    /// Custom emoji tapbacks
     Emoji(Option<&'a str>),
 }
 
-impl<'a> Display for Reaction<'a> {
+impl<'a> Display for Tapback<'a> {
     fn fmt(&self, fmt: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            Reaction::Emoji(emoji) => match emoji {
+            Tapback::Emoji(emoji) => match emoji {
                 Some(e) => write!(fmt, "{e}"),
                 None => write!(fmt, "Unknown emoji!"),
             },
@@ -136,15 +136,15 @@ pub enum Announcement<'a> {
 /// all of the possibilities.
 #[derive(Debug)]
 pub enum Variant<'a> {
-    /// A reaction to another message
+    /// A [tapback](https://support.apple.com/guide/messages/react-with-tapbacks-icht504f698a/mac)
     ///
-    /// The `usize` indicates the index of the message the reaction is applied to.
+    /// The `usize` indicates the index of the message the tapback is applied to.
     ///
-    /// The boolean indicates whether the reaction was applied (`true`) or removed (`false`).
-    Reaction(usize, bool, Reaction<'a>),
+    /// The boolean indicates whether the tapback was applied (`true`) or removed (`false`).
+    Tapback(usize, bool, Tapback<'a>),
     /// A sticker message, either placed on another message or by itself
     ///
-    /// If the sticker is a reaction, the `usize` indicates the index of the message the reaction is applied to.
+    /// If the sticker is a tapback, the `usize` indicates the index of the message the tapback is applied to.
     ///
     /// If the sticker is a normal message, it is treated like an attachment, and the message's [`body()`](crate::tables::messages::Message::body) indicates the location.
     Sticker(usize),

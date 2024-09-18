@@ -45,8 +45,8 @@ pub struct Config {
     pub participants: HashMap<i32, String>,
     /// Map of participant ID to an internal unique participant ID
     pub real_participants: HashMap<i32, i32>,
-    /// Messages that are reactions to other messages
-    pub reactions: HashMap<String, HashMap<usize, Vec<Message>>>,
+    /// Messages that are tapbacks (reactions) to other messages
+    pub tapbacks: HashMap<String, HashMap<usize, Vec<Message>>>,
     /// App configuration options
     pub options: Options,
     /// Global date offset used by the iMessage database:
@@ -210,8 +210,8 @@ impl Config {
             ChatToHandle::cache(&conn).map_err(RuntimeError::DatabaseError)?;
         eprintln!("[3/4] Caching participants...");
         let participants = Handle::cache(&conn).map_err(RuntimeError::DatabaseError)?;
-        eprintln!("[4/4] Caching reactions...");
-        let reactions = Message::cache(&conn).map_err(RuntimeError::DatabaseError)?;
+        eprintln!("[4/4] Caching tapbacks...");
+        let tapbacks = Message::cache(&conn).map_err(RuntimeError::DatabaseError)?;
         eprintln!("Cache built!");
 
         // Only attempt to create a converter if we need it
@@ -227,7 +227,7 @@ impl Config {
             chatroom_participants,
             real_participants: Handle::dedupe(&participants),
             participants,
-            reactions,
+            tapbacks,
             options,
             offset: get_offset(),
             db: conn,
@@ -429,7 +429,7 @@ mod filename_tests {
             chatroom_participants: HashMap::new(),
             participants: HashMap::new(),
             real_participants: HashMap::new(),
-            reactions: HashMap::new(),
+            tapbacks: HashMap::new(),
             options,
             offset: 0,
             db: connection,
@@ -660,7 +660,7 @@ mod who_tests {
             chatroom_participants: HashMap::new(),
             participants: HashMap::new(),
             real_participants: HashMap::new(),
-            reactions: HashMap::new(),
+            tapbacks: HashMap::new(),
             options,
             offset: 0,
             db: connection,
@@ -906,7 +906,7 @@ mod directory_tests {
             chatroom_participants: HashMap::new(),
             participants: HashMap::new(),
             real_participants: HashMap::new(),
-            reactions: HashMap::new(),
+            tapbacks: HashMap::new(),
             options,
             offset: 0,
             db: connection,

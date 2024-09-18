@@ -57,10 +57,10 @@ This tool targets the current latest public release for macOS and iMessage. It m
 - Expressives
   - Detects both bubble and screen effects
   - Messages sent with expressives are annotated
-- Reactions
-  - Detects reactions to messages
-  - Messages sent with reactions are annotated
-  - For multi-part messages, reactions are placed under the correct message part
+- Tapbacks
+  - Detects tapbacks to messages
+  - Messages sent or received with tapbacks are annotated
+  - For multi-part messages, tapbacks are placed under the correct message part
 - Stickers
   - Detects stickers sent or placed on messages
   - Messages sent with stickers are
