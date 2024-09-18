@@ -138,13 +138,13 @@ pub enum Announcement<'a> {
 pub enum Variant<'a> {
     /// A [tapback](https://support.apple.com/guide/messages/react-with-tapbacks-icht504f698a/mac)
     ///
-    /// The `usize` indicates the index of the message the tapback is applied to.
+    /// The `usize` indicates the index of the message's [`body()`](crate::tables::messages::Message::body) the tapback is applied to.
     ///
     /// The boolean indicates whether the tapback was applied (`true`) or removed (`false`).
     Tapback(usize, bool, Tapback<'a>),
     /// A sticker message, either placed on another message or by itself
     ///
-    /// If the sticker is a tapback, the `usize` indicates the index of the message the tapback is applied to.
+    /// If the sticker is a tapback, the `usize` indicates the index of the message's [`body()`](crate::tables::messages::Message::body) the tapback is applied to.
     ///
     /// If the sticker is a normal message, it is treated like an attachment, and the message's [`body()`](crate::tables::messages::Message::body) indicates the location.
     Sticker(usize),
