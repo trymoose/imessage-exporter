@@ -209,12 +209,12 @@ fn get_bubble_type<'a>(
                     )));
                 }
                 "__kIMTextEffectAttributeName" => {
-                    let text_effect_id = components.get(idx + 1)?.as_nsnumber().unwrap_or(&0);
-                    let effect = Animation::from_id(*text_effect_id);
                     return Some(BubbleResult::Continuation(TextAttributes::new(
                         range_start,
                         range_end,
-                        TextEffect::Animated(effect),
+                        TextEffect::Animated(Animation::from_id(
+                            *components.get(idx + 1)?.as_nsnumber().unwrap_or(&0),
+                        )),
                     )));
                 }
                 _ => {}
