@@ -15,6 +15,7 @@ use imessage_database::{
     },
     tables::{attachment::Attachment, messages::Message},
 };
+use imessage_database::message_types::digital_touch::fireball::DigitalTouchFireball;
 use imessage_database::message_types::digital_touch::heartbeat::DigitalTouchHeartbeat;
 use imessage_database::message_types::digital_touch::kiss::DigitalTouchKiss;
 use imessage_database::message_types::digital_touch::sketch::DigitalTouchSketch;
@@ -138,4 +139,5 @@ pub(super) trait DigitalTouchFormatter {
     /// Format [`Kiss`](imessage_database::message_types::digital_touch::DigitalTouchMessage::Kiss) message text
     fn format_digital_touch_kiss(&self, kiss: &DigitalTouchKiss) -> String;
     fn format_digital_touch_heartbeat(&self, beat: &DigitalTouchHeartbeat) -> String;
+    fn format_digital_touch_fireball(&self, fire: &DigitalTouchFireball) -> String;
 }

@@ -17,6 +17,7 @@ use imessage_database::tables::{
 
 use filetime::{set_file_times, FileTime};
 use imessage_database::message_types::digital_touch::DigitalTouchMessage;
+use imessage_database::message_types::digital_touch::models::SVGTapRender;
 use imessage_database::util::svg_canvas::SVGCanvas;
 
 /// Represents different ways the app can interact with attachment data
@@ -72,6 +73,12 @@ impl AttachmentManager {
                 let filename = beats.id.clone();
                 canvas.set_title(beats.id.clone());
                 beats.render_svg(&mut canvas);
+                self.write_svg_file(message, config, &filename, format!("{}", canvas).as_bytes())
+            },
+            DigitalTouchMessage::Fireball(fire) => {
+                let filename = fire.id.clone();
+                canvas.set_title(fire.id.clone());
+                fire.render_svg(&mut canvas);
                 self.write_svg_file(message, config, &filename, format!("{}", canvas).as_bytes())
             },
         }

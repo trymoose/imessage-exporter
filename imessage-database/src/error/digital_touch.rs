@@ -9,8 +9,7 @@ use std::fmt::{Display, Formatter, Result};
 pub enum DigitalTouchError {
     ProtobufError(protobuf::Error),
     UnknownDigitalTouchKind(i32),
-    TapArraysDoNotMatch(usize, usize, usize),
-    KissArraysDoNotMatch(usize, usize, usize),
+    ArraysDoNotMatch(String, usize, String, usize),
 }
 
 impl Display for DigitalTouchError {
@@ -22,11 +21,8 @@ impl Display for DigitalTouchError {
             DigitalTouchError::UnknownDigitalTouchKind(kind) => {
                 write!(fmt, "unknown digital touch kind: {kind}")
             }
-            DigitalTouchError::TapArraysDoNotMatch(delays, point, color) => {
-                write!(fmt, "length of arrays do not match: delays({delays}) != points({point}) != colors({color})")
-            }
-            DigitalTouchError::KissArraysDoNotMatch(delays, point, rotation) => {
-                write!(fmt, "length of arrays do not match: delays({delays}) != points({point}) != rotations({rotation})")
+            DigitalTouchError::ArraysDoNotMatch(n1, v1, n2, v2) => {
+                write!(fmt, "length of arrays do not match: {n1}({v1}) != {n2}({v2})")
             }
         }
     }

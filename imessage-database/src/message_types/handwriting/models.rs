@@ -2,6 +2,7 @@
 [Handwritten](https://support.apple.com/en-us/HT206894) messages are animated doodles or messages sent in your own handwriting.
 */
 
+use std::collections::HashMap;
 use std::fmt::Write;
 use std::io::Cursor;
 
@@ -58,18 +59,18 @@ impl HandwrittenMessage {
     pub fn render_svg(&self) -> String {
         let mut svg = SVGCanvas::new(self.width as usize, self.height as usize);
         svg.set_title(self.id.clone());
-        let _ = writeln!(svg, r#"<metadata>
-<id>{}</id>
-<createdAt>{}</createdAt>
-</metadata>"#, self.id, self.created_at);
-        let _ = writeln!(svg, r#"<style>
-    .line {{
+
+        svg.write_elem("metadata", HashMap::new(), Some(vec![
+            SVGCanvas::generate_elem("id", HashMap::new(), Some(self.id.clone())),
+            SVGCanvas::generate_elem("createdAt", HashMap::new(), Some(self.created_at.to_string())),
+        ].join("\n")));
+
+        svg.write_elem("style", HashMap::new(), Some(r#".line {{
         fill: none;
         stroke: black;
         stroke-linecap: round;
         stroke-linejoin: round;
-    }}
-</style>"#);
+    }}"#.to_string()));
         generate_strokes(&mut svg, &self.strokes);
         format!("{}", svg)
     }
@@ -101,16 +102,17 @@ impl HandwrittenMessage {
 /// Generates svg lines from an array of strokes.
 fn generate_strokes(svg: &mut SVGCanvas, strokes: &[Vec<Point>]) {
     strokes.iter().for_each(|stroke| {
-        let mut segments = String::with_capacity(80 * (stroke.len() - 1));
         group_points(stroke).iter().for_each(|(width, points)| {
-            let mut points_svg = String::with_capacity(points.len() * 3);
-            points.iter().for_each(|point| {
-                points_svg.push_str(&format!(" {},{}", point.x, point.y));
-            });
-            segments.push_str(format!(r#"<polyline class="line" points="{}" stroke-width="{}" />"#, points_svg.trim_start(), width).as_str());
-            segments.push('\n');
+            let points_svg = points.iter().map(|point| {
+                format!("{},{}", point.x, point.y)
+            }).collect::<Vec<String>>().join(" ");
+
+            svg.write_elem("polyline", HashMap::from([
+                ("class", "line".to_string()),
+                ("points", points_svg),
+                ("stroke-width", width.to_string()),
+            ]), None);
         });
-        let _ = writeln!(svg, "{}", segments);
     });
 }
 

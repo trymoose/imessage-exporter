@@ -25,24 +25,42 @@ impl DigitalTouchHeartbeat {
         }))
     }
 
-    pub fn render_svg(&self, canvas: &mut SVGCanvas) {
+    pub fn beats_in_interval(&self) -> usize {
         let mut beats_in_interval = ((self.bpm * 1000) * (self.duration * 1000)) / 60000;
         if beats_in_interval % 1000 != 0 {
             beats_in_interval = ((beats_in_interval / 1000) + 1) * 1000;
         }
-        beats_in_interval /= 1000;
-        let time_per_beat = (self.duration * 1000) / beats_in_interval;
+        beats_in_interval / 1000
+    }
+
+    pub fn time_per_beat(&self) -> usize{
+        (self.duration * 1000) / self.beats_in_interval()
+    }
+
+    pub fn render_svg(&self, canvas: &mut SVGCanvas) {
+        let beats_in_interval = self.beats_in_interval();
+        let time_per_beat = self.time_per_beat();
 
         let x = canvas.fit_x(1, 2) - 50;
         let y = canvas.fit_y(1, 2) - 45;
 
+        let mut metadata = vec![
+            SVGCanvas::generate_elem("id", HashMap::new(), Some(self.id.clone())),
+            SVGCanvas::generate_elem("bpm", HashMap::new(), Some(format!("{}", self.bpm))),
+            SVGCanvas::generate_elem("duration", HashMap::from([("unit", "second".to_string())]), Some(format!("{}", self.duration))),
+        ];
+
+        if self.heart_broken_at_ms > 0 {
+            metadata.push(SVGCanvas::generate_elem(
+                "heartbreak",
+                HashMap::from([("unit", "millisecond".to_string())]),
+                Some(format!("{}", self.heart_broken_at_ms))));
+        }
+
         canvas.write_elem("g", HashMap::from([
             ("transform", format!("translate({x},{y})")),
         ]), Some(vec![
-            SVGCanvas::generate_elem("metadata", HashMap::new(), Some(vec![
-                SVGCanvas::generate_elem("bpm", HashMap::new(), Some(format!("{}", self.bpm))),
-                SVGCanvas::generate_elem("duration", HashMap::from([("unit", "second".to_string())]), Some(format!("{}", self.duration))),
-            ].join("\n"))),
+            SVGCanvas::generate_elem("metadata", HashMap::new(), Some(metadata.join("\n"))),
             SVGCanvas::generate_elem("path", HashMap::from([
                 ("transform-origin", "50 45".to_string()),
                 ("fill", "red".to_string()),

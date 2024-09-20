@@ -814,6 +814,200 @@ impl ::protobuf::reflect::ProtobufValue for HeartbeatMessage {
     type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
 }
 
+// @@protoc_insertion_point(message:digital_touch.FireballMessage)
+#[derive(PartialEq,Clone,Default,Debug)]
+pub struct FireballMessage {
+    // message fields
+    // @@protoc_insertion_point(field:digital_touch.FireballMessage.Duration)
+    pub Duration: f32,
+    // @@protoc_insertion_point(field:digital_touch.FireballMessage.StartX)
+    pub StartX: f32,
+    // @@protoc_insertion_point(field:digital_touch.FireballMessage.StartY)
+    pub StartY: f32,
+    // @@protoc_insertion_point(field:digital_touch.FireballMessage.Delays)
+    pub Delays: ::std::vec::Vec<u8>,
+    // @@protoc_insertion_point(field:digital_touch.FireballMessage.Points)
+    pub Points: ::std::vec::Vec<u8>,
+    // special fields
+    // @@protoc_insertion_point(special_field:digital_touch.FireballMessage.special_fields)
+    pub special_fields: ::protobuf::SpecialFields,
+}
+
+impl<'a> ::std::default::Default for &'a FireballMessage {
+    fn default() -> &'a FireballMessage {
+        <FireballMessage as ::protobuf::Message>::default_instance()
+    }
+}
+
+impl FireballMessage {
+    pub fn new() -> FireballMessage {
+        ::std::default::Default::default()
+    }
+
+    fn generated_message_descriptor_data() -> ::protobuf::reflect::GeneratedMessageDescriptorData {
+        let mut fields = ::std::vec::Vec::with_capacity(5);
+        let mut oneofs = ::std::vec::Vec::with_capacity(0);
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "Duration",
+            |m: &FireballMessage| { &m.Duration },
+            |m: &mut FireballMessage| { &mut m.Duration },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "StartX",
+            |m: &FireballMessage| { &m.StartX },
+            |m: &mut FireballMessage| { &mut m.StartX },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "StartY",
+            |m: &FireballMessage| { &m.StartY },
+            |m: &mut FireballMessage| { &mut m.StartY },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "Delays",
+            |m: &FireballMessage| { &m.Delays },
+            |m: &mut FireballMessage| { &mut m.Delays },
+        ));
+        fields.push(::protobuf::reflect::rt::v2::make_simpler_field_accessor::<_, _>(
+            "Points",
+            |m: &FireballMessage| { &m.Points },
+            |m: &mut FireballMessage| { &mut m.Points },
+        ));
+        ::protobuf::reflect::GeneratedMessageDescriptorData::new_2::<FireballMessage>(
+            "FireballMessage",
+            fields,
+            oneofs,
+        )
+    }
+}
+
+impl ::protobuf::Message for FireballMessage {
+    const NAME: &'static str = "FireballMessage";
+
+    fn is_initialized(&self) -> bool {
+        true
+    }
+
+    fn merge_from(&mut self, is: &mut ::protobuf::CodedInputStream<'_>) -> ::protobuf::Result<()> {
+        while let Some(tag) = is.read_raw_tag_or_eof()? {
+            match tag {
+                13 => {
+                    self.Duration = is.read_float()?;
+                },
+                21 => {
+                    self.StartX = is.read_float()?;
+                },
+                29 => {
+                    self.StartY = is.read_float()?;
+                },
+                34 => {
+                    self.Delays = is.read_bytes()?;
+                },
+                42 => {
+                    self.Points = is.read_bytes()?;
+                },
+                tag => {
+                    ::protobuf::rt::read_unknown_or_skip_group(tag, is, self.special_fields.mut_unknown_fields())?;
+                },
+            };
+        }
+        ::std::result::Result::Ok(())
+    }
+
+    // Compute sizes of nested messages
+    #[allow(unused_variables)]
+    fn compute_size(&self) -> u64 {
+        let mut my_size = 0;
+        if self.Duration != 0. {
+            my_size += 1 + 4;
+        }
+        if self.StartX != 0. {
+            my_size += 1 + 4;
+        }
+        if self.StartY != 0. {
+            my_size += 1 + 4;
+        }
+        if !self.Delays.is_empty() {
+            my_size += ::protobuf::rt::bytes_size(4, &self.Delays);
+        }
+        if !self.Points.is_empty() {
+            my_size += ::protobuf::rt::bytes_size(5, &self.Points);
+        }
+        my_size += ::protobuf::rt::unknown_fields_size(self.special_fields.unknown_fields());
+        self.special_fields.cached_size().set(my_size as u32);
+        my_size
+    }
+
+    fn write_to_with_cached_sizes(&self, os: &mut ::protobuf::CodedOutputStream<'_>) -> ::protobuf::Result<()> {
+        if self.Duration != 0. {
+            os.write_float(1, self.Duration)?;
+        }
+        if self.StartX != 0. {
+            os.write_float(2, self.StartX)?;
+        }
+        if self.StartY != 0. {
+            os.write_float(3, self.StartY)?;
+        }
+        if !self.Delays.is_empty() {
+            os.write_bytes(4, &self.Delays)?;
+        }
+        if !self.Points.is_empty() {
+            os.write_bytes(5, &self.Points)?;
+        }
+        os.write_unknown_fields(self.special_fields.unknown_fields())?;
+        ::std::result::Result::Ok(())
+    }
+
+    fn special_fields(&self) -> &::protobuf::SpecialFields {
+        &self.special_fields
+    }
+
+    fn mut_special_fields(&mut self) -> &mut ::protobuf::SpecialFields {
+        &mut self.special_fields
+    }
+
+    fn new() -> FireballMessage {
+        FireballMessage::new()
+    }
+
+    fn clear(&mut self) {
+        self.Duration = 0.;
+        self.StartX = 0.;
+        self.StartY = 0.;
+        self.Delays.clear();
+        self.Points.clear();
+        self.special_fields.clear();
+    }
+
+    fn default_instance() -> &'static FireballMessage {
+        static instance: FireballMessage = FireballMessage {
+            Duration: 0.,
+            StartX: 0.,
+            StartY: 0.,
+            Delays: ::std::vec::Vec::new(),
+            Points: ::std::vec::Vec::new(),
+            special_fields: ::protobuf::SpecialFields::new(),
+        };
+        &instance
+    }
+}
+
+impl ::protobuf::MessageFull for FireballMessage {
+    fn descriptor() -> ::protobuf::reflect::MessageDescriptor {
+        static descriptor: ::protobuf::rt::Lazy<::protobuf::reflect::MessageDescriptor> = ::protobuf::rt::Lazy::new();
+        descriptor.get(|| file_descriptor().message_by_package_relative_name("FireballMessage").unwrap()).clone()
+    }
+}
+
+impl ::std::fmt::Display for FireballMessage {
+    fn fmt(&self, f: &mut ::std::fmt::Formatter<'_>) -> ::std::fmt::Result {
+        ::protobuf::text_format::fmt(self, f)
+    }
+}
+
+impl ::protobuf::reflect::ProtobufValue for FireballMessage {
+    type RuntimeType = ::protobuf::reflect::rt::RuntimeTypeMessage<Self>;
+}
+
 #[derive(Clone,Copy,PartialEq,Eq,Debug,Hash)]
 // @@protoc_insertion_point(enum:digital_touch.TouchKind)
 pub enum TouchKind {
@@ -827,6 +1021,8 @@ pub enum TouchKind {
     Sketch = 4,
     // @@protoc_insertion_point(enum_value:digital_touch.TouchKind.Kiss)
     Kiss = 7,
+    // @@protoc_insertion_point(enum_value:digital_touch.TouchKind.Fireball)
+    Fireball = 8,
 }
 
 impl ::protobuf::Enum for TouchKind {
@@ -843,6 +1039,7 @@ impl ::protobuf::Enum for TouchKind {
             3 => ::std::option::Option::Some(TouchKind::Heartbeat),
             4 => ::std::option::Option::Some(TouchKind::Sketch),
             7 => ::std::option::Option::Some(TouchKind::Kiss),
+            8 => ::std::option::Option::Some(TouchKind::Fireball),
             _ => ::std::option::Option::None
         }
     }
@@ -854,6 +1051,7 @@ impl ::protobuf::Enum for TouchKind {
             "Heartbeat" => ::std::option::Option::Some(TouchKind::Heartbeat),
             "Sketch" => ::std::option::Option::Some(TouchKind::Sketch),
             "Kiss" => ::std::option::Option::Some(TouchKind::Kiss),
+            "Fireball" => ::std::option::Option::Some(TouchKind::Fireball),
             _ => ::std::option::Option::None
         }
     }
@@ -864,6 +1062,7 @@ impl ::protobuf::Enum for TouchKind {
         TouchKind::Heartbeat,
         TouchKind::Sketch,
         TouchKind::Kiss,
+        TouchKind::Fireball,
     ];
 }
 
@@ -880,6 +1079,7 @@ impl ::protobuf::EnumFull for TouchKind {
             TouchKind::Heartbeat => 2,
             TouchKind::Sketch => 3,
             TouchKind::Kiss => 4,
+            TouchKind::Fireball => 5,
         };
         Self::enum_descriptor().value_by_index(index)
     }
@@ -912,9 +1112,13 @@ static file_descriptor_proto_data: &'static [u8] = b"\
     ns\x18\x03\x20\x01(\x0cR\tRotations\"f\n\x10HeartbeatMessage\x12\x10\n\
     \x03BPM\x18\x01\x20\x01(\x02R\x03BPM\x12\x1a\n\x08Duration\x18\x02\x20\
     \x01(\x04R\x08Duration\x12$\n\rHeartBrokenAt\x18\x06\x20\x01(\x02R\rHear\
-    tBrokenAt*F\n\tTouchKind\x12\x0b\n\x07Unknown\x10\0\x12\x07\n\x03Tap\x10\
-    \x01\x12\r\n\tHeartbeat\x10\x03\x12\n\n\x06Sketch\x10\x04\x12\x08\n\x04K\
-    iss\x10\x07b\x06proto3\
+    tBrokenAt\"\x8d\x01\n\x0fFireballMessage\x12\x1a\n\x08Duration\x18\x01\
+    \x20\x01(\x02R\x08Duration\x12\x16\n\x06StartX\x18\x02\x20\x01(\x02R\x06\
+    StartX\x12\x16\n\x06StartY\x18\x03\x20\x01(\x02R\x06StartY\x12\x16\n\x06\
+    Delays\x18\x04\x20\x01(\x0cR\x06Delays\x12\x16\n\x06Points\x18\x05\x20\
+    \x01(\x0cR\x06Points*T\n\tTouchKind\x12\x0b\n\x07Unknown\x10\0\x12\x07\n\
+    \x03Tap\x10\x01\x12\r\n\tHeartbeat\x10\x03\x12\n\n\x06Sketch\x10\x04\x12\
+    \x08\n\x04Kiss\x10\x07\x12\x0c\n\x08Fireball\x10\x08b\x06proto3\
 ";
 
 /// `FileDescriptorProto` object which was a source for this generated file
@@ -932,12 +1136,13 @@ pub fn file_descriptor() -> &'static ::protobuf::reflect::FileDescriptor {
     file_descriptor.get(|| {
         let generated_file_descriptor = generated_file_descriptor_lazy.get(|| {
             let mut deps = ::std::vec::Vec::with_capacity(0);
-            let mut messages = ::std::vec::Vec::with_capacity(5);
+            let mut messages = ::std::vec::Vec::with_capacity(6);
             messages.push(BaseMessage::generated_message_descriptor_data());
             messages.push(TapMessage::generated_message_descriptor_data());
             messages.push(SketchMessage::generated_message_descriptor_data());
             messages.push(KissMessage::generated_message_descriptor_data());
             messages.push(HeartbeatMessage::generated_message_descriptor_data());
+            messages.push(FireballMessage::generated_message_descriptor_data());
             let mut enums = ::std::vec::Vec::with_capacity(1);
             enums.push(TouchKind::generated_enum_descriptor_data());
             ::protobuf::reflect::GeneratedFileDescriptor::new_generated(

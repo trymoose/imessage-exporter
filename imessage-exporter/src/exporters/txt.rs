@@ -43,6 +43,7 @@ use imessage_database::{
         plist::parse_plist,
     },
 };
+use imessage_database::message_types::digital_touch::fireball::DigitalTouchFireball;
 use imessage_database::message_types::digital_touch::heartbeat::DigitalTouchHeartbeat;
 use imessage_database::message_types::digital_touch::kiss::DigitalTouchKiss;
 use imessage_database::message_types::digital_touch::sketch::DigitalTouchSketch;
@@ -876,6 +877,7 @@ impl<'a> BalloonFormatter<&'a str> for TXT<'a> {
                 DigitalTouchMessage::Sketch(strokes) => self.format_digital_touch_sketch(strokes),
                 DigitalTouchMessage::Kiss(kisses) => self.format_digital_touch_kiss(kisses),
                 DigitalTouchMessage::Heartbeat(beats) => self.format_digital_touch_heartbeat(beats),
+                DigitalTouchMessage::Fireball(fire) => self.format_digital_touch_fireball(fire),
             }
         })
     }
@@ -2300,35 +2302,22 @@ impl<'a> DigitalTouchFormatter for TXT<'a> {
         let mut output = String::new();
         output.push_str("Digital Touch: Taps\n");
         output.push_str(format!("ID: {}\n", taps.id).as_str());
-        taps.taps.iter().for_each(|tap| {
-            let x = tap.point.x;
-            let y = tap.point.y;
-            let (r, g, b, a) = tap.color.tuple();
-            let delay = tap.ms_delay;
-            output.push_str(format!("x y: ({x}, {y}) color: 0x{r:02x}{g:02x}{b:02x}{a:02x} delay: {delay}ms\n").as_str());
-        });
+        output.push_str(format!("Number of Taps: {}\n", taps.taps.len()).as_str());
         output
     }
 
     fn format_digital_touch_kiss(&self, kiss: &DigitalTouchKiss) -> String {
         let mut output = String::new();
-        output.push_str("Digital Touch: Taps\n");
+        output.push_str("Digital Touch: Kiss\n");
         output.push_str(format!("ID: {}\n", kiss.id).as_str());
-        kiss.kisses.iter().for_each(|kiss| {
-            let x = kiss.point.x;
-            let y = kiss.point.y;
-            let delay = kiss.ms_delay;
-            let rotation = kiss.get_degs();
-            output.push_str(format!("x y: ({x}, {y}) rotation: {rotation}degrees delay: {delay}ms\n").as_str());
-        });
+        output.push_str(format!("Number of Kisses: {}\n", kiss.kisses.len()).as_str());
         output
     }
 
     fn format_digital_touch_sketch(&self, strokes: &DigitalTouchSketch) -> String {
         let mut output = String::new();
-        output.push_str("Digital Touch: Taps\n");
+        output.push_str("Digital Touch: Sketch\n");
         output.push_str(format!("ID: {}\n", strokes.id).as_str());
-        output.push_str(strokes.render_ascii(40).as_str());
         output
     }
 
@@ -2338,6 +2327,13 @@ impl<'a> DigitalTouchFormatter for TXT<'a> {
         output.push_str(format!("ID: {}\n", beat.id).as_str());
         output.push_str(format!("BPM: {}\n", beat.bpm).as_str());
         output.push_str(format!("Duration: {}\n", beat.duration).as_str());
+        output
+    }
+
+    fn format_digital_touch_fireball(&self, fire: &DigitalTouchFireball) -> String {
+        let mut output = String::new();
+        output.push_str("Digital Touch: Fireball\n");
+        output.push_str(format!("ID: {}\n", fire.id).as_str());
         output
     }
 }
